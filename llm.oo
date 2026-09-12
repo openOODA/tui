@@ -1,0 +1,67 @@
+// # llm.oo - LLM Provider Trait and Factory
+//
+// Logline: Defines the LlmProvider trait (connect, complete, stream, close) and a factory that dispatches by provider type.
+//
+// Setup: Pure orchestration module. Each provider implementation lives in its own .oo file (llm_anthropic.oo, llm_openai.oo, llm_ollama.oo, llm_google.oo, llm_custom.oo).
+//
+// Beats:
+//   1. ProviderType enum: anthropic | openai | ollama | google | custom.
+//   2. LlmProvider record: {ptype, name, base_url, key, model, http}.
+//   3. complete(provider, prompt) -> Result<String, String>: blocking call returning the model's text response.
+//   4. Factory: provider_from_config(p) -> LlmProvider.
+
+import "std/net/http_client.oo";
+
+type LlmProvider = struct {
+    ptype: String,
+    name: String,
+    base_url: String,
+    key: String,
+    model: String
+};
+
+pub fn provider_anthropic(name: String, key: String, model: String) -> LlmProvider {
+    return LlmProvider { ptype: "anthropic", name: name, base_url: "https://api.anthropic.com/v1/messages", key: key, model: model };
+}
+
+pub fn provider_openai(name: String, key: String, model: String, base_url: String) -> LlmProvider {
+    let url: String = base_url;
+    if url == "" { url = "https://api.openai.com/v1/chat/completions"; }
+    return LlmProvider { ptype: "openai", name: name, base_url: url, key: key, model: model };
+}
+
+pub fn provider_ollama(name: String, url: String, model: String) -> LlmProvider {
+    let u: String = url;
+    if u == "" { u = "http://localhost:11434/api/chat"; }
+    return LlmProvider { ptype: "ollama", name: name, base_url: u, key: "", model: model };
+}
+
+pub fn provider_google(name: String, key: String, model: String) -> LlmProvider {
+    return LlmProvider { ptype: "google", name: name, base_url: "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent", key: key, model: model };
+}
+
+pub fn provider_custom(name: String, url: String, key: String, model: String) -> LlmProvider {
+    return LlmProvider { ptype: "custom", name: name, base_url: url, key: key, model: model };
+}
+
+pub fn provider_name(p: LlmProvider) -> String { return p.name; }
+pub fn provider_type(p: LlmProvider) -> String { return p.ptype; }
+pub fn provider_model(p: LlmProvider) -> String { return p.model; }
+pub fn provider_base_url(p: LlmProvider) -> String { return p.base_url; }
+pub fn provider_key(p: LlmProvider) -> String { return p.key; }
+
+// Provider health check. Returns true if the provider base_url is reachable.
+pub fn provider_ping(http: &TcpCap, p: LlmProvider) -> Bool {
+    let r: Result[String, String] = http_get(http, p.base_url);
+    if r.is_err() { return false; }
+    return true;
+}
+
+pub fn complete(http: &TcpCap, p: LlmProvider, prompt: String) -> Result[String, String] {
+    if p.ptype == "anthropic" { return llm_anthropic_complete(http, p, prompt); }
+    if p.ptype == "openai" { return llm_openai_complete(http, p, prompt); }
+    if p.ptype == "ollama" { return llm_ollama_complete(http, p, prompt); }
+    if p.ptype == "google" { return llm_google_complete(http, p, prompt); }
+    if p.ptype == "custom" { return llm_custom_complete(http, p, prompt); }
+    return Err("unknown provider type: " + p.ptype);
+}

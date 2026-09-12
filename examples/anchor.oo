@@ -1,0 +1,11 @@
+// # examples - Anchor for Agents
+//
+// Logline: Sample artifacts for the ooda-tui harness - config templates and session layouts.
+//
+// Setup: Pure structural file. .oot files contain markdown per rules.oot 1.14; they are documentation, not code, so they are NOT imported.
+//
+// Beats:
+//   1. config.oot is a sample config.oot showing the multi-provider format.
+//   2. session.oot is a sample session layout showing meta.json, transcript.jsonl, plan.json, goal.txt.
+
+// residual: .oot files in this directory are samples, not code. Users copy them as starting points.

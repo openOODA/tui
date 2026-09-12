@@ -1,0 +1,155 @@
+// # 1982 - CRT Amber/Phosphor Theme
+//
+// Logline: The default theme for ooda-tui. Hand-transcribed from ~/.pi/agent/themes/1982.json. Amber monitor + phosphor green + CGA accents on near-black.
+//
+// Setup: Exports a theme_1982() function returning a Theme record. Consumed by theme.oo loader.
+//
+// Beats:
+//   1. Define the 19 vars (hex codes) sourced from 1982.json.
+//   2. Map 47 semantic tokens to vars or hex codes.
+//   3. Return the Theme record.
+
+// Source hex codes from ~/.pi/agent/themes/1982.json (read 2026-09-12).
+fn v_amber() -> String { return "#FFB000"; }
+fn v_amber_dim() -> String { return "#B37A00"; }
+fn v_phosphor() -> String { return "#33FF33"; }
+fn v_phosphor_dim() -> String { return "#1F9E1F"; }
+fn v_cga_cyan() -> String { return "#55FFFF"; }
+fn v_cga_magenta() -> String { return "#FF55FF"; }
+fn v_cga_red() -> String { return "#FF5555"; }
+fn v_cga_blue() -> String { return "#5555FF"; }
+fn v_cga_brown() -> String { return "#AA5500"; }
+fn v_crt_bg() -> String { return "#0D0D0B"; }
+fn v_crt_text() -> String { return "#E8DCC0"; }
+fn v_crt_muted() -> String { return "#8A7F5C"; }
+fn v_crt_dim() -> String { return "#4A4433"; }
+fn v_crt_selected() -> String { return "#3A2E12"; }
+fn v_crt_user_bg() -> String { return "#1A160C"; }
+fn v_crt_custom_bg() -> String { return "#141A0C"; }
+fn v_crt_tool_pending() -> String { return "#1A160C"; }
+fn v_crt_tool_success() -> String { return "#0E1A0C"; }
+fn v_crt_tool_error() -> String { return "#1F0E0C"; }
+
+// Semantic token map. Each token resolves to a hex code.
+// Core UI tokens
+fn t_accent() -> String { return v_amber(); }
+fn t_border() -> String { return v_amber_dim(); }
+fn t_border_accent() -> String { return v_amber(); }
+fn t_border_muted() -> String { return v_crt_dim(); }
+fn t_success() -> String { return v_phosphor(); }
+fn t_error() -> String { return v_cga_red(); }
+fn t_warning() -> String { return v_amber(); }
+fn t_muted() -> String { return v_crt_muted(); }
+fn t_dim() -> String { return v_crt_dim(); }
+fn t_text() -> String { return v_crt_text(); }
+fn t_thinking_text() -> String { return v_crt_muted(); }
+
+// Backgrounds and content tokens
+fn t_selected_bg() -> String { return v_crt_selected(); }
+fn t_scrollbar_track() -> String { return v_crt_dim(); }
+fn t_scrollbar_thumb() -> String { return v_amber_dim(); }
+fn t_user_message_bg() -> String { return v_crt_user_bg(); }
+fn t_user_message_text() -> String { return v_crt_text(); }
+fn t_custom_message_bg() -> String { return v_crt_custom_bg(); }
+fn t_custom_message_text() -> String { return v_crt_text(); }
+fn t_custom_message_label() -> String { return v_phosphor(); }
+fn t_tool_pending_bg() -> String { return v_crt_tool_pending(); }
+fn t_tool_success_bg() -> String { return v_crt_tool_success(); }
+fn t_tool_error_bg() -> String { return v_crt_tool_error(); }
+fn t_tool_title() -> String { return v_amber(); }
+fn t_tool_output() -> String { return v_crt_muted(); }
+
+// Markdown tokens
+fn t_md_heading() -> String { return v_amber(); }
+fn t_md_link() -> String { return v_cga_cyan(); }
+fn t_md_link_url() -> String { return v_crt_dim(); }
+fn t_md_code() -> String { return v_phosphor(); }
+fn t_md_code_block() -> String { return v_crt_text(); }
+fn t_md_code_block_border() -> String { return v_amber_dim(); }
+fn t_md_list_bullet() -> String { return v_amber(); }
+
+// Tool diff tokens
+fn t_tool_diff_added() -> String { return v_phosphor(); }
+fn t_tool_diff_removed() -> String { return v_cga_red(); }
+fn t_tool_diff_context() -> String { return v_crt_muted(); }
+
+// Syntax tokens
+fn t_syntax_comment() -> String { return v_crt_muted(); }
+fn t_syntax_keyword() -> String { return v_amber(); }
+fn t_syntax_function() -> String { return v_cga_cyan(); }
+fn t_syntax_variable() -> String { return v_crt_text(); }
+fn t_syntax_string() -> String { return v_phosphor(); }
+fn t_syntax_number() -> String { return v_cga_magenta(); }
+fn t_syntax_type() -> String { return v_cga_cyan(); }
+fn t_syntax_operator() -> String { return v_amber(); }
+fn t_syntax_punctuation() -> String { return v_crt_muted(); }
+
+// Thinking level tokens
+fn t_thinking_off() -> String { return v_crt_dim(); }
+fn t_thinking_minimal() -> String { return v_crt_muted(); }
+fn t_thinking_low() -> String { return v_phosphor_dim(); }
+fn t_thinking_medium() -> String { return v_phosphor(); }
+fn t_thinking_high() -> String { return v_amber_dim(); }
+fn t_thinking_xhigh() -> String { return v_amber(); }
+fn t_thinking_max() -> String { return v_cga_magenta(); }
+fn t_bash_mode() -> String { return v_phosphor(); }
+
+// Theme record. Returns the hex code for any of the 47 semantic tokens.
+pub fn theme_1982_token(token: String) -> String {
+    if token == "accent" { return t_accent(); }
+    if token == "border" { return t_border(); }
+    if token == "borderAccent" { return t_border_accent(); }
+    if token == "borderMuted" { return t_border_muted(); }
+    if token == "success" { return t_success(); }
+    if token == "error" { return t_error(); }
+    if token == "warning" { return t_warning(); }
+    if token == "muted" { return t_muted(); }
+    if token == "dim" { return t_dim(); }
+    if token == "text" { return t_text(); }
+    if token == "thinkingText" { return t_thinking_text(); }
+    if token == "selectedBg" { return t_selected_bg(); }
+    if token == "scrollbarTrack" { return t_scrollbar_track(); }
+    if token == "scrollbarThumb" { return t_scrollbar_thumb(); }
+    if token == "userMessageBg" { return t_user_message_bg(); }
+    if token == "userMessageText" { return t_user_message_text(); }
+    if token == "customMessageBg" { return t_custom_message_bg(); }
+    if token == "customMessageText" { return t_custom_message_text(); }
+    if token == "customMessageLabel" { return t_custom_message_label(); }
+    if token == "toolPendingBg" { return t_tool_pending_bg(); }
+    if token == "toolSuccessBg" { return t_tool_success_bg(); }
+    if token == "toolErrorBg" { return t_tool_error_bg(); }
+    if token == "toolTitle" { return t_tool_title(); }
+    if token == "toolOutput" { return t_tool_output(); }
+    if token == "mdHeading" { return t_md_heading(); }
+    if token == "mdLink" { return t_md_link(); }
+    if token == "mdLinkUrl" { return t_md_link_url(); }
+    if token == "mdCode" { return t_md_code(); }
+    if token == "mdCodeBlock" { return t_md_code_block(); }
+    if token == "mdCodeBlockBorder" { return t_md_code_block_border(); }
+    if token == "mdListBullet" { return t_md_list_bullet(); }
+    if token == "toolDiffAdded" { return t_tool_diff_added(); }
+    if token == "toolDiffRemoved" { return t_tool_diff_removed(); }
+    if token == "toolDiffContext" { return t_tool_diff_context(); }
+    if token == "syntaxComment" { return t_syntax_comment(); }
+    if token == "syntaxKeyword" { return t_syntax_keyword(); }
+    if token == "syntaxFunction" { return t_syntax_function(); }
+    if token == "syntaxVariable" { return t_syntax_variable(); }
+    if token == "syntaxString" { return t_syntax_string(); }
+    if token == "syntaxNumber" { return t_syntax_number(); }
+    if token == "syntaxType" { return t_syntax_type(); }
+    if token == "syntaxOperator" { return t_syntax_operator(); }
+    if token == "syntaxPunctuation" { return t_syntax_punctuation(); }
+    if token == "thinkingOff" { return t_thinking_off(); }
+    if token == "thinkingMinimal" { return t_thinking_minimal(); }
+    if token == "thinkingLow" { return t_thinking_low(); }
+    if token == "thinkingMedium" { return t_thinking_medium(); }
+    if token == "thinkingHigh" { return t_thinking_high(); }
+    if token == "thinkingXhigh" { return t_thinking_xhigh(); }
+    if token == "thinkingMax" { return t_thinking_max(); }
+    if token == "bashMode" { return t_bash_mode(); }
+    return t_text();
+}
+
+pub fn theme_1982_name() -> String {
+    return "1982";
+}

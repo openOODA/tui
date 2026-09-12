@@ -1,0 +1,160 @@
+// # session.oo - Session Persistence
+//
+// Logline: Persists, resumes, renames sessions. State lives under ~/.local/share/ooda-tui/sessions/<sid>/ with five files (meta, transcript, compacted, plan, goal).
+//
+// Setup: Uses process_exec for mkdir + cat. Files are written mode 0700.
+//
+// Beats:
+//   1. Session id: 4-char short id derived from a counter or timestamp.
+//   2. session_create(name, provider, model, cwd) -> Session.
+//   3. session_save(s, transcript, plan, goal) -> Result[Int, String>.
+//   4. session_load(sid) -> Result<Session, String>.
+//   5. session_list() -> List[String> of session ids.
+//   6. session_rename(sid, new_name) -> Result<Int, String>.
+//   7. session_delete(sid) -> Result<Int, String>.
+
+import "std/fs/process/env.oo";
+import "std/fs/process/process.oo";
+import "std/fs/file/path.oo";
+
+type Session = struct {
+    sid: String,
+    name: String,
+    provider: String,
+    model: String,
+    cwd: String,
+    created: String
+};
+
+pub fn session_new_sid() -> String {
+    let n: Int = time_now();
+    let s1: String = int_to_hex(n);
+    if chars_len(s1) >= 4 { return str_slice(s1, 0, 4); }
+    return s1 + "0000";
+}
+
+pub fn session_create(name: String, provider: String, model: String, cwd: String) -> Session {
+    return Session { sid: session_new_sid(), name: name, provider: provider, model: model, cwd: cwd, created: "now" };
+}
+
+pub fn session_dir(env: &EnvCap, sid: String) -> String {
+    let hr: Result[String, String] = env_get(env, "HOME");
+    let home: String = match hr { Ok(s) => s, Err(_) => "" };
+    return path_join(path_join(path_join(home, ".local/share"), "ooda-tui/sessions"), sid);
+}
+
+fn shell_escape(s: String) -> String {
+    let mut out: String = "'";
+    let n: Int = chars_len(s);
+    let mut i: Int = 0;
+    while i < n {
+        let c: String = str_slice(s, i, i + 1);
+        if c == "'" { out = out + "'\\''"; }
+        else { out = out + c; }
+        i = i + 1;
+    }
+    out = out + "'";
+    return out;
+}
+
+pub fn session_save(sys: &ProcessCap, env: &EnvCap, s: Session, transcript: String, plan: String, goal: String) -> Result[Int, String] {
+    let dir: String = session_dir(env, s.sid);
+    let cmd: String = "mkdir -p " + dir;
+    let r0: Result[String, String] = process_exec(sys, cmd);
+    if r0.is_err() { return Err("mkdir: " + match r0 { Ok(_) => "", Err(e) => e }); }
+    let meta: String = "{\"id\":\"" + s.sid + "\",\"name\":\"" + s.name + "\",\"provider\":\"" + s.provider + "\",\"model\":\"" + s.model + "\",\"cwd\":\"" + s.cwd + "\",\"created\":\"" + s.created + "\"}\n";
+    let write_meta: String = "cat > " + path_join(dir, "meta.json") + " << 'EOF_META'\n" + meta + "\nEOF_META";
+    let r1: Result<String, String] = process_exec(sys, write_meta);
+    if r1.is_err() { return Err("write meta: " + match r1 { Ok(_) => "", Err(e) => e }); }
+    let write_transcript: String = "cat > " + path_join(dir, "transcript.jsonl") + " << 'EOF_TRANSCRIPT'\n" + transcript + "\nEOF_TRANSCRIPT";
+    let r2: Result<String, String> = process_exec(sys, write_transcript);
+    if r2.is_err() { return Err("write transcript: " + match r2 { Ok(_) => "", Err(e) => e }); }
+    if plan != "" {
+        let write_plan: String = "cat > " + path_join(dir, "plan.json") + " << 'EOF_PLAN'\n" + plan + "\nEOF_PLAN";
+        let r3: Result<String, String> = process_exec(sys, write_plan);
+        if r3.is_err() { return Err("write plan: " + match r3 { Ok(_) => "", Err(e) => e }); }
+    }
+    if goal != "" {
+        let write_goal: String = "cat > " + path_join(dir, "goal.txt") + " << 'EOF_GOAL'\n" + goal + "\nEOF_GOAL";
+        let r4: Result<String, String> = process_exec(sys, write_goal);
+        if r4.is_err() { return Err("write goal: " + match r4 { Ok(_) => "", Err(e) => e }); }
+    }
+    return Ok(0);
+}
+
+pub fn session_load(sys: &ProcessCap, env: &EnvCap, sid: String) -> Result[Session, String] {
+    let dir: String = session_dir(env, sid);
+    let cmd: String = "cat " + path_join(dir, "meta.json") + " 2>/dev/null";
+    let r: Result[String, String] = process_exec(sys, cmd);
+    if r.is_err() { return Err("load meta: " + match r { Ok(_) => "", Err(e) => e }); }
+    let raw: String = match r { Ok(s) => s, Err(_) => "" };
+    let s: Session = parse_session_meta(raw, sid);
+    return Ok(s);
+}
+
+fn parse_session_meta(raw: String, sid: String) -> Session {
+    let name: String = extract_field(raw, "name");
+    let provider: String = extract_field(raw, "provider");
+    let model: String = extract_field(raw, "model");
+    let cwd: String = extract_field(raw, "cwd");
+    let created: String = extract_field(raw, "created");
+    return Session { sid: sid, name: name, provider: provider, model: model, cwd: cwd, created: created };
+}
+
+fn extract_field(raw: String, key: String) -> String {
+    let key_str: String = "\"" + key + "\":\"";
+    let n: Int = chars_len(raw);
+    let mut i: Int = 0;
+    while i < n {
+        if str_slice(raw, i, i + chars_len(key_str)) == key_str {
+            i = i + chars_len(key_str);
+            let mut out: String = "";
+            while i < n {
+                let c: String = str_slice(raw, i, i + 1);
+                if c == "\"" { return out; }
+                out = out + c;
+                i = i + 1;
+            }
+            return out;
+        }
+        i = i + 1;
+    }
+    return "";
+}
+
+pub fn session_list(sys: &ProcessCap, env: &EnvCap) -> List[String] {
+    let dir: String = session_dir(env, "");
+    let cmd: String = "ls " + path_parent(dir) + " 2>/dev/null";
+    let r: Result[String, String] = process_exec(sys, cmd);
+    let raw: String = match r { Ok(s) => s, Err(_) => "" };
+    let names: List[String] = list_new();
+    let mut i: Int = 0;
+    let n: Int = chars_len(raw);
+    let mut current: String = "";
+    while i < n {
+        let c: String = str_slice(raw, i, i + 1);
+        if c == "\n" {
+            if chars_len(current) == 4 { names = list_push(names, current); }
+            current = "";
+        } else { current = current + c; }
+        i = i + 1;
+    }
+    return names;
+}
+
+pub fn session_rename(sys: &ProcessCap, env: &EnvCap, sid: String, new_name: String) -> Result[Int, String] {
+    let dir: String = session_dir(env, sid);
+    let meta_path: String = path_join(dir, "meta.json");
+    let cmd: String = "cat " + meta_path + " | sed 's/\"name\":\"[^\"]*\"/\"name\":\"" + new_name + "\"/' > " + meta_path + ".tmp && mv " + meta_path + ".tmp " + meta_path;
+    let r: Result<String, String> = process_exec(sys, cmd);
+    if r.is_err() { return Err("rename: " + match r { Ok(_) => "", Err(e) => e }); }
+    return Ok(0);
+}
+
+pub fn session_delete(sys: &ProcessCap, env: &EnvCap, sid: String) -> Result[Int, String] {
+    let dir: String = session_dir(env, sid);
+    let cmd: String = "rm -rf " + dir;
+    let r: Result<String, String> = process_exec(sys, cmd);
+    if r.is_err() { return Err("delete: " + match r { Ok(_) => "", Err(e) => e }); }
+    return Ok(0);
+}

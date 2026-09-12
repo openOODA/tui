@@ -1,0 +1,36 @@
+// # plan.oo - Plan and Goal Storage
+//
+// Logline: Per-session plan and goal. /plan and /goal read/write these as plain text. The LLM sees them in the system prompt.
+//
+// Setup: Pure data module. Persists via session.oo.
+//
+// Beats:
+//   1. plan is a free-form string; the harness does not enforce structure.
+//   2. goal is a free-form string.
+//   3. Both are returned in /status output.
+
+pub fn plan_set(plan: String, text: String) -> String {
+    if text == "" { return plan; }
+    return text;
+}
+
+pub fn plan_get(plan: String) -> String {
+    return plan;
+}
+
+pub fn plan_clear(plan: String) -> String {
+    return "";
+}
+
+pub fn goal_set(goal: String, text: String) -> String {
+    if text == "" { return goal; }
+    return text;
+}
+
+pub fn goal_get(goal: String) -> String {
+    return goal;
+}
+
+pub fn goal_clear(goal: String) -> String {
+    return "";
+}

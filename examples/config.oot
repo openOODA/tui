@@ -1,0 +1,90 @@
+# Sample Configuration for ooda-tui
+
+File: examples/config.oot
+
+This is a sample config.oot that the user can copy to
+`~/.config/ooda-tui/config.oot` and customize. Format is markdown-like
+key=value per provider block.
+
+## Multiple LLM providers connected at once
+
+```
+provider anthropic
+  type        = cloud
+  key         = "sk-ant-..."
+  models      = ["claude-sonnet-4.5", "claude-opus-4"]
+
+provider openai
+  type        = cloud
+  key         = "sk-..."
+  models      = ["gpt-5", "gpt-5-mini"]
+
+provider ollama-1
+  type        = local
+  url         = "http://localhost:11434"
+  models      = ["llama3:70b-instruct"]
+
+provider ollama-2
+  type        = local
+  url         = "http://localhost:11435"
+  models      = ["qwen2.5-coder:32b"]
+
+provider ollama-3
+  type        = local
+  url         = "http://localhost:11436"
+  models      = ["deepseek-coder-v2:236b"]
+
+provider ollama-4
+  type        = local
+  url         = "http://localhost:11437"
+  models      = ["codestral:22b", "mistral-large:123b"]
+
+provider custom
+  type        = local
+  url         = "https://my-llm.example.com/v1"
+  key         = "..."
+  models      = ["my-model"]
+
+# Main session defaults
+default_provider  = anthropic
+default_model     = claude-sonnet-4.5
+
+# Permission mode: prompt | yolo | deny
+permission_mode   = prompt
+
+# Compact threshold: 0.5 | 0.7 | 0.85 | 0 (off)
+compact_threshold = 0.7
+
+# Theme name
+theme             = 1982
+
+# Teamwork: number of agents and their provider/model assignments
+teamwork_agents   = 4
+
+teamwork_providers = [
+  { provider: anthropic,  model: claude-sonnet-4.5 },
+  { provider: ollama-1,   model: llama3:70b-instruct },
+  { provider: ollama-2,   model: qwen2.5-coder:32b },
+  { provider: ollama-4,   model: codestral:22b }
+]
+```
+
+## Minimal config (single provider)
+
+```
+provider anthropic
+  type        = cloud
+  key         = "sk-ant-..."
+  models      = ["claude-sonnet-4.5"]
+
+default_provider  = anthropic
+default_model     = claude-sonnet-4.5
+permission_mode   = prompt
+compact_threshold = 0.7
+theme             = 1982
+```
+
+## File mode
+
+`~/.config/ooda-tui/config.oot` is written with mode 0600 because it
+contains API keys.

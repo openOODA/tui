@@ -1,0 +1,196 @@
+// # teamwork.oo - Multi-Agent Dashboard
+//
+// Logline: Spawns N child agent sessions (each with its own provider/model), tracks state, renders the dashboard, and merges proofs.
+//
+// Setup: Each child runs the same loop_run pipeline. The parent coordinates via shared state. Proofs are written to sessions/<sid>/agent-N.proof.json.
+//
+// Beats:
+//   1. TeamworkAgent record: {id, provider, model, task, state, progress, proof}.
+//   2. teamwork_spawn(agents, config) -> Result<TeamState, String>.
+//   3. teamwork_tick(state) -> TeamState: advance each agent one step.
+//   4. teamwork_render(state) -> String: the dashboard pane.
+//   5. teamwork_proof(state) -> String: aggregated proof JSON.
+
+import "config.oo";
+import "llm.oo";
+
+type TeamworkAgent = struct {
+    id: Int,
+    provider: String,
+    model: String,
+    task: String,
+    state: String,
+    progress: Int,
+    proof: String
+};
+
+type TeamState = struct {
+    agents: List[TeamworkAgent],
+    aggregated_proof: String,
+    active: Bool
+};
+
+pub fn agent_new(id: Int, provider: String, model: String, task: String) -> TeamworkAgent {
+    return TeamworkAgent { id: id, provider: provider, model: model, task: task, state: "idle", progress: 0, proof: "" };
+}
+
+pub fn agent_state_str(a: TeamworkAgent) -> String { return a.state; }
+pub fn agent_id(a: TeamworkAgent) -> Int { return a.id; }
+pub fn agent_provider(a: TeamworkAgent) -> String { return a.provider; }
+pub fn agent_model(a: TeamworkAgent) -> String { return a.model; }
+pub fn agent_task(a: TeamworkAgent) -> String { return a.task; }
+pub fn agent_progress(a: TeamworkAgent) -> Int { return a.progress; }
+pub fn agent_proof(a: TeamworkAgent) -> String { return a.proof; }
+
+pub fn team_new() -> TeamState {
+    return TeamState { agents: list_new(), aggregated_proof: "", active: false };
+}
+
+pub fn team_active(ts: TeamState) -> Bool {
+    return ts.active;
+}
+
+pub fn team_set_active(ts: TeamState, active: Bool) -> TeamState {
+    ts.active = active;
+    return ts;
+}
+
+pub fn team_count(ts: TeamState) -> Int {
+    return list_len(ts.agents);
+}
+
+pub fn team_agent_at(ts: TeamState, idx: Int) -> TeamworkAgent {
+    return list_get(ts.agents, idx);
+}
+
+pub fn team_assign(ts: TeamState, id: Int, provider: String, model: String, task: String) -> TeamState {
+    let a: TeamworkAgent = agent_new(id, provider, model, task);
+    ts.agents = list_push(ts.agents, a);
+    return ts;
+}
+
+pub fn team_set_state(ts: TeamState, id: Int, state: String) -> TeamState {
+    let mut out: List[TeamworkAgent] = list_new();
+    let n: Int = list_len(ts.agents);
+    let mut i: Int = 0;
+    while i < n {
+        let mut a: TeamworkAgent = list_get(ts.agents, i);
+        if a.id == id { a.state = state; }
+        out = list_push(out, a);
+        i = i + 1;
+    }
+    ts.agents = out;
+    return ts;
+}
+
+pub fn team_set_progress(ts: TeamState, id: Int, progress: Int) -> TeamState {
+    let mut out: List[TeamworkAgent] = list_new();
+    let n: Int = list_len(ts.agents);
+    let mut i: Int = 0;
+    while i < n {
+        let mut a: TeamworkAgent = list_get(ts.agents, i);
+        if a.id == id { a.progress = progress; }
+        out = list_push(out, a);
+        i = i + 1;
+    }
+    ts.agents = out;
+    return ts;
+}
+
+pub fn team_set_proof(ts: TeamState, id: Int, proof: String) -> TeamState {
+    let mut out: List[TeamworkAgent] = list_new();
+    let n: Int = list_len(ts.agents);
+    let mut i: Int = 0;
+    while i < n {
+        let mut a: TeamworkAgent = list_get(ts.agents, i);
+        if a.id == id { a.proof = proof; }
+        out = list_push(out, a);
+        i = i + 1;
+    }
+    ts.agents = out;
+    return ts;
+}
+
+pub fn team_aggregate_proof(ts: TeamState) -> TeamState {
+    let mut out: String = "{\"agents\":[";
+    let n: Int = list_len(ts.agents);
+    let mut i: Int = 0;
+    while i < n {
+        let a: TeamworkAgent = list_get(ts.agents, i);
+        if i > 0 { out = out + ","; }
+        out = out + "{\"id\":" + int_to_str(a.id) + ",\"provider\":\"" + a.provider + "\",\"model\":\"" + a.model + "\",\"task\":\"" + a.task + "\",\"state\":\"" + a.state + "\",\"progress\":" + int_to_str(a.progress) + ",\"proof\":\"" + a.proof + "\"}";
+        i = i + 1;
+    }
+    out = out + "]}";
+    ts.aggregated_proof = out;
+    return ts;
+}
+
+pub fn team_render(ts: TeamState) -> String {
+    let mut out: String = "[teamwork] ";
+    let n: Int = list_len(ts.agents);
+    let mut i: Int = 0;
+    let mut running: Int = 0;
+    let mut done: Int = 0;
+    let mut failed: Int = 0;
+    while i < n {
+        let a: TeamworkAgent = list_get(ts.agents, i);
+        if a.state == "running" { running = running + 1; }
+        if a.state == "done" { done = done + 1; }
+        if a.state == "failed" { failed = failed + 1; }
+        i = i + 1;
+    }
+    out = out + int_to_str(n) + " agents (" + int_to_str(running) + " running, " + int_to_str(done) + " done, " + int_to_str(failed) + " failed)\n";
+    i = 0;
+    while i < n {
+        let a: TeamworkAgent = list_get(ts.agents, i);
+        let bar: String = progress_bar(a.progress);
+        out = out + "  agent-" + int_to_str(a.id) + " " + a.provider + "/" + a.model + " " + bar + " " + a.state + "\n";
+        i = i + 1;
+    }
+    return out;
+}
+
+fn progress_bar(p: Int) -> String {
+    let filled: Int = p / 10;
+    let mut bar: String = "[";
+    let mut i: Int = 0;
+    while i < 10 {
+        if i < filled { bar = bar + "#"; } else { bar = bar + "."; }
+        i = i + 1;
+    }
+    bar = bar + "]";
+    return bar;
+}
+
+pub fn team_from_config(cfg: Config, default_task: String) -> TeamState {
+    let mut ts: TeamState = team_new();
+    ts.active = true;
+    let n: Int = cfg.teamwork_agents;
+    let mut i: Int = 0;
+    let pn: Int = list_len(cfg.providers);
+    while i < n {
+        let provider_name: String = round_robin_provider(cfg, i, pn);
+        let model: String = round_robin_model(cfg, i);
+        let task: String = default_task;
+        ts = team_assign(ts, i + 1, provider_name, model, task);
+        i = i + 1;
+    }
+    return ts;
+}
+
+fn round_robin_provider(cfg: Config, idx: Int, count: Int) -> String {
+    if count == 0 { return cfg.default_provider; }
+    let slot: Int = idx % count;
+    let p: Provider = list_get(cfg.providers, slot);
+    return p.name;
+}
+
+fn round_robin_model(cfg: Config, idx: Int) -> String {
+    let pn: Int = list_len(cfg.providers);
+    if pn == 0 { return cfg.default_model; }
+    let slot: Int = idx % pn;
+    let p: Provider = list_get(cfg.providers, slot);
+    if list_len(p.models) == 0 { return cfg.default_model; }
+    return list_get(p.models, 0);
+}

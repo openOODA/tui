@@ -1,0 +1,36 @@
+// # qa/argv - Argv Parsing Probe
+//
+// Logline: Parse all 10 flags, error cases, env contract. Verifies main.oo's argv parser.
+//
+// Setup: Spawns the built ooda-tui binary as a subprocess and asserts argv behavior.
+//
+// Beats:
+//   1. Construct synthetic argv with each of the 10 flags and assert parsing.
+//   2. Test missing-required-arg errors.
+//   3. Test unknown-flag errors.
+//   4. Verify OODACODEX validation (fail-closed when unset).
+
+import "std/fs/process/process.oo";
+
+fn run_oot(sys: &ProcessCap, bin: String, args: String) -> Result[String, String] {
+    return process_exec(sys, bin + " " + args);
+}
+
+fn main(bind: &BindCap, fs_r: &FsReadCap, fs_w: &FsWriteCap, sys: &ProcessCap, sys_cap: &SysCap, env: &EnvCap, time: &TimeCap, alloc: &AllocCap, thread: &ThreadCap, args: List[String]) -> Result[Int, String] {
+    let bin: String = "./dist/ooda-tui";
+    println("qa/argv: starting argv probe");
+    let r1: Result<String, String] = run_oot(sys, bin, "--help");
+    if r1.is_err() { println("FAIL: --help"); return Err("--help failed"); }
+    else { println("PASS: --help"); }
+    let r2: Result<String, String] = run_oot(sys, bin, "--version");
+    if r2.is_err() { println("FAIL: --version"); return Err("--version failed"); }
+    else { println("PASS: --version"); }
+    let r3: Result<String, String> = run_oot(sys, bin, "--unknown-flag");
+    if r3.is_ok() { println("FAIL: unknown flag should exit nonzero"); return Err("unknown flag accepted"); }
+    else { println("PASS: unknown flag exits nonzero"); }
+    let r4: Result<String, String> = run_oot(sys, bin, "--cwd");
+    if r4.is_ok() { println("FAIL: --cwd without path should error"); return Err("--cwd without path accepted"); }
+    else { println("PASS: --cwd without path errors"); }
+    println("qa/argv: PASS");
+    return Ok(0);
+}

@@ -1,0 +1,59 @@
+// # llm_custom.oo - Custom OpenAI-compatible Provider
+//
+// Logline: Generic OpenAI-compatible endpoint. Used for self-hosted vLLM, llama.cpp, etc.
+//
+// Setup: Imports llm.oo for the LlmProvider type. Uses std/net/http_client.oo.
+//
+// Beats:
+//   1. Build request body: {model, messages=[{role:user, content:prompt}]}.
+//   2. Headers: Authorization: Bearer <key> (if key set), content-type: application/json.
+//   3. POST and parse response, extract choices[0].message.content.
+
+import "std/net/http_client.oo";
+import "llm.oo";
+
+pub fn llm_custom_complete(http: &TcpCap, p: LlmProvider, prompt: String) -> Result[String, String] {
+    let body: String = "{\"model\":\"" + p.model + "\",\"messages\":[{\"role\":\"user\",\"content\":\"" + escape(prompt) + "\"}]}";
+    let headers: List[String] = list_new();
+    if p.key != "" { headers = list_push(headers, "Authorization: Bearer " + p.key); }
+    headers = list_push(headers, "content-type: application/json");
+    let r: Result[String, String] = http_post_with_headers(http, p.base_url, "application/json", body, headers);
+    let raw: String = match r { Ok(s) => s, Err(e) => return Err("custom post: " + e); };
+    return Ok(extract_content(raw));
+}
+
+fn escape(s: String) -> String {
+    let mut out: String = "";
+    let n: Int = chars_len(s);
+    let mut i: Int = 0;
+    while i < n {
+        let c: String = str_slice(s, i, i + 1);
+        if c == "\"" { out = out + "\\\""; }
+        else if c == "\\" { out = out + "\\\\"; }
+        else if c == "\n" { out = out + "\\n"; }
+        else { out = out + c; }
+        i = i + 1;
+    }
+    return out;
+}
+
+fn extract_content(raw: String) -> String {
+    let n: Int = chars_len(raw);
+    let mut i: Int = 0;
+    let mut out: String = "";
+    let mut in_content: Bool = false;
+    while i < n {
+        if !in_content && str_slice(raw, i, i + 11) == "\"content\":\"" {
+            in_content = true;
+            i = i + 11;
+        } else if in_content {
+            let c: String = str_slice(raw, i, i + 1);
+            if c == "\"" { in_content = false; }
+            else { out = out + c; }
+            i = i + 1;
+        } else {
+            i = i + 1;
+        }
+    }
+    return out;
+}

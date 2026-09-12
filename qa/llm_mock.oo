@@ -1,0 +1,38 @@
+// # qa/llm_mock - LLM Client Probe
+//
+// Logline: Verify each provider builds the correct request envelope for its API.
+//
+// Setup: Inspects provider URLs and request body shape. Does not actually call APIs (would need real keys).
+//
+// Beats:
+//   1. Anthropic URL is https://api.anthropic.com/v1/messages.
+//   2. OpenAI URL defaults to https://api.openai.com/v1/chat/completions.
+//   3. Ollama URL defaults to http://localhost:11434/api/chat.
+//   4. Google URL contains /v1beta/models/.
+//   5. Custom URL is whatever the user set.
+
+import "llm.oo";
+
+fn main(bind: &BindCap, fs_r: &FsReadCap, fs_w: &FsWriteCap, sys: &ProcessCap, sys_cap: &SysCap, env: &EnvCap, time: &TimeCap, alloc: &AllocCap, thread: &ThreadCap, args: List[String]) -> Result[Int, String] {
+    println("qa/llm_mock: starting LLM provider probe");
+    let mut pass: Int = 0;
+    let mut fail: Int = 0;
+    let p_a: LlmProvider = provider_anthropic("anthropic", "sk-test", "claude-sonnet-4.5");
+    if provider_base_url(p_a) == "https://api.anthropic.com/v1/messages" { pass = pass + 1; println("PASS: anthropic url"); }
+    else { fail = fail + 1; println("FAIL: anthropic url " + provider_base_url(p_a)); }
+    let p_o: LlmProvider = provider_openai("openai", "sk-test", "gpt-5", "");
+    if str_starts_with(provider_base_url(p_o), "https://api.openai.com/v1/chat/completions") { pass = pass + 1; println("PASS: openai default url"); }
+    else { fail = fail + 1; println("FAIL: openai url " + provider_base_url(p_o)); }
+    let p_ol: LlmProvider = provider_ollama("ollama-1", "", "llama3");
+    if str_starts_with(provider_base_url(p_ol), "http://localhost:11434/api/chat") { pass = pass + 1; println("PASS: ollama default url"); }
+    else { fail = fail + 1; println("FAIL: ollama url " + provider_base_url(p_ol)); }
+    let p_g: LlmProvider = provider_google("google", "test-key", "gemini-1.5-pro");
+    if str_contains(provider_base_url(p_g), "/v1beta/models/") { pass = pass + 1; println("PASS: google url"); }
+    else { fail = fail + 1; println("FAIL: google url " + provider_base_url(p_g)); }
+    let p_c: LlmProvider = provider_custom("custom", "https://my.example.com/v1", "k", "my-model");
+    if provider_base_url(p_c) == "https://my.example.com/v1" { pass = pass + 1; println("PASS: custom url"); }
+    else { fail = fail + 1; println("FAIL: custom url"); }
+    println("qa/llm_mock: pass=" + int_to_str(pass) + " fail=" + int_to_str(fail));
+    if fail > 0 { return Err("qa/llm_mock: failures"); }
+    return Ok(0);
+}

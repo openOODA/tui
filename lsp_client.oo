@@ -1,0 +1,219 @@
+// # lsp_client.oo - LSP Client
+//
+// Logline: Talks to ooda-lsp via JSON-RPC. Initializes the server, opens .oo/.oot files, receives diagnostics.
+//
+// Setup: Uses process_exec to run ooda-lsp --stdio --oodar-root <root>. Each LSP call is one-shot via stdin/stdout capture.
+//
+// Beats:
+//   1. Spawn ooda-lsp --stdio --oodar-root <root> --stdlib-root <root> --compiler <oodac>.
+//   2. JSON-RPC framing: Content-Length: N\r\n\r\n<body>.
+//   3. Methods: initialize, initialized, workspace/didChangeConfiguration, textDocument/didOpen, textDocument/didChange.
+//   4. Receive textDocument/publishDiagnostics for inline diagnostics.
+//   5. Exposed: lsp_init, lsp_open, lsp_change, lsp_diagnostics, lsp_close.
+
+import "std/fs/process/process.oo";
+
+type LspClient = struct {
+    oodar_root: String,
+    stdlib_root: String,
+    compiler: String,
+    request_counter: Int
+};
+
+type LspDiagnostic = struct {
+    line: Int,
+    col: Int,
+    end_line: Int,
+    end_col: Int,
+    severity: Int,
+    message: String,
+    source: String
+};
+
+pub fn lsp_new(oodar_root: String, stdlib_root: String, compiler: String) -> LspClient {
+    return LspClient { oodar_root: oodar_root, stdlib_root: stdlib_root, compiler: compiler, request_counter: 0 };
+}
+
+fn lsp_next_id(client: LspClient) -> Int {
+    let id: Int = client.request_counter + 1;
+    client.request_counter = id;
+    return id;
+}
+
+fn lsp_escape(s: String) -> String {
+    let mut out: String = "";
+    let n: Int = chars_len(s);
+    let mut i: Int = 0;
+    while i < n {
+        let c: String = str_slice(s, i, i + 1);
+        if c == "\"" { out = out + "\\\""; }
+        else if c == "\\" { out = out + "\\\\"; }
+        else if c == "\n" { out = out + "\\n"; }
+        else { out = out + c; }
+        i = i + 1;
+    }
+    return out;
+}
+
+fn lsp_frame(body: String) -> String {
+    return "Content-Length: " + int_to_str(chars_len(body)) + "\r\n\r\n" + body;
+}
+
+fn lsp_init_request(id: Int, root_uri: String) -> String {
+    return "{\"jsonrpc\":\"2.0\",\"id\":" + int_to_str(id) + ",\"method\":\"initialize\",\"params\":{\"processId\":1,\"rootUri\":\"" + lsp_escape(root_uri) + "\",\"capabilities\":{}}}";
+}
+
+fn lsp_initialized_request() -> String {
+    return "{\"jsonrpc\":\"2.0\",\"method\":\"initialized\",\"params\":{}}";
+}
+
+fn lsp_did_open_request(uri: String, lang: String, version: Int, text: String) -> String {
+    return "{\"jsonrpc\":\"2.0\",\"method\":\"textDocument/didOpen\",\"params\":{\"textDocument\":{\"uri\":\"" + lsp_escape(uri) + "\",\"languageId\":\"" + lang + "\",\"version\":" + int_to_str(version) + ",\"text\":\"" + lsp_escape(text) + "\"}}}";
+}
+
+fn lsp_did_change_request(uri: String, version: Int, text: String) -> String {
+    return "{\"jsonrpc\":\"2.0\",\"method\":\"textDocument/didChange\",\"params\":{\"textDocument\":{\"uri\":\"" + lsp_escape(uri) + "\",\"version\":" + int_to_str(version) + "},\"contentChanges\":[{\"text\":\"" + lsp_escape(text) + "\"}]}}";
+}
+
+fn lsp_diagnostics_request(id: Int, uri: String) -> String {
+    return "{\"jsonrpc\":\"2.0\",\"id\":" + int_to_str(id) + ",\"method\":\"textDocument/diagnostic\",\"params\":{\"textDocument\":{\"uri\":\"" + lsp_escape(uri) + "\"}}}";
+}
+
+fn lsp_call(client: LspClient, sys: &ProcessCap, request: String) -> Result[String, String] {
+    let tmp: String = "/tmp/ooda-tui-lsp-" + int_to_str(lsp_next_id(client)) + ".req";
+    let write_cmd: String = "mkdir -p /tmp && cat > " + tmp + " << 'EOF_LSP'\n" + request + "\nEOF_LSP";
+    let wr: Result[String, String] = process_exec(sys, write_cmd);
+    if wr.is_err() { return Err("lsp write: " + match wr { Ok(_) => "", Err(e) => e }); }
+    let mut cmd: String = "ooda-lsp --stdio --oodar-root " + client.oodar_root;
+    if client.stdlib_root != "" { cmd = cmd + " --stdlib-root " + client.stdlib_root; }
+    if client.compiler != "" { cmd = cmd + " --compiler " + client.compiler; }
+    cmd = cmd + " < " + tmp + " 2>&1 | head -c 65536";
+    let r: Result[String, String] = process_exec(sys, cmd);
+    return r;
+}
+
+pub fn lsp_init(client: LspClient, sys: &ProcessCap, root_uri: String) -> Result[String, String] {
+    let req: String = lsp_frame(lsp_init_request(lsp_next_id(client), root_uri)) + lsp_frame(lsp_initialized_request());
+    let r: Result[String, String] = lsp_call(client, sys, req);
+    if r.is_err() { return Err("lsp_init: " + match r { Ok(_) => "", Err(e) => e }); }
+    return Ok(match r { Ok(s) => s, Err(_) => "" });
+}
+
+pub fn lsp_open(client: LspClient, sys: &ProcessCap, uri: String, lang: String, version: Int, text: String) -> Result[String, String] {
+    let req: String = lsp_frame(lsp_did_open_request(uri, lang, version, text));
+    let r: Result[String, String] = lsp_call(client, sys, req);
+    if r.is_err() { return Err("lsp_open: " + match r { Ok(_) => "", Err(e) => e }); }
+    return Ok(match r { Ok(s) => s, Err(_) => "" });
+}
+
+pub fn lsp_change(client: LspClient, sys: &ProcessCap, uri: String, version: Int, text: String) -> Result[String, String] {
+    let req: String = lsp_frame(lsp_did_change_request(uri, version, text));
+    let r: Result[String, String] = lsp_call(client, sys, req);
+    if r.is_err() { return Err("lsp_change: " + match r { Ok(_) => "", Err(e) => e }); }
+    return Ok(match r { Ok(s) => s, Err(_) => "" });
+}
+
+pub fn lsp_diagnostics(client: LspClient, sys: &ProcessCap, uri: String) -> Result[List[LspDiagnostic], String] {
+    let req: String = lsp_frame(lsp_diagnostics_request(lsp_next_id(client), uri));
+    let r: Result[String, String] = lsp_call(client, sys, req);
+    let raw: String = match r { Ok(s) => s, Err(e) => return Err("lsp_diag: " + e); };
+    return Ok(parse_diagnostics(raw));
+}
+
+pub fn lsp_close(client: LspClient) -> Result[Int, String] {
+    return Ok(0);
+}
+
+fn parse_diagnostics(raw: String) -> List[LspDiagnostic] {
+    let out: List[LspDiagnostic] = list_new();
+    let n: Int = chars_len(raw);
+    let mut i: Int = 0;
+    while i < n {
+        if str_slice(raw, i, i + 13) == "\"diagnostics\":" {
+            i = i + 13;
+            while i < n {
+                if str_slice(raw, i, i + 1) == "[" { i = i + 1; }
+                else { i = i + 1; }
+                if str_slice(raw, i, i + 1) == "]" { return out; }
+                if str_slice(raw, i, i + 1) == "{" {
+                    let end: Int = find_matching_brace(raw, i);
+                    let chunk: String = str_slice(raw, i, end + 1);
+                    let d: LspDiagnostic = parse_one_diag(chunk);
+                    out = list_push(out, d);
+                    i = end + 1;
+                } else {
+                    i = i + 1;
+                }
+            }
+        } else {
+            i = i + 1;
+        }
+    }
+    return out;
+}
+
+fn find_matching_brace(s: String, start: Int) -> Int {
+    let mut depth: Int = 0;
+    let n: Int = chars_len(s);
+    let mut i: Int = start;
+    while i < n {
+        let c: String = str_slice(s, i, i + 1);
+        if c == "{" { depth = depth + 1; }
+        if c == "}" { depth = depth - 1; if depth == 0 { return i; } }
+        i = i + 1;
+    }
+    return n - 1;
+}
+
+fn parse_one_diag(s: String) -> LspDiagnostic {
+    let line: Int = extract_int_field(s, "line");
+    let col: Int = extract_int_field(s, "character");
+    let end_line: Int = extract_int_field(s, "endLine");
+    let end_col: Int = extract_int_field(s, "endCharacter");
+    let severity: Int = extract_int_field(s, "severity");
+    let message: String = extract_string_field(s, "message");
+    let source: String = extract_string_field(s, "source");
+    return LspDiagnostic { line: line, col: col, end_line: end_line, end_col: end_col, severity: severity, message: message, source: source };
+}
+
+fn extract_int_field(s: String, key: String) -> Int {
+    let key_str: String = "\"" + key + "\":";
+    let n: Int = chars_len(s);
+    let mut i: Int = 0;
+    while i < n {
+        if str_slice(s, i, i + chars_len(key_str)) == key_str {
+            i = i + chars_len(key_str);
+            let mut num: String = "";
+            while i < n {
+                let c: String = str_slice(s, i, i + 1);
+                if c == "," || c == "}" || c == " " || c == "\n" { return str_to_int(num); }
+                num = num + c;
+                i = i + 1;
+            }
+            return str_to_int(num);
+        }
+        i = i + 1;
+    }
+    return 0;
+}
+
+fn extract_string_field(s: String, key: String) -> String {
+    let key_str: String = "\"" + key + "\":\"";
+    let n: Int = chars_len(s);
+    let mut i: Int = 0;
+    while i < n {
+        if str_slice(s, i, i + chars_len(key_str)) == key_str {
+            i = i + chars_len(key_str);
+            let mut out: String = "";
+            while i < n {
+                let c: String = str_slice(s, i, i + 1);
+                if c == "\"" { return out; }
+                out = out + c;
+                i = i + 1;
+            }
+            return out;
+        }
+        i = i + 1;
+    }
+    return "";
+}

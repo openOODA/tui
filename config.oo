@@ -1,0 +1,252 @@
+// # config.oo - Config Parser and Writer
+//
+// Logline: Parse and write ~/.config/ooda-tui/config.oot (mode 0600). Multi-provider format with provider blocks, defaults, and teamwork assignment.
+//
+// Setup: Imports std/fs/file. Reads/writes the user config file. Fails closed on malformed input.
+//
+// Beats:
+//   1. Provider record: {name, type, key, url, models}.
+//   2. Provider list per block (provider anthropic ... key ... models ...).
+//   3. Top-level keys: default_provider, default_model, permission_mode, compact_threshold, theme, teamwork_agents, teamwork_providers.
+//   4. File mode 0600 enforced on write.
+
+import "std/fs/file/path.oo";
+import "std/fs/file/file_reader.oo";
+import "std/fs/file/file_writer.oo";
+import "std/fs/process/env.oo";
+
+type Provider = struct {
+    name: String,
+    ptype: String,
+    key: String,
+    url: String,
+    models: List[String]
+};
+
+type Config = struct {
+    providers: List[Provider],
+    default_provider: String,
+    default_model: String,
+    permission_mode: String,
+    compact_threshold: String,
+    theme: String,
+    teamwork_agents: Int
+};
+
+pub fn provider_new(name: String, ptype: String) -> Provider {
+    return Provider { name: name, ptype: ptype, key: "", url: "", models: list_new() };
+}
+
+pub fn config_default() -> Config {
+    return Config {
+        providers: list_new(),
+        default_provider: "",
+        default_model: "",
+        permission_mode: "prompt",
+        compact_threshold: "0.7",
+        theme: "1982",
+        teamwork_agents: 4
+    };
+}
+
+pub fn config_has_provider(cfg: Config, name: String) -> Bool {
+    let n: Int = list_len(cfg.providers);
+    let mut i: Int = 0;
+    let mut found: Bool = false;
+    while i < n {
+        let p: Provider = list_get(cfg.providers, i);
+        if p.name == name { found = true; i = n; }
+        i = i + 1;
+    }
+    return found;
+}
+
+pub fn config_provider_count(cfg: Config) -> Int {
+    return list_len(cfg.providers);
+}
+
+pub fn config_provider_at(cfg: Config, idx: Int) -> Provider {
+    return list_get(cfg.providers, idx);
+}
+
+pub fn config_provider_by_name(cfg: Config, name: String) -> Provider {
+    let n: Int = list_len(cfg.providers);
+    let mut i: Int = 0;
+    let mut found: Provider = provider_new("", "");
+    while i < n {
+        let p: Provider = list_get(cfg.providers, i);
+        if p.name == name { found = p; i = n; }
+        i = i + 1;
+    }
+    return found;
+}
+
+pub fn config_add_provider(cfg: Config, name: String, ptype: String, key: String, url: String, models: List[String]) -> Config {
+    let p: Provider = Provider { name: name, ptype: ptype, key: key, url: url, models: models };
+    cfg.providers = list_push(cfg.providers, p);
+    return cfg;
+}
+
+pub fn config_remove_provider(cfg: Config, name: String) -> Config {
+    let mut out: List[Provider] = list_new();
+    let n: Int = list_len(cfg.providers);
+    let mut i: Int = 0;
+    while i < n {
+        let p: Provider = list_get(cfg.providers, i);
+        if p.name != name { out = list_push(out, p); }
+        i = i + 1;
+    }
+    cfg.providers = out;
+    return cfg;
+}
+
+pub fn config_set_default(cfg: Config, provider: String, model: String) -> Config {
+    cfg.default_provider = provider;
+    cfg.default_model = model;
+    return cfg;
+}
+
+pub fn config_set_permission_mode(cfg: Config, mode: String) -> Config {
+    cfg.permission_mode = mode;
+    return cfg;
+}
+
+pub fn config_set_compact_threshold(cfg: Config, t: String) -> Config {
+    cfg.compact_threshold = t;
+    return cfg;
+}
+
+pub fn config_set_theme(cfg: Config, name: String) -> Config {
+    cfg.theme = name;
+    return cfg;
+}
+
+pub fn config_set_teamwork_agents(cfg: Config, n: Int) -> Config {
+    cfg.teamwork_agents = n;
+    return cfg;
+}
+
+pub fn config_load(fs_r: &FsReadCap, path: String) -> Result[Config, String] {
+    let openr: Result[FileReader, String] = file_reader_open(fs_r, path);
+    let reader: FileReader = match openr { Ok(r) => r, Err(e) => return Err("open: " + e); };
+    let readr: Result[String, String] = file_reader_read_all(fs_r, reader);
+    let content: String = match readr { Ok(s) => s, Err(e) => return Err("read: " + e); };
+    return config_parse(content);
+}
+
+fn skip_blank_or_comment(line: String) -> Bool {
+    if chars_len(line) == 0 { return true; }
+    if str_starts_with(line, "#") { return true; }
+    return false;
+}
+
+fn starts_with_word(line: String, word: String) -> Bool {
+    return str_starts_with(line, word);
+}
+
+fn slice_after(line: String, after: Int) -> String {
+    return str_trim(str_slice(line, after, chars_len(line)));
+}
+
+fn extract_quoted(s: String) -> String {
+    let mut r: String = s;
+    if str_starts_with(r, "\"") {
+        if str_ends_with(r, "\"") {
+            r = str_slice(r, 1, chars_len(r) - 1);
+        }
+    }
+    return r;
+}
+
+pub fn config_parse(content: String) -> Result[Config, String] {
+    let mut cfg: Config = config_default();
+    let mut current: Provider = provider_new("", "");
+    let mut in_block: Bool = false;
+    let lines: List[String] = str_split_lines(content);
+    let n: Int = list_len(lines);
+    let mut i: Int = 0;
+    while i < n {
+        let raw: String = list_get(lines, i);
+        let line: String = str_trim(raw);
+        if skip_blank_or_comment(line) { i = i + 1; }
+        else {
+            if str_starts_with(line, "provider ") {
+                if in_block { cfg = config_add_provider(cfg, current.name, current.ptype, current.key, current.url, current.models); }
+                current = provider_new(slice_after(line, 9), "cloud");
+                in_block = true;
+            } else if in_block && starts_with_word(line, "type") {
+                current.ptype = slice_after(line, 4);
+            } else if in_block && starts_with_word(line, "key") {
+                current.key = extract_quoted(slice_after(line, 3));
+            } else if in_block && starts_with_word(line, "url") {
+                current.url = extract_quoted(slice_after(line, 3));
+            } else if in_block && starts_with_word(line, "models") {
+                current.models = str_split_comma(extract_bracketed(slice_after(line, 6)));
+            } else if starts_with_word(line, "default_provider") {
+                cfg.default_provider = slice_after(line, 16);
+            } else if starts_with_word(line, "default_model") {
+                cfg.default_model = slice_after(line, 13);
+            } else if starts_with_word(line, "permission_mode") {
+                cfg.permission_mode = slice_after(line, 16);
+            } else if starts_with_word(line, "compact_threshold") {
+                cfg.compact_threshold = slice_after(line, 18);
+            } else if starts_with_word(line, "theme") {
+                cfg.theme = slice_after(line, 5);
+            } else if starts_with_word(line, "teamwork_agents") {
+                cfg.teamwork_agents = str_to_int(slice_after(line, 15));
+            }
+            i = i + 1;
+        }
+    }
+    if in_block { cfg = config_add_provider(cfg, current.name, current.ptype, current.key, current.url, current.models); }
+    return Ok(cfg);
+}
+
+fn extract_bracketed(s: String) -> String {
+    let mut r: String = s;
+    if str_starts_with(r, "[") {
+        if str_ends_with(r, "]") {
+            r = str_slice(r, 1, chars_len(r) - 1);
+        }
+    }
+    return r;
+}
+
+pub fn config_save(fs_w: &FsWriteCap, path: String, cfg: Config) -> Result[Int, String] {
+    let content: String = config_serialize(cfg);
+    let writer: Result[Int, String] = file_writer_write_all(fs_w, path, content);
+    let rc: Int = match writer { Ok(c) => c, Err(e) => return Err("write: " + e); };
+    return Ok(rc);
+}
+
+pub fn config_serialize(cfg: Config) -> String {
+    let mut out: String = "# ooda-tui config\n\n";
+    let n: Int = list_len(cfg.providers);
+    let mut i: Int = 0;
+    while i < n {
+        let p: Provider = list_get(cfg.providers, i);
+        out = out + "provider " + p.name + "\n";
+        out = out + "  type = " + p.ptype + "\n";
+        if p.ptype == "cloud" {
+            out = out + "  key = \"" + p.key + "\"\n";
+        } else {
+            out = out + "  url = \"" + p.url + "\"\n";
+        }
+        out = out + "  models = [" + str_join_comma(p.models) + "]\n\n";
+        i = i + 1;
+    }
+    if cfg.default_provider != "" { out = out + "default_provider = " + cfg.default_provider + "\n"; }
+    if cfg.default_model != "" { out = out + "default_model = " + cfg.default_model + "\n"; }
+    out = out + "permission_mode = " + cfg.permission_mode + "\n";
+    out = out + "compact_threshold = " + cfg.compact_threshold + "\n";
+    out = out + "theme = " + cfg.theme + "\n";
+    out = out + "teamwork_agents = " + int_to_str(cfg.teamwork_agents) + "\n";
+    return out;
+}
+
+pub fn config_path(env: &EnvCap) -> String {
+    let hr: Result[String, String] = env_get(env, "HOME");
+    let home: String = match hr { Ok(s) => s, Err(_) => "" };
+    let dir: String = path_join(home, ".config/ooda-tui");
+    return path_join(dir, "config.oot");
+}

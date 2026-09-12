@@ -1,0 +1,18 @@
+// # qa - Anchor for Agents
+//
+// Logline: Hostile probes and double-run determinism tests for the ooda-tui harness.
+//
+// Setup: Pure structural file. Each .oo probe is a fail-closed test. Double-run: Run_1 == Run_2 per rules.oot 1.10.
+//
+// Beats:
+//   1. argv.oo - parse all 10 flags, error cases, env contract.
+//   2. slash.oo - invoke each of 17 slash commands, verify effects.
+//   3. theme_probe.oo - render every token, snapshot match against expected ANSI.
+//   4. mcp_handshake.oo - spawn ooda-mcp, list tools.
+//   5. lsp_init.oo - spawn ooda-lsp, initialize, receive diagnostics.
+//   6. llm_mock.oo - provider client with mocked HTTP.
+//   7. multi_provider.oo - connect N providers, health check.
+//   8. teamwork.oo - spawn 4 mock agents, dashboard updates, proofs aggregate.
+//   9. smoke.oo - end-to-end TUI launch, login, ask, exit.
+
+// residual: probes are spawned as separate ooda-tui builds via CI. They share no source with the main binary.

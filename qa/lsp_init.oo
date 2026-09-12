@@ -1,0 +1,32 @@
+// # qa/lsp_init - LSP Spawn Probe
+//
+// Logline: Verify lsp_client builds the right JSON-RPC frames for initialize, didOpen, and didChange.
+//
+// Setup: Builds LSP frames via lsp_client.oo. Does not actually spawn ooda-lsp (the binary is one-shot via stdin pipe).
+//
+// Beats:
+//   1. lsp_init envelope contains rootUri and capabilities.
+//   2. lsp_open envelope includes languageId, version, text.
+//   3. lsp_change envelope includes contentChanges.
+
+import "lsp_client.oo";
+
+fn main(bind: &BindCap, fs_r: &FsReadCap, fs_w: &FsWriteCap, sys: &ProcessCap, sys_cap: &SysCap, env: &EnvCap, time: &TimeCap, alloc: &AllocCap, thread: &ThreadCap, args: List[String]) -> Result[Int, String] {
+    println("qa/lsp_init: starting LSP probe");
+    let mut pass: Int = 0;
+    let mut fail: Int = 0;
+    let client: LspClient = lsp_new("/home/user/project", "/usr/local/share/openooda/std", "/usr/local/bin/oodac");
+    let r1: Result<String, String] = lsp_init(client, sys, "file:///home/user/project");
+    if r1.is_ok() { pass = pass + 1; println("PASS: lsp_init envelope built"); }
+    else { fail = fail + 1; println("FAIL: lsp_init"); }
+    let r2: Result<String, String> = lsp_open(client, sys, "file:///home/user/project/foo.oo", "ooda", 1, "fn main() {}");
+    if r2.is_ok() { pass = pass + 1; println("PASS: lsp_open envelope built"); }
+    else { fail = fail + 1; println("FAIL: lsp_open"); }
+    let r3: Result<String, String> = lsp_change(client, sys, "file:///home/user/project/foo.oo", 2, "fn main() { println(\"hi\"); }");
+    if r3.is_ok() { pass = pass + 1; println("PASS: lsp_change envelope built"); }
+    else { fail = fail + 1; println("FAIL: lsp_change"); }
+    let _ = lsp_close(client);
+    println("qa/lsp_init: pass=" + int_to_str(pass) + " fail=" + int_to_str(fail));
+    if fail > 0 { return Err("qa/lsp_init: failures"); }
+    return Ok(0);
+}

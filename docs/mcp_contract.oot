@@ -1,0 +1,107 @@
+# MCP Client Contract
+
+File: docs/mcp_contract.oot
+
+The TUI's `mcp_client.oo` speaks the Model Context Protocol over stdio,
+using JSON-RPC framing. It connects to the existing `ooda-mcp` server
+binary (no edits to ooda-mcp required).
+
+## Spawn
+
+```
+$OODACODEX/bin/ooda-mcp --stdio
+```
+
+With env vars:
+- `OODACODEX` - required, points to a `.oot` file
+- `OODA_COMPILER` - optional, path to `oodac`
+- `OODA_FS_READDIR` - optional, Landlock read scope
+- `OODA_FS_WRITEDIR` - optional, Landlock write scope
+
+The driver `ooda mcp` already wraps this spawn (see ooda/main.oo:89).
+The TUI uses the same spawn pattern but bypasses `ooda` (it spawns
+`ooda-mcp` directly, since the harness is a separate binary).
+
+## Framing
+
+JSON-RPC 2.0 over stdio. Each frame is:
+
+```
+Content-Length: <N>\r\n
+\r\n
+<body of exactly N bytes>
+```
+
+`<body>` is a single JSON object.
+
+## Methods on startup
+
+### initialize
+
+```
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "initialize",
+  "params": {
+    "protocolVersion": "2024-11-05",
+    "capabilities": {},
+    "clientInfo": {
+      "name": "ooda-tui",
+      "version": "v0.1.0"
+    },
+    "tier": "standard"
+  }
+}
+```
+
+`tier` is one of `minimal`, `standard`, `audit`. v0.1 uses `standard`.
+
+### tools/list
+
+```
+{
+  "jsonrpc": "2.0",
+  "id": 2,
+  "method": "tools/list",
+  "params": {}
+}
+```
+
+Returns the list of tools. The TUI caches these for the session.
+
+## Methods per turn
+
+### tools/call
+
+```
+{
+  "jsonrpc": "2.0",
+  "id": <n>,
+  "method": "tools/call",
+  "params": {
+    "name": "<tool-name>",
+    "arguments": { ... }
+  }
+}
+```
+
+Returns a `content` array with the tool result.
+
+## Failures
+
+| Code | Meaning | TUI behavior |
+|------|---------|--------------|
+| -32601 | Method not found | log and ignore |
+| -32602 | Invalid arguments | surface to UI |
+| -32603 | Internal error (missing cap, duplicate id, cancelled) | surface, retry after re-adding cap |
+
+## Idle hangup
+
+`ooda-mcp` exits after 5 minutes of no complete frame (per
+`mcp/docs/client_config.oot:64`). The TUI detects this via broken
+stdin pipe and reconnects automatically.
+
+## Reference
+
+See `openOODA/mcp/docs/client_config.oot` for the full server contract.

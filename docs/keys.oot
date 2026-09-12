@@ -1,0 +1,38 @@
+# Keybindings
+
+File: docs/keys.oot
+
+Keybindings are global within the TUI. They override any text-input
+semantics for the special keys below.
+
+## Reference
+
+| Key | Action |
+|-----|--------|
+| Ctrl+T | Toggle teamwork mode |
+| Ctrl+Y | Toggle yolo mode |
+| Ctrl+C | Cancel current tool call (or exit if idle) |
+| Ctrl+D | Exit TUI (saves session first) |
+| Ctrl+L | Clear screen, redraw |
+| Ctrl+R | Reverse search history |
+
+## Behavior
+
+- **Ctrl+T** opens or closes the teamwork dashboard pane below the
+  status line. Each toggle persists state for the session.
+- **Ctrl+Y** flips the `yolo` flag. When on, all tool calls are
+  auto-approved. When off, the user is prompted for each tool call.
+- **Ctrl+C** during a tool call cancels it. During idle, exits with
+  no save (use Ctrl+D for save-then-exit).
+- **Ctrl+D** is the graceful exit: save session, then quit. This is
+  the equivalent of `/exit`.
+- **Ctrl+L** redraws the screen. Useful after terminal resize or
+  corrupted display.
+- **Ctrl+R** opens a reverse history search (readline-style). Type
+  to filter; Enter to recall; Esc to cancel.
+
+## Conflict with terminal
+
+- Ctrl+C in raw mode sends SIGINT. The TUI sets raw mode at startup
+  and restores cooked mode on exit (handled by app.oo).
+- Ctrl+D in raw mode sends EOF. The TUI treats it as "exit with save."

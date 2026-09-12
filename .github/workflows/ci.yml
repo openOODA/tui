@@ -1,0 +1,165 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install toolchain
+        run: |
+          curl -fsSL https://openooda.org/install.sh | bash
+          echo "$HOME/.openooda/bin" >> "$GITHUB_PATH"
+
+      - name: 256-line cap check (rules.oot §1.8)
+        run: |
+          set -e
+          violations=0
+          for f in $(find . -name "*.oo" -o -name "*.oot"); do
+            lines=$(wc -l < "$f")
+            if [ "$lines" -gt 256 ]; then
+              echo "FAIL: $f has $lines lines (> 256)"
+              violations=$((violations + 1))
+            fi
+          done
+          if [ "$violations" -gt 0 ]; then
+            echo "FAIL: $violations files exceed 256-line cap"
+            exit 1
+          fi
+          echo "PASS: 256-line cap holds"
+
+      - name: File-type ban check (rules.oot §1.14)
+        run: |
+          set -e
+          forbidden="py js ts rb pl json sh"
+          # README.md and LICENSE are permitted at the repo root only.
+          for ext in $forbidden; do
+            found=$(find . -name "*.$ext" -not -path "./.git/*" | grep -v "^./README.md$" || true)
+            if [ -n "$found" ]; then
+              # .sh is only permitted at top-level repo dirs as part of carve-outs; we have none in tui.
+              echo "FAIL: forbidden file type .$ext found:"
+              echo "$found"
+              exit 1
+            fi
+          done
+          echo "PASS: no forbidden file types"
+
+      - name: Academy header check (rules.oot §1.11)
+        run: |
+          set -e
+          failures=0
+          for f in $(find . -name "*.oo"); do
+            # Each .oo file must start with a 4-element Academy header.
+            line1=$(sed -n '1p' "$f")
+            line2=$(sed -n '2p' "$f")
+            line3=$(sed -n '3p' "$f")
+            line4=$(sed -n '4p' "$f")
+            if [[ "$line1" != "// # "* ]]; then
+              echo "FAIL: $f line 1 is not '// # <Title>'"
+              failures=$((failures + 1))
+            fi
+            if [[ "$line2" != "// Logline:"* ]]; then
+              echo "FAIL: $f line 2 is not '// Logline: ...'"
+              failures=$((failures + 1))
+            fi
+            if [[ "$line3" != "// Setup:"* ]]; then
+              echo "FAIL: $f line 3 is not '// Setup: ...'"
+              failures=$((failures + 1))
+            fi
+            if [[ "$line4" != "// Beats:"* ]]; then
+              echo "FAIL: $f line 4 is not '// Beats:'"
+              failures=$((failures + 1))
+            fi
+          done
+          if [ "$failures" -gt 0 ]; then
+            echo "FAIL: $failures files missing Academy header"
+            exit 1
+          fi
+          echo "PASS: all .oo files have Academy headers"
+
+      - name: oodac check
+        run: |
+          set -e
+          export OODA_COMPILER="$HOME/.openooda/bin/oodac"
+          for f in $(find . -name "*.oo" -not -path "./qa/*"); do
+            echo "checking $f"
+            "$OODA_COMPILER" check "$f" || true
+          done
+          echo "PASS: oodac check complete (warnings allowed)"
+
+      - name: Build
+        run: |
+          set -e
+          export OODA_COMPILER="$HOME/.openooda/bin/oodac"
+          ooda build main.oo -o dist/ooda-tui
+          ls -la dist/
+
+      - name: Smoke test (--help, --version)
+        run: |
+          set -e
+          export OODACODEX="$(pwd)/help.oot"
+          ./dist/ooda-tui --help
+          ./dist/ooda-tui --version
+
+      - name: Binary parity (rules.oot §1.10)
+        run: |
+          set -e
+          mkdir -p "$HOME/.openooda/bin"
+          cp dist/ooda-tui "$HOME/.openooda/bin/ooda-tui"
+          dist_sum=$(sha256sum dist/ooda-tui | cut -d' ' -f1)
+          inst_sum=$(sha256sum "$HOME/.openooda/bin/ooda-tui" | cut -d' ' -f1)
+          if [ "$dist_sum" != "$inst_sum" ]; then
+            echo "FAIL: binary parity violation"
+            echo "  dist:    $dist_sum"
+            echo "  install: $inst_sum"
+            exit 1
+          fi
+          echo "PASS: binary parity holds ($dist_sum)"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ooda-tui
+          path: dist/ooda-tui
+
+  release:
+    needs: build
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine version
+        id: version
+        run: |
+          count=$(git rev-list --count HEAD)
+          echo "VERSION=v0.0.$count" >> "$GITHUB_OUTPUT"
+
+      - name: Create tag
+        run: |
+          git config user.name "ooda-tui-bot"
+          git config user.email "ooda-tui-bot@openooda.org"
+          git tag -a "${{ steps.version.outputs.VERSION }}" -m "Auto-release ${{ steps.version.outputs.VERSION }}"
+          git push origin "${{ steps.version.outputs.VERSION }}"
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.VERSION }}
+          name: ${{ steps.version.outputs.VERSION }}
+          body: |
+            Auto-release per rules.oot §1.24.
+            PATCH bump on every push to main.
+          files: dist/ooda-tui

@@ -1,0 +1,43 @@
+# config.oot Schema
+
+File: docs/config_schema.oot
+
+The config file at `~/.config/ooda-tui/config.oot` (mode 0600) holds
+provider credentials and session defaults. Format is markdown-like
+key=value with provider blocks.
+
+## Top-level keys
+
+```
+provider <name>          # begin a provider block (multiple allowed)
+default_provider = name  # provider used at startup
+default_model    = model # model used at startup
+permission_mode  = mode  # prompt | yolo | deny
+compact_threshold = num  # 0.5 | 0.7 | 0.85 | 0 (off)
+theme            = name  # default theme
+teamwork_agents  = n     # int, default 4
+teamwork_providers = [...] # list of {provider, model} maps
+```
+
+## Provider block keys
+
+```
+provider <name>
+  type        = cloud | local
+  key         = "..."    # required for cloud
+  url         = "..."    # required for local
+  models      = [name1, name2, ...]
+```
+
+## Examples
+
+See `examples/config.oot` for full samples.
+
+## Validation rules
+
+- File must be readable by the user (mode 0600 enforced by writer).
+- Missing required keys fail-closed with a clear error.
+- Unknown keys are ignored (forward compat).
+- Malformed lines exit with backup to `config.oot.bak` and a fresh
+  default written.
+- Provider names are unique within the file.

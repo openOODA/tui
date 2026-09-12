@@ -1,0 +1,58 @@
+# Theme Module Contract
+
+File: docs/theme_schema.oot
+
+A theme is a `.oo` source module in the `themes/` directory. It exports
+two functions:
+
+```
+pub fn theme_<name>_token(token: String) -> String
+pub fn theme_<name>_name() -> String
+```
+
+The token function returns the hex code (e.g. `#FFB000`) for any of 47
+semantic tokens. The name function returns the theme's name string.
+
+## Token set (47 tokens)
+
+Core UI (10): accent, border, borderAccent, borderMuted, success,
+error, warning, muted, dim, text.
+
+Thinking (1): thinkingText.
+
+Backgrounds (13): selectedBg, scrollbarTrack, scrollbarThumb,
+userMessageBg, userMessageText, customMessageBg, customMessageText,
+customMessageLabel, toolPendingBg, toolSuccessBg, toolErrorBg,
+toolTitle, toolOutput.
+
+Markdown (6): mdHeading, mdLink, mdLinkUrl, mdCode, mdCodeBlockBorder,
+mdListBullet.
+
+Tool diffs (3): toolDiffAdded, toolDiffRemoved, toolDiffContext.
+
+Syntax (9): syntaxComment, syntaxKeyword, syntaxFunction,
+syntaxVariable, syntaxString, syntaxNumber, syntaxType,
+syntaxOperator, syntaxPunctuation.
+
+Thinking levels (6): thinkingOff, thinkingMinimal, thinkingLow,
+thinkingMedium, thinkingHigh, thinkingXhigh, thinkingMax (note: 6 in
+plan + thinkingMax = 7; Pi has 6, we add thinkingMax for total 47).
+
+Bash mode (1): bashMode.
+
+## Hex code format
+
+6-digit hex string starting with `#`. Example: `#FFB000`.
+
+## Adding a new theme
+
+1. Create `themes/<name>.oo` with the two functions.
+2. Add `import "<name>.oo"` to `themes/anchor.oo`.
+3. Update `theme.oo::theme_color()` to dispatch to the new theme.
+4. Run `qa/theme.oo` to render every token against expected output.
+
+## Reference: 1982 theme
+
+The default theme. Hand-transcribed from
+`~/.pi/agent/themes/1982.json`. CRT amber/phosphor palette on
+near-black background. See `themes/1982.oo`.

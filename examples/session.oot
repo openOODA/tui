@@ -1,0 +1,65 @@
+# Sample Session Layout for ooda-tui
+
+File: examples/session.oot
+
+A session lives under `~/.local/share/ooda-tui/sessions/<sid>/` where
+`<sid>` is a 4-character short id (e.g. `a3f8`). The directory contains
+five files at minimum.
+
+## Files
+
+```
+sessions/
+└── a3f8/                           # short id
+    ├── meta.json                   # session metadata
+    ├── transcript.jsonl            # append-only log of user/assistant/tool turns
+    ├── compacted.json              # last compaction summary (optional)
+    ├── plan.json                   # current /plan content (optional)
+    ├── goal.txt                    # current /goal content (optional)
+    ├── agent-1.proof.json          # teamwork agent proof (optional)
+    ├── agent-2.proof.json          # teamwork agent proof (optional)
+    └── teamwork.proof.json         # aggregated teamwork proof (optional)
+```
+
+## meta.json shape
+
+```
+{
+  "id": "a3f8",
+  "name": "refactor auth module",
+  "created": "2026-09-12T20:00:00Z",
+  "provider": "anthropic",
+  "model": "claude-sonnet-4.5",
+  "cwd": "/home/user/project",
+  "teamwork": false,
+  "yolo": false
+}
+```
+
+## transcript.jsonl shape
+
+Each line is one turn. Role is one of: user, assistant, tool, side.
+Tags preserve the conversation structure for replay on /resume.
+
+```
+{"ts": "2026-09-12T20:00:01Z", "role": "user", "kind": "main", "content": "refactor auth.oo"}
+{"ts": "2026-09-12T20:00:02Z", "role": "assistant", "content": "Reading auth.oo now."}
+{"ts": "2026-09-12T20:00:03Z", "role": "tool", "name": "read_file", "args": {"path": "auth.oo"}, "result": "..."}
+{"ts": "2026-09-12T20:00:04Z", "role": "assistant", "content": "Refactor complete."}
+```
+
+## plan.json shape
+
+```
+{
+  "steps": [
+    {"step": "read auth.oo", "status": "done"},
+    {"step": "extract session module", "status": "done"},
+    {"step": "update callers", "status": "pending"}
+  ]
+}
+```
+
+## goal.txt
+
+Plain text. The session's stated objective. /goal sets it; /goal shows it.

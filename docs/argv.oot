@@ -1,0 +1,39 @@
+# argv Contract
+
+File: docs/argv.oot
+
+The 10 startup flags accepted by `ooda-tui`. Flags set initial state;
+runtime control flows through slash commands and keybindings.
+
+## Flags
+
+| Flag | Arg | Effect |
+|------|-----|--------|
+| `--teamwork` | - | Start with teamwork (multi-agent) mode on |
+| `--yolo` | - | Start with yolo (auto-approve all tool calls) on |
+| `--cwd` | path | Run as if cwd were `<path>` |
+| `--no-color` | - | Disable ANSI codes (for `script` / CI capture) |
+| `--provider` | name | Override default provider for this run |
+| `--model` | name | Override default model for this run |
+| `--theme` | name | Override default theme for this run |
+| `--help`, `-h` | - | Print reference, exit 0 |
+| `--version`, `-v` | - | Print version, exit 0 |
+
+## Behavior
+
+- Flags are parsed left-to-right. Later flags override earlier ones.
+- Unknown flags: print error to stderr, exit 2.
+- Missing required arg (`--cwd PATH`, `--provider NAME`, etc.):
+  print error to stderr, exit 2.
+- Without `--help` or `--version`, the binary proceeds to TUI
+  dispatch. v0.1 prints a "ready" diagnostic and exits 0 (Phase 1
+  skeleton; Phase 9 will launch the real TUI session).
+
+## Exit codes
+
+| Code | Meaning |
+|------|---------|
+| 0 | success |
+| 1 | help/version read failure (rare) |
+| 2 | usage error (unknown flag, missing arg) |
+| 64 | OODACODEX missing or unreadable (fail-closed per §1.5) |

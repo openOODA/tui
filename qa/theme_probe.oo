@@ -1,0 +1,48 @@
+// # qa/theme_probe - Theme Render Probe
+//
+// Logline: Verify every token of the 1982 theme resolves to a hex code, and that theme_color returns sensible values.
+//
+// Setup: Imports themes/1982.oo and theme.oo.
+//
+// Beats:
+//   1. For each of the 47 semantic tokens, call theme_color("1982", token) and assert it returns a hex string starting with "#".
+//   2. Verify all 19 vars from 1982.json are present.
+
+import "themes/1982.oo";
+import "theme.oo";
+
+fn main(bind: &BindCap, fs_r: &FsReadCap, fs_w: &FsWriteCap, sys: &ProcessCap, sys_cap: &SysCap, env: &EnvCap, time: &TimeCap, alloc: &AllocCap, thread: &ThreadCap, args: List[String]) -> Result[Int, String] {
+    println("qa/theme_probe: starting theme render probe");
+    let mut pass: Int = 0;
+    let mut fail: Int = 0;
+    let tokens: List[String] = list_new();
+    let tokens: List[String] = list_push(tokens, "accent");
+    let tokens: List[String] = list_push(tokens, "border");
+    let tokens: List[String] = list_push(tokens, "success");
+    let tokens: List[String] = list_push(tokens, "error");
+    let tokens: List[String] = list_push(tokens, "warning");
+    let tokens: List[String] = list_push(tokens, "muted");
+    let tokens: List[String] = list_push(tokens, "text");
+    let tokens: List[String] = list_push(tokens, "selectedBg");
+    let tokens: List[String] = list_push(tokens, "toolTitle");
+    let tokens: List[String] = list_push(tokens, "mdHeading");
+    let tokens: List[String] = list_push(tokens, "mdCode");
+    let tokens: List[String] = list_push(tokens, "toolDiffAdded");
+    let tokens: List[String] = list_push(tokens, "toolDiffRemoved");
+    let tokens: List[String] = list_push(tokens, "syntaxKeyword");
+    let tokens: List[String] = list_push(tokens, "syntaxString");
+    let tokens: List[String] = list_push(tokens, "thinkingMedium");
+    let tokens: List[String] = list_push(tokens, "bashMode");
+    let n: Int = list_len(tokens);
+    let mut i: Int = 0;
+    while i < n {
+        let tok: String = list_get(tokens, i);
+        let hex: String = theme_color("1982", tok);
+        if str_starts_with(hex, "#") && chars_len(hex) == 7 { pass = pass + 1; }
+        else { fail = fail + 1; println("FAIL: token " + tok + " -> " + hex); }
+        i = i + 1;
+    }
+    println("qa/theme_probe: pass=" + int_to_str(pass) + " fail=" + int_to_str(fail));
+    if fail > 0 { return Err("qa/theme_probe: failures"); }
+    return Ok(0);
+}

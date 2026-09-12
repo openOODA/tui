@@ -1,0 +1,61 @@
+# Slash Commands
+
+File: docs/slash.oot
+
+Slash commands are entered in the TUI input box (start with `/`). Each
+is one word; arguments follow on the same line.
+
+## Reference
+
+| Slash | Args | Effect |
+|-------|------|--------|
+| `/login` | `[provider]` | Add provider. With name: prompt for key/URL. Without: list, ask which. |
+| `/logout` | `[provider]` | Remove provider. With name: confirm. Without: list, ask which. |
+| `/providers` | - | List configured providers + health. |
+| `/model` | `[provider:model]` | Switch active. Without: list all. |
+| `/plan` | `[text]` | Set/show LLM task plan. |
+| `/goal` | `[text]` | Set/show session goal. |
+| `/clear` | - | Clear conversation context. |
+| `/compact` | - | Force context compaction now (also auto-fires at threshold). |
+| `/resume` | `[id]` | Resume a session. With id: load. Without: list. |
+| `/rename` | `<name>` | Rename current session. |
+| `/settings` | - | View/edit config. |
+| `/status` | - | Full status dump. |
+| `/btw` | `<question>` | Side question; LLM answers briefly. |
+| `/team` | `<sub> [args]` | Teamwork control. Subs: agent-N, pin, auto, add, remove, stop, status. |
+| `/theme` | `[name]` | View/switch theme. |
+| `/help` | - | List slash commands. |
+| `/exit` | - | Leave TUI; saves session. |
+| `/quit` | - | Alias for `/exit`. |
+
+## Behavior
+
+- All slash commands are case-sensitive. `/Login` is not a command.
+- Whitespace separates the command from its args. `/plan   fix bug` is
+  the same as `/plan fix bug`.
+- Unknown slash: print "unknown command" and the help list, do not
+  advance state.
+- `/compact` is idempotent. Calling it twice in a row: second call is
+  a no-op.
+
+## Per-command output
+
+| Slash | Output |
+|-------|--------|
+| `/login` | "saved provider `<name>` to config" or prompt for key/URL |
+| `/logout` | "removed provider `<name>`" |
+| `/providers` | table: name, type, status (reachable / not), models count |
+| `/model` | "active: `<provider>/<model>`" or list table |
+| `/plan` | current plan JSON or "no plan set" |
+| `/goal` | current goal text or "no goal set" |
+| `/clear` | "context cleared; session preserved" |
+| `/compact` | "compacting… done" or "no-op (already compact)" |
+| `/resume` | session list or session resumed message |
+| `/rename` | "renamed to `<name>`" |
+| `/settings` | current config table |
+| `/status` | status dump |
+| `/btw` | brief LLM answer |
+| `/team` | per-sub action result |
+| `/theme` | current theme name or list |
+| `/help` | slash command table |
+| `/exit` / `/quit` | "session saved; exiting" |

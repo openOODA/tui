@@ -1,0 +1,64 @@
+// # compact.oo - Context Compaction
+//
+// Logline: When the conversation exceeds the configured threshold, summarize older turns into a single condensed block.
+//
+// Setup: Imports loop.oo for the LoopState type. Manual trigger via /compact; auto-trigger fires when token estimate exceeds threshold.
+//
+// Beats:
+//   1. Estimate token count: chars / 4 (rough heuristic).
+//   2. If over threshold, mark the oldest N turns as "compacted" and insert a summary turn.
+//   3. /compact is idempotent: second call in a row is a no-op.
+
+import "loop.oo";
+
+pub fn compact_estimate_tokens(state: LoopState) -> Int {
+    let mut total: Int = 0;
+    let n: Int = list_len(state.turns);
+    let mut i: Int = 0;
+    while i < n {
+        let t: LoopTurn = list_get(state.turns, i);
+        total = total + chars_len(t.content) / 4;
+        i = i + 1;
+    }
+    return total;
+}
+
+pub fn compact_should_run(state: LoopState, threshold: String, model_window: Int) -> Bool {
+    let t: Int = compact_estimate_tokens(state);
+    let ratio: Int = threshold_ratio(threshold);
+    return t * 100 > model_window * ratio;
+}
+
+fn threshold_ratio(t: String) -> Int {
+    if t == "0.5" { return 50; }
+    if t == "0.7" { return 70; }
+    if t == "0.85" { return 85; }
+    if t == "0" { return 999; }
+    return 70;
+}
+
+pub fn compact_run(state: LoopState, summary: String) -> LoopState {
+    let mut compacted: List[LoopTurn] = list_new();
+    let summary_turn: LoopTurn = LoopTurn { role: "system", content: "[compacted] " + summary, kind: "main", ts: now_seconds() };
+    compacted = list_push(compacted, summary_turn);
+    let n: Int = list_len(state.turns);
+    let keep_from: Int = n - 4;
+    let mut i: Int = 0;
+    while i < n {
+        if i >= keep_from { compacted = list_push(compacted, list_get(state.turns, i)); }
+        i = i + 1;
+    }
+    state.turns = compacted;
+    return state;
+}
+
+pub fn compact_idempotent(state: LoopState) -> Bool {
+    let n: Int = list_len(state.turns);
+    if n == 0 { return false; }
+    let first: LoopTurn = list_get(state.turns, 0);
+    return first.role == "system" && str_starts_with(first.content, "[compacted]");
+}
+
+fn now_seconds() -> Int {
+    return time_now();
+}

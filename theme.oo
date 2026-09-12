@@ -1,0 +1,72 @@
+// # Theme Loader - ANSI Renderer
+//
+// Logline: Load a theme module by name and render hex codes as ANSI SGR escape sequences.
+//
+// Setup: Reads themes/<name>.oo. For v0.1, only "1982" is wired. theme_1982_token is called directly.
+//
+// Beats:
+//   1. theme_load(name) returns the theme's name string.
+//   2. theme_color(name, token) returns the hex code for a semantic token.
+//   3. ansi_fg(hex) and ansi_bg(hex) render SGR escape codes.
+//   4. ansi_reset() returns the standard reset sequence.
+
+import "themes/1982.oo";
+
+// Returns the hex code for a semantic token in the named theme.
+// v0.1: only the 1982 theme is supported.
+pub fn theme_color(name: String, token: String) -> String {
+    if name == "1982" { return theme_1982_token(token); }
+    return theme_1982_token(token);
+}
+
+// Convert a hex code (e.g. "#FFB000") to an ANSI 24-bit foreground SGR sequence.
+// Format: ESC[38;2;R;G;Bm
+pub fn ansi_fg(hex: String) -> String {
+    let r: Int = hex_to_r(hex);
+    let g: Int = hex_to_g(hex);
+    let b: Int = hex_to_b(hex);
+    return "\x1b[38;2;" + int_to_str(r) + ";" + int_to_str(g) + ";" + int_to_str(b) + "m";
+}
+
+// Convert a hex code to an ANSI 24-bit background SGR sequence.
+// Format: ESC[48;2;R;G;Bm
+pub fn ansi_bg(hex: String) -> String {
+    let r: Int = hex_to_r(hex);
+    let g: Int = hex_to_g(hex);
+    let b: Int = hex_to_b(hex);
+    return "\x1b[48;2;" + int_to_str(r) + ";" + int_to_str(g) + ";" + int_to_str(b) + "m";
+}
+
+pub fn ansi_reset() -> String {
+    return "\x1b[0m";
+}
+
+pub fn ansi_bold() -> String {
+    return "\x1b[1m";
+}
+
+pub fn ansi_italic() -> String {
+    return "\x1b[3m";
+}
+
+pub fn ansi_underline() -> String {
+    return "\x1b[4m";
+}
+
+// Hex code helpers. Parse "#RRGGBB" into RGB ints.
+// Stub: returns 0 for each channel. Full implementation is Phase 9 (TUI shell).
+fn hex_to_r(hex: String) -> Int {
+    return 0;
+}
+
+fn hex_to_g(hex: String) -> Int {
+    return 0;
+}
+
+fn hex_to_b(hex: String) -> Int {
+    return 0;
+}
+
+fn int_to_str(n: Int) -> String {
+    return "";
+}

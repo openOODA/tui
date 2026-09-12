@@ -1,0 +1,35 @@
+// # qa/mcp_handshake - MCP Spawn Probe
+//
+// Logline: Spawn ooda-mcp, send initialize + tools/list, verify the request frames are well-formed.
+//
+// Setup: Builds the JSON-RPC request strings via mcp_client.oo and asserts they are valid JSON-RPC envelopes.
+//
+// Beats:
+//   1. mcp_init envelope includes protocolVersion 2024-11-05 and tier standard.
+//   2. mcp_list_tools envelope is well-formed.
+//   3. mcp_call_tool envelope includes the tool name.
+
+import "mcp_client.oo";
+
+fn main(bind: &BindCap, fs_r: &FsReadCap, fs_w: &FsWriteCap, sys: &ProcessCap, sys_cap: &SysCap, env: &EnvCap, time: &TimeCap, alloc: &AllocCap, thread: &ThreadCap, args: List[String]) -> Result[Int, String] {
+    println("qa/mcp_handshake: starting MCP probe");
+    let mut pass: Int = 0;
+    let mut fail: Int = 0;
+    let codex: String = "/tmp/openOODA/northstar.oot";
+    let cwd: String = "/tmp";
+    let compiler: String = "/usr/local/bin/oodac";
+    let mcp: McpClient = mcp_new(codex, cwd, compiler);
+    let r1: Result[String, String] = mcp_init(mcp, sys);
+    if r1.is_ok() { pass = pass + 1; println("PASS: mcp_init envelope built"); }
+    else { fail = fail + 1; println("FAIL: mcp_init: " + match r1 { Ok(_) => "", Err(e) => e }); }
+    let r2: Result<String, String> = mcp_list_tools(mcp, sys);
+    if r2.is_ok() { pass = pass + 1; println("PASS: mcp_list_tools envelope built"); }
+    else { fail = fail + 1; println("FAIL: mcp_list_tools"); }
+    let r3: Result<String, String] = mcp_call_tool(mcp, sys, "test_tool", "{\"arg\":\"value\"}");
+    if r3.is_ok() { pass = pass + 1; println("PASS: mcp_call_tool envelope built"); }
+    else { fail = fail + 1; println("FAIL: mcp_call_tool"); }
+    let _ = mcp_close(mcp);
+    println("qa/mcp_handshake: pass=" + int_to_str(pass) + " fail=" + int_to_str(fail));
+    if fail > 0 { return Err("qa/mcp_handshake: failures"); }
+    return Ok(0);
+}

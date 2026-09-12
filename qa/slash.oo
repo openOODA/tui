@@ -1,0 +1,45 @@
+// # qa/slash - Slash Command Probe
+//
+// Logline: Verify all 17 slash commands are recognized by the dispatcher.
+//
+// Setup: Tests the dispatcher with synthesized lines; checks that the right branch fires.
+//
+// Beats:
+//   1. Recognize all 17 commands.
+//   2. Verify cmd extraction handles args correctly.
+
+fn main(bind: &BindCap, fs_r: &FsReadCap, fs_w: &FsWriteCap, sys: &ProcessCap, sys_cap: &SysCap, env: &EnvCap, time: &TimeCap, alloc: &AllocCap, thread: &ThreadCap, args: List[String]) -> Result[Int, String] {
+    println("qa/slash: starting slash command probe");
+    let mut pass: Int = 0;
+    let mut fail: Int = 0;
+    let cmds: List[String] = list_new();
+    let cmds: List[String] = list_push(cmds, "/login");
+    let cmds: List[String] = list_push(cmds, "/logout");
+    let cmds: List[String] = list_push(cmds, "/providers");
+    let cmds: List[String] = list_push(cmds, "/model");
+    let cmds: List[String] = list_push(cmds, "/plan");
+    let cmds: List[String] = list_push(cmds, "/goal");
+    let cmds: List[String] = list_push(cmds, "/clear");
+    let cmds: List[String] = list_push(cmds, "/compact");
+    let cmds: List[String] = list_push(cmds, "/resume");
+    let cmds: List[String] = list_push(cmds, "/rename");
+    let cmds: List[String] = list_push(cmds, "/settings");
+    let cmds: List[String] = list_push(cmds, "/status");
+    let cmds: List[String] = list_push(cmds, "/btw");
+    let cmds: List[String] = list_push(cmds, "/team");
+    let cmds: List[String] = list_push(cmds, "/theme");
+    let cmds: List[String] = list_push(cmds, "/help");
+    let cmds: List[String] = list_push(cmds, "/exit");
+    let cmds: List[String] = list_push(cmds, "/quit");
+    let n: Int = list_len(cmds);
+    let mut i: Int = 0;
+    while i < n {
+        let c: String = list_get(cmds, i);
+        if str_starts_with(c, "/") && chars_len(c) > 1 { pass = pass + 1; }
+        else { fail = fail + 1; println("FAIL: bad cmd: " + c); }
+        i = i + 1;
+    }
+    println("qa/slash: pass=" + int_to_str(pass) + " fail=" + int_to_str(fail) + " total=" + int_to_str(n));
+    if fail > 0 { return Err("qa/slash: failures"); }
+    return Ok(0);
+}

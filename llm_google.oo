@@ -1,0 +1,58 @@
+// # llm_google.oo - Google Gemini Provider
+//
+// Logline: Calls Google Gemini's generateContent endpoint. API key passed as ?key= query param.
+//
+// Setup: Imports llm.oo for the LlmProvider type. Uses std/net/http_client.oo.
+//
+// Beats:
+//   1. Build URL: https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}.
+//   2. Build body: {contents: [{parts: [{text: prompt}]}]}.
+//   3. POST and parse, extract candidates[0].content.parts[0].text.
+
+import "std/net/http_client.oo";
+import "llm.oo";
+
+pub fn llm_google_complete(http: &TcpCap, p: LlmProvider, prompt: String) -> Result[String, String] {
+    let url: String = p.base_url + "?key=" + p.key;
+    let body: String = "{\"contents\":[{\"parts\":[{\"text\":\"" + escape(prompt) + "\"}]}]}";
+    let r: Result[String, String] = http_client_post(http, url, "application/json", body);
+    let raw: String = match r { Ok(s) => s, Err(e) => return Err("google post: " + e); };
+    return Ok(extract_text(raw));
+}
+
+fn escape(s: String) -> String {
+    let mut out: String = "";
+    let n: Int = chars_len(s);
+    let mut i: Int = 0;
+    while i < n {
+        let c: String = str_slice(s, i, i + 1);
+        if c == "\"" { out = out + "\\\""; }
+        else if c == "\\" { out = out + "\\\\"; }
+        else if c == "\n" { out = out + "\\n"; }
+        else { out = out + c; }
+        i = i + 1;
+    }
+    return out;
+}
+
+fn extract_text(raw: String) -> String {
+    let n: Int = chars_len(raw);
+    let mut i: Int = 0;
+    let mut out: String = "";
+    let mut in_text: Bool = false;
+    let mut depth: Int = 0;
+    while i < n {
+        if !in_text && str_slice(raw, i, i + 7) == "\"text\":\"" {
+            in_text = true;
+            i = i + 7;
+        } else if in_text {
+            let c: String = str_slice(raw, i, i + 1);
+            if c == "\"" { in_text = false; }
+            else { out = out + c; }
+            i = i + 1;
+        } else {
+            i = i + 1;
+        }
+    }
+    return out;
+}

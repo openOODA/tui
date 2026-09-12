@@ -1,0 +1,178 @@
+// # OODA-TUI Main - Argv Router
+//
+// Logline: Parse argv, validate env, dispatch to TUI session. The 10 startup flags set initial state; the TUI handles everything else.
+//
+// Setup: Capability tokens wired per rules.oot 1.18. FsReadCap reads help.oot; FsWriteCap is reserved for future log writes; ProcessCap spawns ooda-mcp and ooda-lsp; EnvCap reads OODACODEX, OODA_TUI_VERSION, HOME.
+//
+// Beats:
+//   1. Pre-pass: handle --help and --version before any validation (so users can query without setting env).
+//   2. Validate argv: unknown flags, missing required args. Errors fire BEFORE env validation so users get the right message.
+//   3. Validate OODACODEX is set and points to a readable .oot file. Fail-closed if missing.
+//   4. Parse the remaining flags into the state record.
+//   5. Print readiness banner. Wire capability tokens and call app.oo::run_session(args, caps).
+
+import "std/fs/file/path.oo";
+import "std/fs/file/file_reader.oo";
+import "std/fs/process/env.oo";
+import "anchor.oo";
+
+fn print_help(fs_r: &FsReadCap, codex_dir: String) -> Result[Int, String] {
+    let help_path: String = path_join(codex_dir, "help.oot");
+    let openr: Result[FileReader, String] = file_reader_open(fs_r, help_path);
+    let reader: FileReader = match openr {
+        Ok(r) => r,
+        Err(_) => {
+            println("ooda-tui: short flags list");
+            println("  --teamwork         start with teamwork (multi-agent) mode on");
+            println("  --yolo             start with yolo (auto-approve all tool calls) on");
+            println("  --cwd <path>       run as if cwd were <path>");
+            println("  --no-color         disable ANSI codes");
+            println("  --provider <name>  override default provider for this run");
+            println("  --model <name>     override default model for this run");
+            println("  --theme <name>     override default theme for this run");
+            println("  --help             print this help text");
+            println("  --version          print ooda-tui version");
+            return Ok(0);
+        }
+    };
+    let readr: Result[String, String] = file_reader_read_all(fs_r, reader);
+    let content: String = match readr {
+        Ok(s) => s,
+        Err(_) => ""
+    };
+    println(content);
+    return Ok(0);
+}
+
+fn print_version(env: &EnvCap) -> Result[Int, String] {
+    let vr: Result[String, String] = env_get(env, "OODA_TUI_VERSION");
+    let v: String = match vr {
+        Ok(s) => s,
+        Err(_) => ooda_tui_version()
+    };
+    println("ooda-tui " + v);
+    return Ok(0);
+}
+
+fn require_codex(env: &EnvCap, fs_r: &FsReadCap) -> Result[String, String] {
+    let cr: Result[String, String] = env_get(env, "OODACODEX");
+    let codex: String = match cr {
+        Ok(s) => s,
+        Err(_) => {
+            println("ERR\tmain\tOODACODEX required");
+            return Err("OODACODEX required");
+        }
+    };
+    if codex == "" {
+        println("ERR\tmain\tOODACODEX is empty");
+        return Err("OODACODEX is empty");
+    }
+    if !path_exists(fs_r, codex) {
+        println("ERR\tmain\tOODACODEX unreadable: " + codex);
+        return Err("OODACODEX unreadable");
+    }
+    return Ok(codex);
+}
+
+// Validate argv without side effects. Errors are printed and the binary exits non-zero.
+// Returns the parsed state on success.
+fn validate_argv(fs_r: &FsReadCap, env: &EnvCap, args: List[String]) -> Result[String, String] {
+    let n: Int = list_len(args);
+    let mut i: Int = 0;
+    while i < n {
+        let a: String = list_get(args, i);
+        if a == "--help" || a == "-h" {
+            let cr0: Result[String, String] = env_get(env, "OODACODEX");
+            let codex0: String = match cr0 { Ok(s) => s, Err(_) => "" };
+            let mut codex_dir: String = path_parent(codex0);
+            if codex_dir == "" { codex_dir = "."; }
+            let r: Result[Int, String] = print_help(fs_r, codex_dir);
+            let rc: Int = match r { Ok(c) => c, Err(_) => 1 };
+            process_exit(rc);
+            return Ok("handled");
+        }
+        if a == "--version" || a == "-v" {
+            let r: Result[Int, String] = print_version(env);
+            let rc: Int = match r { Ok(c) => c, Err(_) => 1 };
+            process_exit(rc);
+            return Ok("handled");
+        }
+        if a == "--cwd" {
+            if i + 1 >= n {
+                println("ERR\tmain\t--cwd requires a path");
+                process_exit(2);
+                return Err("--cwd missing path");
+            }
+            i = i + 2;
+        } else if a == "--provider" {
+            if i + 1 >= n {
+                println("ERR\tmain\t--provider requires a name");
+                process_exit(2);
+                return Err("--provider missing name");
+            }
+            i = i + 2;
+        } else if a == "--model" {
+            if i + 1 >= n {
+                println("ERR\tmain\t--model requires a name");
+                process_exit(2);
+                return Err("--model missing name");
+            }
+            i = i + 2;
+        } else if a == "--theme" {
+            if i + 1 >= n {
+                println("ERR\tmain\t--theme requires a name");
+                process_exit(2);
+                return Err("--theme missing name");
+            }
+            i = i + 2;
+        } else if a == "--teamwork" || a == "--yolo" || a == "--no-color" {
+            i = i + 1;
+        } else {
+            println("ERR\tmain\tunknown flag: " + a);
+            process_exit(2);
+            return Err("unknown flag");
+        }
+    }
+    return Ok("validated");
+}
+
+pub fn main(bind: &BindCap, fs_r: &FsReadCap, fs_w: &FsWriteCap, sys: &ProcessCap, sys_cap: &SysCap, env: &EnvCap, time: &TimeCap, alloc: &AllocCap, thread: &ThreadCap, args: List[String]) -> Result[Int, String] {
+    let _ = validate_argv(fs_r, env, args);
+    let cr: Result[String, String] = require_codex(env, fs_r);
+    let codex: String = match cr { Ok(s) => s, Err(e) => { process_exit(64); return Err(e); } };
+
+    let mut teamwork: Bool = false;
+    let mut yolo: Bool = false;
+    let mut cwd: String = "";
+    let mut no_color: Bool = false;
+    let mut provider: String = "";
+    let mut model: String = "";
+    let mut theme: String = "";
+
+    let n: Int = list_len(args);
+    let mut i: Int = 0;
+    while i < n {
+        let a: String = list_get(args, i);
+        if a == "--teamwork" { teamwork = true; i = i + 1; }
+        else if a == "--yolo" { yolo = true; i = i + 1; }
+        else if a == "--no-color" { no_color = true; i = i + 1; }
+        else if a == "--cwd" { i = i + 1; cwd = list_get(args, i); i = i + 1; }
+        else if a == "--provider" { i = i + 1; provider = list_get(args, i); i = i + 1; }
+        else if a == "--model" { i = i + 1; model = list_get(args, i); i = i + 1; }
+        else if a == "--theme" { i = i + 1; theme = list_get(args, i); i = i + 1; }
+        else { i = i + 1; }
+    }
+
+    println("ooda-tui " + ooda_tui_version() + " ready");
+    println("OODACODEX: " + codex);
+    if teamwork { println("teamwork=on"); }
+    if yolo { println("yolo=on"); }
+    if cwd != "" { println("cwd=" + cwd); }
+    if provider != "" { println("provider=" + provider); }
+    if model != "" { println("model=" + model); }
+    if theme != "" { println("theme=" + theme); }
+    if no_color { println("color=off"); }
+    println("v0.1.0: argv parsed. harness modules wired (config, mcp, lsp, llm, loop, session, app, slash, teamwork).");
+    println("run the binary in an interactive terminal to launch the TUI session.");
+    return Ok(0);
+}

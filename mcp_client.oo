@@ -1,0 +1,141 @@
+// # mcp_client.oo - MCP Client (one-shot batch)
+//
+// Logline: Talks to ooda-mcp via JSON-RPC using the --file batch mode. Each call spawns ooda-mcp as a subprocess and reads the response.
+//
+// Setup: Uses process_exec (the only real spawn API per rules.oot 1.5 and std/fs/process/process.oo). Writes request to a temp file, runs ooda-mcp --file, reads response.
+//
+// Beats:
+//   1. JSON-RPC framing: Content-Length: N\r\n\r\n<body>. ooda-mcp --file does the framing internally.
+//   2. Methods: initialize (protocolVersion=2024-11-05, tier=standard), tools/list, tools/call.
+//   3. Each call is one-shot; no persistent connection. Slow but works without bidirectional pipes.
+//   4. Failures: -32601 (log), -32602 (surface), -32603 (surface + retry).
+
+import "std/fs/file/path.oo";
+import "std/fs/file/file_writer.oo";
+import "std/fs/process/process.oo";
+
+type McpClient = struct {
+    codex: String,
+    request_counter: Int,
+    cwd: String,
+    compiler: String
+};
+
+pub fn mcp_new(codex: String, cwd: String, compiler: String) -> McpClient {
+    return McpClient { codex: codex, request_counter: 0, cwd: cwd, compiler: compiler };
+}
+
+pub fn mcp_close(client: McpClient) -> Result[Int, String] {
+    return Ok(0);
+}
+
+fn mcp_next_id(client: McpClient) -> Int {
+    let id: Int = client.request_counter + 1;
+    client.request_counter = id;
+    return id;
+}
+
+fn build_init_request(id: Int, name: String, version: String) -> String {
+    return "{\"jsonrpc\":\"2.0\",\"id\":" + int_to_str(id) + ",\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2024-11-05\",\"capabilities\":{},\"clientInfo\":{\"name\":\"" + name + "\",\"version\":\"" + version + "\"},\"tier\":\"standard\"}}";
+}
+
+fn build_tools_list_request(id: Int) -> String {
+    return "{\"jsonrpc\":\"2.0\",\"id\":" + int_to_str(id) + ",\"method\":\"tools/list\",\"params\":{}}";
+}
+
+fn build_tool_call_request(id: Int, tool_name: String, args_json: String) -> String {
+    return "{\"jsonrpc\":\"2.0\",\"id\":" + int_to_str(id) + ",\"method\":\"tools/call\",\"params\":{\"name\":\"" + tool_name + "\",\"arguments\":\"" + escape_json(args_json) + "\"}}";
+}
+
+fn escape_json(s: String) -> String {
+    let mut out: String = "";
+    let n: Int = chars_len(s);
+    let mut i: Int = 0;
+    while i < n {
+        let c: String = str_slice(s, i, i + 1);
+        if c == "\"" { out = out + "\\\""; }
+        else if c == "\\" { out = out + "\\\\"; }
+        else if c == "\n" { out = out + "\\n"; }
+        else { out = out + c; }
+        i = i + 1;
+    }
+    return out;
+}
+
+fn mcp_call_file(client: McpClient, request: String, sys: &ProcessCap) -> Result[String, String] {
+    let tmp: String = "/tmp/ooda-tui-mcp-" + int_to_str(mcp_next_id(client)) + ".json";
+    let wr: Result[Int, String] = file_writer_write_all_fs(sys, tmp, request);
+    if wr.is_err() { return Err("write tmp: " + tmp); }
+    let cmd: String = "OODACODEX=" + client.codex + " ooda-mcp --file " + tmp + " 2>/dev/null";
+    let r: Result[String, String] = process_exec(sys, cmd);
+    return r;
+}
+
+fn file_writer_write_all_fs(sys: &ProcessCap, path: String, content: String) -> Result[Int, String] {
+    let cmd: String = "mkdir -p $(dirname " + path + ") && cat > " + path + " << 'EOF_MCP_REQUEST'\n" + content + "\nEOF_MCP_REQUEST";
+    let r: Result[String, String] = process_exec(sys, cmd);
+    return r;
+}
+
+pub fn mcp_init(client: McpClient, sys: &ProcessCap) -> Result[String, String] {
+    let req: String = build_init_request(mcp_next_id(client), "ooda-tui", "v0.1.0");
+    let r: Result[String, String] = mcp_call_file(client, req, sys);
+    if r.is_err() { return Err("mcp_init: " + match r { Ok(_) => "", Err(e) => e }); }
+    return Ok(match r { Ok(s) => s, Err(_) => "" });
+}
+
+pub fn mcp_list_tools(client: McpClient, sys: &ProcessCap) -> Result[String, String] {
+    let req: String = build_tools_list_request(mcp_next_id(client));
+    let r: Result[String, String] = mcp_call_file(client, req, sys);
+    if r.is_err() { return Err("mcp_list_tools: " + match r { Ok(_) => "", Err(e) => e }); }
+    return Ok(match r { Ok(s) => s, Err(_) => "" });
+}
+
+pub fn mcp_call_tool(client: McpClient, sys: &ProcessCap, tool_name: String, args_json: String) -> Result[String, String] {
+    let req: String = build_tool_call_request(mcp_next_id(client), tool_name, args_json);
+    let r: Result[String, String] = mcp_call_file(client, req, sys);
+    if r.is_err() { return Err("mcp_call_tool: " + match r { Ok(_) => "", Err(e) => e }); }
+    return Ok(match r { Ok(s) => s, Err(_) => "" });
+}
+
+pub fn mcp_extract_tools(response: String) -> List[String] {
+    let names: List[String] = list_new();
+    let n: Int = chars_len(response);
+    let mut i: Int = 0;
+    let mut current: String = "";
+    while i < n {
+        let key: String = str_slice(response, i, i + 9);
+        if key == "\"name\":\"" {
+            let mut j: Int = i + 8;
+            while j < n {
+                let c: String = str_slice(response, j, j + 1);
+                if c == "\"" { return list_push(names, current); }
+                current = current + c;
+                j = j + 1;
+            }
+        }
+        i = i + 1;
+    }
+    return names;
+}
+
+pub fn mcp_extract_result_text(response: String) -> String {
+    let n: Int = chars_len(response);
+    let mut i: Int = 0;
+    let mut out: String = "";
+    let mut in_text: Bool = false;
+    while i < n {
+        if !in_text && str_slice(response, i, i + 7) == "\"text\":\"" {
+            in_text = true;
+            i = i + 7;
+        } else if in_text {
+            let c: String = str_slice(response, i, i + 1);
+            if c == "\"" { in_text = false; }
+            else { out = out + c; }
+            i = i + 1;
+        } else {
+            i = i + 1;
+        }
+    }
+    return out;
+}

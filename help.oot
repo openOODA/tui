@@ -1,0 +1,68 @@
+# OODA-TUI - Help
+
+File: help.oot
+
+The `ooda-tui` binary is a generic coding harness with openOODA-aware
+defaults. It opens a TUI when invoked with no arguments. All control
+flows through startup flags, runtime slash commands, and keybindings.
+
+## Usage
+
+```
+ooda-tui [--teamwork] [--yolo] [--cwd PATH]
+         [--provider NAME] [--model NAME] [--theme NAME]
+         [--no-color] [--help] [--version]
+```
+
+## Flags
+
+| Flag | Effect |
+|------|--------|
+| `--teamwork` | Start with teamwork (multi-agent) mode on |
+| `--yolo` | Start with yolo (auto-approve all tool calls) on |
+| `--cwd PATH` | Run as if cwd were PATH |
+| `--no-color` | Disable ANSI codes |
+| `--provider NAME` | Override default provider for this run |
+| `--model NAME` | Override default model for this run |
+| `--theme NAME` | Override default theme for this run |
+| `--help` | Print this help text |
+| `--version` | Print ooda-tui version |
+
+## Slash commands (inside the TUI)
+
+`/login [provider]`, `/logout [provider]`, `/providers`,
+`/model [provider:model]`, `/plan [text]`, `/goal [text]`,
+`/clear`, `/compact`, `/resume [id]`, `/rename <name>`,
+`/settings`, `/status`, `/btw <question>`,
+`/team <sub> [args]`, `/theme [name]`, `/help`,
+`/exit`, `/quit`.
+
+## Keybindings
+
+| Key | Action |
+|-----|--------|
+| Ctrl+T | Toggle teamwork mode |
+| Ctrl+Y | Toggle yolo mode |
+| Ctrl+C | Cancel current tool call (or exit if idle) |
+| Ctrl+D | Exit TUI (saves session first) |
+| Ctrl+L | Clear screen, redraw |
+| Ctrl+R | Reverse search history |
+
+## Environment
+
+| Variable | Required | Purpose |
+|----------|----------|---------|
+| `OODACODEX` | yes | Path to a `.oot` file (e.g. `northstar.oot`) |
+| `OODA_COMPILER` | optional | Path to `oodac` (for diagnostics) |
+| `OODA_FS_READDIR` | optional | Landlock read scope (forwarded to ooda-mcp) |
+| `OODA_FS_WRITEDIR` | optional | Landlock write scope (forwarded to ooda-mcp) |
+| `OODA_TUI_VERSION` | optional | Override version string |
+
+## Examples
+
+```
+ooda-tui
+ooda-tui --teamwork
+ooda-tui --provider anthropic --model claude-sonnet-4.5
+ooda-tui --cwd ~/Projects/myapp --yolo
+```

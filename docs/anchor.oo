@@ -1,0 +1,15 @@
+// # docs - Anchor for Agents
+//
+// Logline: ASD-STE100 specifications for the ooda-tui TUI in .oot form.
+//
+// Setup: Pure structural file. .oot files contain markdown per rules.oot 1.14; they are documentation, not code, so they are NOT imported.
+//
+// Beats:
+//   1. argv.oot documents the 10 startup flags.
+//   2. slash.oot documents the 17 runtime slash commands.
+//   3. keys.oot documents the 6 keybindings.
+//   4. config_schema.oot documents the config.oot grammar.
+//   5. theme_schema.oot documents the theme module contract.
+//   6. mcp_contract.oot documents the MCP client wire format.
+
+// residual: .oot files in this directory are docs, not code. They are read at runtime by main.oo (help.oot) and config.oo (config_schema.oot for parsing user config).

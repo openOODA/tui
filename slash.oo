@@ -1,0 +1,174 @@
+// # slash.oo - Slash Command Dispatcher (split 1 of 2)
+//
+// Logline: Dispatches the first half of 17 slash commands. Slash commands 9-17 live in slash_extra.oo.
+//
+// Setup: Imports app.oo for AppState, config.oo for config mutations. The second half of the commands is in slash_extra.oo.
+//
+// Beats:
+//   1. /login, /logout, /providers, /model, /plan, /goal.
+//   2. /clear, /compact.
+//   3. Common helpers: extract_cmd, extract_args.
+
+import "app.oo";
+import "config.oo";
+import "slash_extra.oo";
+
+pub fn slash_run(state: AppState, line: String) -> AppState {
+    let cmd: String = extract_cmd(line);
+    let args: String = extract_args(line, cmd);
+    if cmd == "/login" { return cmd_login(state, args); }
+    if cmd == "/logout" { return cmd_logout(state, args); }
+    if cmd == "/providers" { return cmd_providers(state); }
+    if cmd == "/model" { return cmd_model(state, args); }
+    if cmd == "/plan" { return cmd_plan(state, args); }
+    if cmd == "/goal" { return cmd_goal(state, args); }
+    if cmd == "/clear" { return cmd_clear(state); }
+    if cmd == "/compact" { return cmd_compact(state); }
+    if cmd == "/resume" { return slash_extra_resume(state, args); }
+    if cmd == "/rename" { return slash_extra_rename(state, args); }
+    if cmd == "/settings" { return slash_extra_settings(state); }
+    if cmd == "/status" { return slash_extra_status(state); }
+    if cmd == "/btw" { return slash_extra_btw(state, args); }
+    if cmd == "/team" { return slash_extra_team(state, args); }
+    if cmd == "/theme" { return slash_extra_theme(state, args); }
+    if cmd == "/help" { return slash_extra_help(state); }
+    if cmd == "/exit" { return slash_extra_exit(state); }
+    if cmd == "/quit" { return slash_extra_exit(state); }
+    return slash_extra_unknown(state, cmd);
+}
+
+fn extract_cmd(line: String) -> String {
+    let n: Int = chars_len(line);
+    let mut i: Int = 0;
+    let mut out: String = "";
+    while i < n {
+        let c: String = str_slice(line, i, i + 1);
+        if c == " " || c == "\t" { return out; }
+        out = out + c;
+        i = i + 1;
+    }
+    return out;
+}
+
+fn extract_args(line: String, cmd: String) -> String {
+    let n: Int = chars_len(line);
+    let mut i: Int = chars_len(cmd);
+    while i < n {
+        let c: String = str_slice(line, i, i + 1);
+        if c != " " && c != "\t" { return str_trim(str_slice(line, i, n)); }
+        i = i + 1;
+    }
+    return "";
+}
+
+fn cmd_login(state: AppState, args: String) -> AppState {
+    if args == "" {
+        println("login: specify a provider. configured: " + provider_names(state.cfg));
+        return state;
+    }
+    let name: String = str_trim(args);
+    if config_has_provider(state.cfg, name) {
+        println("login: provider " + name + " already configured");
+        return state;
+    }
+    state.cfg = config_add_provider(state.cfg, name, "cloud", "", "", list_new());
+    println("login: added provider " + name + " (set key/url with /settings)");
+    return state;
+}
+
+fn cmd_logout(state: AppState, args: String) -> AppState {
+    if args == "" {
+        println("logout: specify a provider");
+        return state;
+    }
+    state.cfg = config_remove_provider(state.cfg, str_trim(args));
+    println("logout: removed " + str_trim(args));
+    return state;
+}
+
+fn provider_names(cfg: Config) -> String {
+    let mut out: String = "";
+    let n: Int = list_len(cfg.providers);
+    let mut i: Int = 0;
+    while i < n {
+        let p: Provider = list_get(cfg.providers, i);
+        if i > 0 { out = out + ", "; }
+        out = out + p.name;
+        i = i + 1;
+    }
+    return out;
+}
+
+fn cmd_providers(state: AppState) -> AppState {
+    let n: Int = list_len(state.cfg.providers);
+    let mut i: Int = 0;
+    println("providers: " + int_to_str(n) + " configured");
+    while i < n {
+        let p: Provider = list_get(state.cfg.providers, i);
+        println("  " + p.name + " (" + p.ptype + ") models=" + int_to_str(list_len(p.models)));
+        i = i + 1;
+    }
+    return state;
+}
+
+fn cmd_model(state: AppState, args: String) -> AppState {
+    if args == "" {
+        println("model: current " + state.provider_name + "/" + state.model_name);
+        return state;
+    }
+    let colon: Int = str_index_of(args, ":");
+    if colon < 0 {
+        state.provider_name = str_trim(args);
+        println("model: switched provider to " + state.provider_name);
+        return state;
+    }
+    state.provider_name = str_trim(str_slice(args, 0, colon));
+    state.model_name = str_trim(str_slice(args, colon + 1, chars_len(args)));
+    println("model: switched to " + state.provider_name + "/" + state.model_name);
+    return state;
+}
+
+fn cmd_plan(state: AppState, args: String) -> AppState {
+    if args == "" {
+        println("plan: " + state.loop_state.plan);
+        return state;
+    }
+    state.loop_state.plan = plan_set(state.loop_state.plan, args);
+    println("plan: set");
+    return state;
+}
+
+fn cmd_goal(state: AppState, args: String) -> AppState {
+    if args == "" {
+        println("goal: " + state.loop_state.goal);
+        return state;
+    }
+    state.loop_state.goal = goal_set(state.loop_state.goal, args);
+    println("goal: set");
+    return state;
+}
+
+fn cmd_clear(state: AppState) -> AppState {
+    let plan_save: String = state.loop_state.plan;
+    let goal_save: String = state.loop_state.goal;
+    state.loop_state = loop_state_new();
+    state.loop_state.plan = plan_save;
+    state.loop_state.goal = goal_save;
+    println("clear: context cleared, session preserved");
+    return state;
+}
+
+fn cmd_compact(state: AppState) -> AppState {
+    if compact_idempotent(state.loop_state) {
+        println("compact: no-op (already compacted)");
+        return state;
+    }
+    state.loop_state = compact_run(state.loop_state, "[summary placeholder]");
+    println("compact: done");
+    return state;
+}
+
+fn bool_str(b: Bool) -> String {
+    if b { return "on"; }
+    return "off";
+}

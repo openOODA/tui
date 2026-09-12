@@ -1,0 +1,39 @@
+// # qa/teamwork - Teamwork Multi-Agent Probe
+//
+// Logline: Build a TeamState with 4 agents, verify the dashboard renders, and the proof aggregator produces valid JSON.
+//
+// Setup: Uses teamwork.oo.
+//
+// Beats:
+//   1. team_assign adds 4 agents.
+//   2. team_render produces a non-empty dashboard string.
+//   3. team_aggregate_proof produces a JSON envelope with all 4 agents.
+
+import "teamwork.oo";
+
+fn main(bind: &BindCap, fs_r: &FsReadCap, fs_w: &FsWriteCap, sys: &ProcessCap, sys_cap: &SysCap, env: &EnvCap, time: &TimeCap, alloc: &AllocCap, thread: &ThreadCap, args: List[String]) -> Result[Int, String] {
+    println("qa/teamwork: starting teamwork probe");
+    let mut pass: Int = 0;
+    let mut fail: Int = 0;
+    let mut ts: TeamState = team_new();
+    ts = team_assign(ts, 1, "anthropic", "claude-sonnet-4.5", "task A");
+    ts = team_assign(ts, 2, "ollama-1", "llama3", "task B");
+    ts = team_assign(ts, 3, "ollama-2", "qwen", "task C");
+    ts = team_assign(ts, 4, "ollama-4", "codestral", "task D");
+    if team_count(ts) == 4 { pass = pass + 1; println("PASS: 4 agents"); }
+    else { fail = fail + 1; println("FAIL: count=" + int_to_str(team_count(ts))); }
+    ts = team_set_state(ts, 1, "running");
+    ts = team_set_progress(ts, 1, 60);
+    ts = team_set_state(ts, 2, "done");
+    ts = team_set_progress(ts, 2, 100);
+    ts = team_set_proof(ts, 2, "proof for task B");
+    let dash: String = team_render(ts);
+    if chars_len(dash) > 50 && str_contains(dash, "agent-1") && str_contains(dash, "anthropic") { pass = pass + 1; println("PASS: dashboard renders"); }
+    else { fail = fail + 1; println("FAIL: dashboard " + dash); }
+    ts = team_aggregate_proof(ts);
+    if str_starts_with(ts.aggregated_proof, "{\"agents\":[") && str_contains(ts.aggregated_proof, "task B") { pass = pass + 1; println("PASS: aggregated proof"); }
+    else { fail = fail + 1; println("FAIL: aggregated proof " + ts.aggregated_proof); }
+    println("qa/teamwork: pass=" + int_to_str(pass) + " fail=" + int_to_str(fail));
+    if fail > 0 { return Err("qa/teamwork: failures"); }
+    return Ok(0);
+}

@@ -1,0 +1,18 @@
+// # btw.oo - Side-Question Channel
+//
+// Logline: Tags a message as a side question that the LLM answers briefly without advancing the main task plan.
+//
+// Setup: Returns the prompt with a [side-question] system prefix so the LLM treats it as a side-channel ask.
+//
+// Beats:
+//   1. The harness tags the prompt with marker [side-question].
+//   2. The LLM system prompt instructs: answer briefly, do not change the main task plan.
+//   3. The answer is returned to the user inline.
+
+pub fn btw_wrap(question: String) -> String {
+    return "[side-question] Answer briefly (1-3 sentences). Do not change the main task plan. Question: " + question;
+}
+
+pub fn btw_is_side(content: String) -> Bool {
+    return str_starts_with(content, "[side-question]");
+}

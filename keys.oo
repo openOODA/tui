@@ -1,0 +1,43 @@
+// # keys.oo - Keybinding Map
+//
+// Logline: Maps key events (Ctrl+T, Ctrl+Y, Ctrl+C, Ctrl+D, Ctrl+L, Ctrl+R) to action names. The TUI shell consumes these.
+//
+// Setup: Pure data module. Action names are strings ("toggle_teamwork", "toggle_yolo", "cancel", "exit_save", "clear_screen", "history_search").
+//
+// Beats:
+//   1. key_action(name) -> String: returns the action name for a key event.
+//   2. Reserved keys (future): Ctrl+P (palette), Ctrl+S (settings).
+
+pub fn key_ctrl_t() -> String {
+    return "toggle_teamwork";
+}
+
+pub fn key_ctrl_y() -> String {
+    return "toggle_yolo";
+}
+
+pub fn key_ctrl_c() -> String {
+    return "cancel";
+}
+
+pub fn key_ctrl_d() -> String {
+    return "exit_save";
+}
+
+pub fn key_ctrl_l() -> String {
+    return "clear_screen";
+}
+
+pub fn key_ctrl_r() -> String {
+    return "history_search";
+}
+
+pub fn key_action(name: String) -> String {
+    if name == "ctrl_t" { return key_ctrl_t(); }
+    if name == "ctrl_y" { return key_ctrl_y(); }
+    if name == "ctrl_c" { return key_ctrl_c(); }
+    if name == "ctrl_d" { return key_ctrl_d(); }
+    if name == "ctrl_l" { return key_ctrl_l(); }
+    if name == "ctrl_r" { return key_ctrl_r(); }
+    return "";
+}

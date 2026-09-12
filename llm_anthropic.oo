@@ -1,0 +1,64 @@
+// # llm_anthropic.oo - Anthropic Claude Provider
+//
+// Logline: Calls the Anthropic Messages API. POST to https://api.anthropic.com/v1/messages with x-api-key and anthropic-version headers.
+//
+// Setup: Imports llm.oo for the LlmProvider type. Uses std/net/http_client.oo.
+//
+// Beats:
+//   1. Build request body: {model, max_tokens=4096, messages=[{role:user, content:prompt}]}.
+//   2. Headers: x-api-key, anthropic-version: 2023-06-01, content-type: application/json.
+//   3. POST and parse the response, extract content[0].text.
+
+import "std/net/http_client.oo";
+import "llm.oo";
+
+pub fn llm_anthropic_complete(http: &TcpCap, p: LlmProvider, prompt: String) -> Result[String, String] {
+    let body: String = "{\"model\":\"" + p.model + "\",\"max_tokens\":4096,\"messages\":[{\"role\":\"user\",\"content\":\"" + escape(prompt) + "\"}]}";
+    let headers: List[String] = list_new();
+    headers = list_push(headers, "x-api-key: " + p.key);
+    headers = list_push(headers, "anthropic-version: 2023-06-01");
+    headers = list_push(headers, "content-type: application/json");
+    let r: Result[String, String] = http_client_post_headers(http, p.base_url, headers, body);
+    let raw: String = match r { Ok(s) => s, Err(e) => return Err("anthropic post: " + e); };
+    return Ok(extract_text(raw));
+}
+
+fn http_client_post_headers(http: &TcpCap, url: String, headers: List[String], body: String) -> Result[String, String] {
+    return http_post_with_headers(http, url, "application/json", body, headers);
+}
+
+fn escape(s: String) -> String {
+    let mut out: String = "";
+    let n: Int = chars_len(s);
+    let mut i: Int = 0;
+    while i < n {
+        let c: String = str_slice(s, i, i + 1);
+        if c == "\"" { out = out + "\\\""; }
+        else if c == "\\" { out = out + "\\\\"; }
+        else if c == "\n" { out = out + "\\n"; }
+        else { out = out + c; }
+        i = i + 1;
+    }
+    return out;
+}
+
+fn extract_text(raw: String) -> String {
+    let n: Int = chars_len(raw);
+    let mut i: Int = 0;
+    let mut out: String = "";
+    let mut in_text: Bool = false;
+    while i < n {
+        if !in_text && str_slice(raw, i, i + 9) == "\"text\":\"" {
+            in_text = true;
+            i = i + 9;
+        } else if in_text {
+            let c: String = str_slice(raw, i, i + 1);
+            if c == "\"" { in_text = false; }
+            else { out = out + c; }
+            i = i + 1;
+        } else {
+            i = i + 1;
+        }
+    }
+    return out;
+}

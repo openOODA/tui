@@ -1,0 +1,12 @@
+// # themes - Anchor for Agents
+//
+// Logline: Theme registry for the ooda-tui TUI. Each theme is a .oo source module that exports a Theme value.
+//
+// Setup: Pure structural file. The default theme 1982.oo ships in v0.1; others can be added later.
+//
+// Beats:
+//   1. 1982.oo is the default CRT amber/phosphor theme (sourced from the user's pi theme, hand-transcribed).
+//   2. Future themes live alongside 1982.oo and follow the same contract.
+//   3. The theme loader in theme.oo reads from this directory by name.
+
+// residual: theme files are imported by theme.oo at runtime (via the loader), not by anchor.oo (which would create an unused-import warning).

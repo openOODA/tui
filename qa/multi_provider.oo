@@ -1,0 +1,40 @@
+// # qa/multi_provider - Multi-Provider Health Check
+//
+// Logline: Build a Config with N providers, verify the count and per-provider fields.
+//
+// Setup: Uses config.oo.
+//
+// Beats:
+//   1. config_add_provider adds N providers.
+//   2. config_provider_count returns N.
+//   3. config_provider_by_name finds each one.
+//   4. config_remove_provider removes correctly.
+
+import "config.oo";
+
+fn main(bind: &BindCap, fs_r: &FsReadCap, fs_w: &FsWriteCap, sys: &ProcessCap, sys_cap: &SysCap, env: &EnvCap, time: &TimeCap, alloc: &AllocCap, thread: &ThreadCap, args: List[String]) -> Result[Int, String] {
+    println("qa/multi_provider: starting multi-provider probe");
+    let mut pass: Int = 0;
+    let mut fail: Int = 0;
+    let mut cfg: Config = config_default();
+    let models_a: List[String] = list_new();
+    let models_a: List[String] = list_push(models_a, "claude-sonnet-4.5");
+    cfg = config_add_provider(cfg, "anthropic", "cloud", "sk-test", "", models_a);
+    let models_o: List[String] = list_new();
+    let models_o: List[String] = list_push(models_o, "gpt-5");
+    cfg = config_add_provider(cfg, "openai", "cloud", "sk-test", "", models_o);
+    let models_ol: List[String] = list_new();
+    let models_ol: List[String] = list_push(models_ol, "llama3");
+    cfg = config_add_provider(cfg, "ollama-1", "local", "", "http://localhost:11434", models_ol);
+    if config_provider_count(cfg) == 3 { pass = pass + 1; println("PASS: count=3"); }
+    else { fail = fail + 1; println("FAIL: count=" + int_to_str(config_provider_count(cfg))); }
+    if config_has_provider(cfg, "anthropic") && config_has_provider(cfg, "openai") && config_has_provider(cfg, "ollama-1") { pass = pass + 1; println("PASS: all providers found"); }
+    else { fail = fail + 1; println("FAIL: missing provider"); }
+    let _ = config_provider_by_name(cfg, "anthropic");
+    cfg = config_remove_provider(cfg, "openai");
+    if config_provider_count(cfg) == 2 { pass = pass + 1; println("PASS: remove reduces count to 2"); }
+    else { fail = fail + 1; println("FAIL: count after remove=" + int_to_str(config_provider_count(cfg))); }
+    println("qa/multi_provider: pass=" + int_to_str(pass) + " fail=" + int_to_str(fail));
+    if fail > 0 { return Err("qa/multi_provider: failures"); }
+    return Ok(0);
+}
