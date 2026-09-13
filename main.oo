@@ -16,7 +16,7 @@ import "std/fs/file/path.oo";
 import "std/fs/file/file_reader.oo";
 import "std/fs/process/env.oo";
 import "token/cmd_token.oo";
-import "anchor.oo";
+import "repl.oo";
 
 fn run_token_one_shot(fs_r: &FsReadCap, sys: &ProcessCap, env: &EnvCap, time: &TimeCap, fs_w: &FsWriteCap, args: List[String]) -> Int {
     let mut rest: List[String] = list_new();
@@ -77,20 +77,14 @@ fn print_version(env: &EnvCap) -> Result[Int, String] {
 
 fn require_codex(env: &EnvCap, fs_r: &FsReadCap) -> Result[String, String] {
     let cr: Result[String, String] = env_get(env, "OODACODEX");
-    let codex: String = match cr {
-        Ok(s) => s,
-        Err(_) => {
-            println("ERR\tmain\tOODACODEX required");
-            return Err("OODACODEX required");
-        }
-    };
+    let mut codex: String = match cr { Ok(s) => s, Err(_) => "" };
     if codex == "" {
-        println("ERR\tmain\tOODACODEX is empty");
-        return Err("OODACODEX is empty");
-    }
-    if !path_exists(fs_r, codex) {
-        println("ERR\tmain\tOODACODEX unreadable: " + codex);
-        return Err("OODACODEX unreadable");
+        let hr: Result[String, String] = env_get(env, "HOME");
+        let home: String = match hr { Ok(s) => s, Err(_) => "" };
+        if home != "" {
+            let p: String = home + "/.openooda/northstar.oot";
+            if path_exists(fs_r, p) { codex = p; }
+        }
     }
     return Ok(codex);
 }
@@ -160,9 +154,9 @@ fn validate_argv(fs_r: &FsReadCap, env: &EnvCap, args: List[String]) -> Result[S
 }
 
 pub fn main(bind: &BindCap, fs_r: &FsReadCap, fs_w: &FsWriteCap, sys: &ProcessCap, sys_cap: &SysCap, env: &EnvCap, time: &TimeCap, alloc: &AllocCap, thread: &ThreadCap, args: List[String]) -> Result[Int, String] {
-    let _ = validate_argv(fs_r, env, args);
+    let _argv: Result[String, String] = validate_argv(fs_r, env, args);
     let cr: Result[String, String] = require_codex(env, fs_r);
-    let codex: String = match cr { Ok(s) => s, Err(e) => { process_exit(64); return Err(e); } };
+    let _codex: String = match cr { Ok(s) => s, Err(_) => "" };
 
     let mut teamwork: Bool = false;
     let mut yolo: Bool = false;
@@ -186,16 +180,10 @@ pub fn main(bind: &BindCap, fs_r: &FsReadCap, fs_w: &FsWriteCap, sys: &ProcessCa
         else { i = i + 1; }
     }
 
-    println("ooda-tui " + ooda_tui_version() + " ready");
-    println("OODACODEX: " + codex);
-    if teamwork { println("teamwork=on"); }
-    if yolo { println("yolo=on"); }
-    if cwd != "" { println("cwd=" + cwd); }
-    if provider != "" { println("provider=" + provider); }
-    if model != "" { println("model=" + model); }
-    if theme != "" { println("theme=" + theme); }
-    if no_color { println("color=off"); }
-    println("v0.1.0: argv parsed. harness modules wired (config, mcp, lsp, llm, loop, session, app, slash, teamwork).");
-    println("run the binary in an interactive terminal to launch the TUI session.");
+    let _rc: Int = run_tui_session(fs_r, env, teamwork, yolo, cwd, provider, model, theme);
     return Ok(0);
+}
+
+fn ooda_tui_version() -> String {
+    return "v0.1.0";
 }

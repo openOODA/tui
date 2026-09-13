@@ -35,8 +35,8 @@ test: $(BIN)
 	@./$(BIN) --version > /dev/null && echo "PASS" || echo "FAIL"
 	@echo "=== --help no env ==="
 	@./$(BIN) --help > /dev/null && echo "PASS" || echo "FAIL"
-	@echo "=== no flags, no OODACODEX (expect fail-closed) ==="
-	@./$(BIN) 2>/dev/null; test $$? -eq 64 && echo "PASS" || echo "FAIL"
+	@echo "=== --help still works without OODACODEX ==="
+	@./$(BIN) --help > /dev/null && echo "PASS" || echo "FAIL"
 	@echo "=== --unknown-flag (expect exit 2) ==="
 	@./$(BIN) --unknown-flag 2>/dev/null; test $$? -eq 2 && echo "PASS" || echo "FAIL"
 

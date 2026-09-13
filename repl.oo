@@ -1,0 +1,77 @@
+// # Line-based TUI session
+//
+// Logline: Sit at a prompt without OODACODEX. /login is how you attach an
+//   LLM. /exit leaves. Full slash/LLM loop is a later wire-up.
+//
+// Setup: FsReadCap for stdin. No app.oo import (that graph cycles).
+//
+// Beats:
+//   1. Banner and /login hint.
+//   2. Read lines via oo_read_stdin_chunk.
+//   3. /exit and /quit stop; /help lists commands.
+
+import "std/fs/process/env.oo";
+
+fn take_line(buf: String) -> List[String] {
+    let n: Int = chars_len(buf);
+    let mut i: Int = 0;
+    while i < n {
+        if char_at(buf, i) == "\n" {
+            let mut o: List[String] = list_new();
+            o = list_push(o, str_slice(buf, 0, i));
+            o = list_push(o, str_slice(buf, i + 1, n));
+            return o;
+        }
+        i = i + 1;
+    }
+    return list_new();
+}
+
+fn repl_help() {
+    println("  /login [provider]   connect an LLM (keys in ~/.config/ooda-tui/)");
+    println("  /help               this list");
+    println("  /exit  /quit        leave");
+}
+
+pub fn run_tui_session(fs_r: &FsReadCap, env: &EnvCap, teamwork: Bool, yolo: Bool, cwd0: String, provider: String, model: String, theme: String) -> Int {
+    let mut cwd: String = cwd0;
+    if cwd == "" {
+        let pr: Result[String, String] = env_get(env, "PWD");
+        cwd = match pr { Ok(s) => s, Err(_) => "." };
+    }
+    let mut th: String = theme;
+    if th == "" { th = "1982"; }
+    println("");
+    println("ooda-tui  theme " + th);
+    println("cwd " + cwd);
+    if provider != "" { println("provider " + provider); }
+    if model != "" { println("model " + model); }
+    if teamwork { println("teamwork on"); }
+    if yolo { println("yolo on"); }
+    println("Connect an LLM with /login.  /help  /exit");
+    let mut buf: String = "";
+    let mut live: Bool = true;
+    while live {
+        println(">");
+        let cr: Result[String, String] = oo_read_stdin_chunk(fs_r, 60000);
+        if cr.is_err() { live = false; }
+        else {
+            let chunk: String = match cr { Ok(s) => s, Err(_) => "" };
+            if chunk != "" { buf = buf + chunk; }
+            let parts: List[String] = take_line(buf);
+            if list_len(parts) == 2 {
+                let t: String = str_trim(list_get(parts, 0));
+                buf = list_get(parts, 1);
+                if t == "/exit" || t == "/quit" { live = false; }
+                else if t == "/help" { repl_help(); }
+                else if str_starts_with(t, "/login") {
+                    println("Put provider keys in ~/.config/ooda-tui/config.oot (mode 0600).");
+                    println("Chat loop is next; this prompt is the session.");
+                } else if chars_len(t) > 0 {
+                    println("(no LLM connected yet — /login)");
+                }
+            }
+        }
+    }
+    return 0;
+}

@@ -13,7 +13,6 @@
 
 import "llm.oo";
 import "mcp_client.oo";
-import "compact.oo";
 
 type LoopTurn = struct {
     role: String,

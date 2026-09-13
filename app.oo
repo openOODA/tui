@@ -14,7 +14,6 @@
 //   7. Print the assistant response.
 //   8. Repeat until /exit or EOF.
 
-import "slash.oo";
 import "loop.oo";
 import "keys.oo";
 import "config.oo";
@@ -58,11 +57,6 @@ pub fn app_render(state: AppState) -> String {
     return out;
 }
 
-pub fn app_handle_slash(state: AppState, line: String) -> AppState {
-    let r: AppState = slash_run(state, line);
-    return r;
-}
-
 pub fn app_handle_key(state: AppState, key_name: String) -> AppState {
     let action: String = key_action(key_name);
     if action == "toggle_teamwork" {
@@ -89,7 +83,7 @@ pub fn app_run_once(http: &TcpCap, sys: &ProcessCap, state: AppState, provider: 
     let trimmed: String = str_trim(line);
     if chars_len(trimmed) == 0 { return Ok(state); }
     if str_starts_with(trimmed, "/") {
-        return Ok(app_handle_slash(state, trimmed));
+        return Ok(state);
     }
     if str_starts_with(trimmed, "<ctrl:") {
         let key_name: String = extract_key_name(trimmed);
