@@ -100,7 +100,7 @@ ooda build main.oo -o dist/ooda-tui
 | [openOODA/catalog](https://github.com/openOODA/catalog) | Public package catalog |
 | [openOODA/lsp](https://github.com/openOODA/lsp) | Language server |
 | [openOODA/mcp](https://github.com/openOODA/mcp) | MCP server |
-| [openOODA/blackbox](https://github.com/openOODA/blackbox) | Flight recorder and crash autopsy |
+| [openOODA/bb](https://github.com/openOODA/bb) | Flight recorder and crash autopsy |
 | [openOODA/website](https://github.com/openOODA/website) | Website source |
 | [openOODA/ooda-tui](https://github.com/openOODA/ooda-tui) | This repo |
 

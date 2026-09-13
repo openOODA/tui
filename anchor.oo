@@ -2,19 +2,21 @@
 //
 // Logline: Front door for the openOODA/tui/ harness repo. Imports all child anchors; code modules live at the repo root.
 //
-// Setup: Pure structural file. api_surface=1 (single root-level code surface).
+// Setup: Pure structural file. api_surface=2 (root + token subdir).
 //
 // Beats:
 //   1. The 17 in-process .oo modules at the repo root (main.oo, app.oo, mcp_client.oo, lsp_client.oo, llm.oo, llm_anthropic.oo, llm_openai.oo, llm_ollama.oo, llm_google.oo, llm_custom.oo, loop.oo, teamwork.oo, slash.oo, slash_extra.oo, config.oo, session.oo, compact.oo, plan.oo, theme.oo, btw.oo, keys.oo).
-//   2. themes/ holds the default theme (1982.oo) and any future themes.
-//   3. qa/ has the hostile probes and double-run tests.
-//   4. docs/ has the ASD-STE100 specs in .oot form.
-//   5. audit/ has the historical audits (v0.1 ships with the anchor only).
-//   6. examples/ has sample configs and session layouts.
-//   7. .github/workflows/ci.yml is the build, test, verify, release entry point per rules.oot 1.15 and 1.24.
-//   8. No VERSION file (rules.oot 1.24). Version comes from git tags via auto-release.
-//   9. Layer 3 (Operational Logistics) per rules.oot 1.23. Depends on Layer 2 only.
+//   2. token/ holds the 13 cmd_*.oo files moved from ooda/token/ per rules.oot 1.14 split (Phase 5).
+//   3. themes/ holds the default theme (1982.oo) and any future themes.
+//   4. qa/ has the hostile probes and double-run tests.
+//   5. docs/ has the ASD-STE100 specs in .oot form.
+//   6. audit/ has the historical audits (v0.1 ships with the anchor only).
+//   7. examples/ has sample configs and session layouts.
+//   8. .github/workflows/ci.yml is the build, test, verify, release entry point per rules.oot 1.15 and 1.24.
+//   9. No VERSION file (rules.oot 1.24). Version comes from git tags via auto-release.
+//   10. Layer 3 (Operational Logistics) per rules.oot 1.23. Depends on Layer 2 only.
 
+import "token/anchor.oo";
 import "themes/anchor.oo";
 import "docs/anchor.oo";
 import "qa/anchor.oo";

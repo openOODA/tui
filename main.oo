@@ -1,20 +1,41 @@
 // # OODA-TUI Main - Argv Router
 //
-// Logline: Parse argv, validate env, dispatch to TUI session. The 10 startup flags set initial state; the TUI handles everything else.
+// Logline: Parse argv, validate env, dispatch to TUI session or to a one-shot --token subcommand. The 10 startup flags set initial state; the TUI handles everything else.
 //
 // Setup: Capability tokens wired per rules.oot 1.18. FsReadCap reads help.oot; FsWriteCap is reserved for future log writes; ProcessCap spawns ooda-mcp and ooda-lsp; EnvCap reads OODACODEX, OODA_TUI_VERSION, HOME.
 //
 // Beats:
 //   1. Pre-pass: handle --help and --version before any validation (so users can query without setting env).
 //   2. Validate argv: unknown flags, missing required args. Errors fire BEFORE env validation so users get the right message.
-//   3. Validate OODACODEX is set and points to a readable .oot file. Fail-closed if missing.
-//   4. Parse the remaining flags into the state record.
-//   5. Print readiness banner. Wire capability tokens and call app.oo::run_session(args, caps).
+//   3. --token <sub> dispatches to tui/token/cmd_token.oo and exits; skips OODACODEX validation.
+//   4. Validate OODACODEX is set and points to a readable .oot file. Fail-closed if missing.
+//   5. Parse the remaining flags into the state record.
+//   6. Print readiness banner. Wire capability tokens and call app.oo::run_session(args, caps).
 
 import "std/fs/file/path.oo";
 import "std/fs/file/file_reader.oo";
 import "std/fs/process/env.oo";
+import "token/cmd_token.oo";
 import "anchor.oo";
+
+fn run_token_one_shot(fs_r: &FsReadCap, sys: &ProcessCap, env: &EnvCap, time: &TimeCap, fs_w: &FsWriteCap, args: List[String]) -> Int {
+    let mut rest: List[String] = list_new();
+    let mut i: Int = 0;
+    while i < list_len(args) {
+        let a: String = list_get(args, i);
+        if a == "--token" {
+            i = i + 1;
+            while i < list_len(args) {
+                rest = list_push(rest, list_get(args, i));
+                i = i + 1;
+            }
+            break;
+        }
+        i = i + 1;
+    }
+    run_ooda_token(fs_r, sys, time, fs_w, rest);
+    return 0;
+}
 
 fn print_help(fs_r: &FsReadCap, codex_dir: String) -> Result[Int, String] {
     let help_path: String = path_join(codex_dir, "help.oot");
@@ -127,6 +148,8 @@ fn validate_argv(fs_r: &FsReadCap, env: &EnvCap, args: List[String]) -> Result[S
             i = i + 2;
         } else if a == "--teamwork" || a == "--yolo" || a == "--no-color" {
             i = i + 1;
+        } else if a == "--token" {
+            i = i + 2;
         } else {
             println("ERR\tmain\tunknown flag: " + a);
             process_exit(2);
