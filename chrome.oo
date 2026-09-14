@@ -1,0 +1,48 @@
+// # chrome.oo - Line-Mode Frame Renderer
+//
+// Logline: Compose the per-turn render frame: clear-screen ANSI + header + pane + popover + input + status bar.
+//
+// Setup: Pure renderer. Returns a single String ready to be written to stdout. Uses header.oo / pane.oo / popover.oo / input.oo / statusbar.oo. ANSI clear is ESC[2J ESC[H; cursor home.
+//
+// Beats:
+//   1. chrome_render(theme, pane, popover_buf, popover_idx, input_buf, status, cols, rows) returns the full frame.
+//   2. The status bar is always at the bottom; the pane fills the middle; the popover (if any) sits above the input; the input is above the status bar.
+
+import "header.oo";
+import "pane.oo";
+import "input.oo";
+import "popover.oo";
+import "statusbar.oo";
+import "theme.oo";
+
+pub fn chrome_render(theme: String, pane: Pane, popover_buf: String, popover_idx: Int, input_buf: String, teamwork: Bool, yolo: Bool, thinking: String, version: String, cols: Int, rows: Int) -> String {
+    let mut s: String = "\x1b[2J\x1b[H";
+    s = s + header_render(theme, "", "", "", cols);
+    s = s + pane_render(theme, pane, cols);
+    if popover_buf != "" {
+        s = s + popover_render(theme, popover_buf, popover_idx, cols);
+    }
+    s = s + input_render(theme, input_buf, cols);
+    s = s + statusbar_render(theme, teamwork, yolo, thinking, version, cols);
+    return s;
+}
+
+pub fn chrome_clear_only() -> String {
+    return "\x1b[2J\x1b[H";
+}
+
+pub fn chrome_default_cols() -> Int {
+    return 80;
+}
+
+pub fn chrome_default_rows() -> Int {
+    return 24;
+}
+
+pub fn chrome_term_cols() -> Int {
+    return 80;
+}
+
+pub fn chrome_term_rows() -> Int {
+    return 24;
+}

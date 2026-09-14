@@ -1,0 +1,53 @@
+// # statusbar.oo - Bottom-of-Screen Status Line
+//
+// Logline: Render the single-line status bar at the bottom of the line-mode chrome.
+//
+// Setup: One line. Left = mode chips (teamwork, yolo, thinking). Middle = theme. Right = version. Tokens: dim, muted, accent, error, success.
+//
+// Beats:
+//   1. statusbar_render(theme, teamwork, yolo, thinking, version, cols) returns the SGR-styled single line.
+//   2. Status bar is padded to `cols` characters.
+//   3. Empty mode chips are skipped.
+
+import "theme.oo";
+
+pub fn statusbar_render(theme: String, teamwork: Bool, yolo: Bool, thinking: String, version: String, cols: Int) -> String {
+    let dim: String = theme_color(theme, "dim");
+    let muted: String = theme_color(theme, "muted");
+    let accent: String = theme_color(theme, "accent");
+    let error: String = theme_color(theme, "error");
+    let success: String = theme_color(theme, "success");
+
+    let mut s: String = "";
+    if teamwork {
+        s = s + ansi_fg(accent) + " teamwork " + ansi_reset();
+    }
+    if yolo {
+        s = s + ansi_fg(error) + " yolo " + ansi_reset();
+    }
+    if thinking != "" && thinking != "off" {
+        s = s + ansi_fg(success) + " think:" + thinking + " " + ansi_reset();
+    }
+    let mut used: Int = chars_len(s);
+    let mid_pad: Int = 2;
+    let mut k1: Int = 0;
+    while k1 < mid_pad { s = s + " "; k1 = k1 + 1; }
+    used = used + mid_pad;
+    s = s + ansi_fg(muted) + "theme=" + theme + ansi_reset();
+    used = used + chars_len(theme) + 7;
+    let right_pad: Int = 2;
+    let mut remaining: Int = cols - used - right_pad;
+    if version != "" { remaining = remaining - chars_len(version); }
+    if remaining < 1 { remaining = 1; }
+    let mut k2: Int = 0;
+    while k2 < remaining { s = s + " "; k2 = k2 + 1; }
+    if version != "" {
+        s = s + ansi_fg(dim) + version + ansi_reset();
+    }
+    s = s + "\n";
+    return s;
+}
+
+pub fn statusbar_height() -> Int {
+    return 1;
+}

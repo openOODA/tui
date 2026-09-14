@@ -1,0 +1,66 @@
+// # diff.oo - Unified Diff Renderer
+//
+// Logline: Render a unified diff string as SGR-styled lines, with hunk headers, line numbers, and +/- coloring.
+//
+// Setup: Pure renderer. diff_render emits the full diff. diff_line_render renders a single +/- / context / hunk line.
+//
+// Beats:
+//   1. diff_render(theme, body) returns SGR-styled multi-line string.
+//   2. diff_line_render(theme, line) returns SGR for a single line; used by tool_card.oo too.
+
+import "theme.oo";
+
+pub fn diff_render(theme: String, body: String) -> String {
+    let mut out: String = "";
+    let lines: List[String] = str_split_lines(body);
+    let n: Int = list_len(lines);
+    let mut i: Int = 0;
+    let mut line_no: Int = 0;
+    while i < n {
+        let line: String = list_get(lines, i);
+        if str_starts_with(line, "@@") {
+            out = out + ansi_fg(theme_color(theme, "borderAccent")) + line + ansi_reset() + "\n";
+        } else {
+            out = out + diff_line_render(theme, line) + "\n";
+        }
+        i = i + 1;
+    }
+    return out;
+}
+
+pub fn diff_line_render(theme: String, line: String) -> String {
+    if line == "" { return ""; }
+    let first: String = char_at(line, 0);
+    if first == "+" {
+        let rest: String = str_slice(line, 1, chars_len(line));
+        return ansi_fg(theme_color(theme, "toolDiffAdded")) + "+" + ansi_reset() + ansi_fg(theme_color(theme, "text")) + rest + ansi_reset();
+    }
+    if first == "-" {
+        let rest: String = str_slice(line, 1, chars_len(line));
+        return ansi_fg(theme_color(theme, "toolDiffRemoved")) + "-" + ansi_reset() + ansi_fg(theme_color(theme, "text")) + rest + ansi_reset();
+    }
+    if first == " " {
+        let rest: String = str_slice(line, 1, chars_len(line));
+        return ansi_fg(theme_color(theme, "toolDiffContext")) + " " + ansi_reset() + ansi_fg(theme_color(theme, "muted")) + rest + ansi_reset();
+    }
+    return ansi_fg(theme_color(theme, "text")) + line + ansi_reset();
+}
+
+fn str_split_lines(s: String) -> List[String] {
+    let mut out: List[String] = list_new();
+    let mut cur: String = "";
+    let len: Int = chars_len(s);
+    let mut i: Int = 0;
+    while i < len {
+        let c: String = char_at(s, i);
+        if c == "\n" {
+            out = list_push(out, cur);
+            cur = "";
+        } else {
+            cur = cur + c;
+        }
+        i = i + 1;
+    }
+    if cur != "" || len == 0 { out = list_push(out, cur); }
+    return out;
+}

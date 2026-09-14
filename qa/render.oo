@@ -1,0 +1,104 @@
+// # qa/render.oo - Theme Render Probe
+//
+// Logline: Build a pane with one styled line per token of theme_schema.oot and assert each line carries SGR (non-empty ANSI prefix).
+//
+// Setup: Pure QA. Runs in-process; no FsReadCap needed for the theme map (the token list is a local String literal).
+//
+// Beats:
+//   1. For each of the 47 tokens, call theme_color("minimax", token) and theme_color("1982", token).
+//   2. Assert the returned string contains "\x1b[" (a SGR prefix).
+//   3. Print pass/fail count.
+
+import "theme.oo";
+
+pub fn qa_render_run() -> Int {
+    let tokens: String = "accent\1border\1borderAccent\1borderMuted\1success\1error\1warning\1muted\1dim\1text\1thinkingText\1selectedBg\1scrollbarTrack\1scrollbarThumb\1userMessageBg\1userMessageText\1customMessageBg\1customMessageText\1customMessageLabel\1toolPendingBg\1toolSuccessBg\1toolErrorBg\1toolTitle\1toolOutput\1mdHeading\1mdLink\1mdLinkUrl\1mdCode\1mdCodeBlock\1mdCodeBlockBorder\1mdListBullet\1toolDiffAdded\1toolDiffRemoved\1toolDiffContext\1syntaxComment\1syntaxKeyword\1syntaxFunction\1syntaxVariable\1syntaxString\1syntaxNumber\1syntaxType\1syntaxOperator\1syntaxPunctuation\1thinkingOff\1thinkingMinimal\1thinkingLow\1thinkingMedium\1thinkingHigh\1thinkingXhigh\1thinkingMax\1bashMode";
+    let n: Int = count_tokens(tokens);
+    let mut pass: Int = 0;
+    let mut fail: Int = 0;
+    let mut i: Int = 0;
+    while i < n {
+        let tok: String = get_token(tokens, i);
+        let s_minimax: String = theme_color("minimax", tok);
+        let s_1982: String = theme_color("1982", tok);
+        let ok_minimax: Bool = starts_with(s_minimax, "\x1b[");
+        let ok_1982: Bool = starts_with(s_1982, "\x1b[");
+        if ok_minimax && ok_1982 { pass = pass + 1; }
+        else {
+            fail = fail + 1;
+            println("FAIL: token=" + tok + " minimax_ok=" + bool_str(ok_minimax) + " 1982_ok=" + bool_str(ok_1982));
+        }
+        i = i + 1;
+    }
+    println("qa/render: pass=" + int_to_str(pass) + " fail=" + int_to_str(fail) + " total=" + int_to_str(n));
+    if fail > 0 { return 1; }
+    return 0;
+}
+
+fn starts_with(s: String, prefix: String) -> Bool {
+    let sn: Int = chars_len(s);
+    let pn: Int = chars_len(prefix);
+    if pn > sn { return false; }
+    let mut i: Int = 0;
+    while i < pn {
+        if char_at(s, i) != char_at(prefix, i) { return false; }
+        i = i + 1;
+    }
+    return true;
+}
+
+fn bool_str(b: Bool) -> String {
+    if b { return "true"; }
+    return "false";
+}
+
+fn int_to_str(n: Int) -> String {
+    if n < 0 { return "0"; }
+    if n == 0 { return "0"; }
+    let digits: String = "0123456789";
+    let mut v: Int = n;
+    let mut rev: String = "";
+    while v > 0 {
+        let d: Int = v - (v / 10) * 10;
+        rev = rev + char_at(digits, d);
+        v = v / 10;
+    }
+    let mut out: String = "";
+    let mut k: Int = chars_len(rev) - 1;
+    while k >= 0 {
+        out = out + char_at(rev, k);
+        k = k - 1;
+    }
+    return out;
+}
+
+fn count_tokens(s: String) -> Int {
+    if s == "" { return 0; }
+    let mut n: Int = 1;
+    let len: Int = chars_len(s);
+    let mut i: Int = 0;
+    while i < len {
+        if char_at(s, i) == "\1" { n = n + 1; }
+        i = i + 1;
+    }
+    return n;
+}
+
+fn get_token(s: String, idx: Int) -> String {
+    let len: Int = chars_len(s);
+    let mut cur: Int = 0;
+    let mut out: String = "";
+    let mut i: Int = 0;
+    while i < len {
+        if char_at(s, i) == "\1" {
+            if cur == idx { return out; }
+            cur = cur + 1;
+            out = "";
+        } else {
+            out = out + char_at(s, i);
+        }
+        i = i + 1;
+    }
+    if cur == idx { return out; }
+    return "";
+}

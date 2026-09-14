@@ -185,5 +185,5 @@ pub fn main(bind: &BindCap, fs_r: &FsReadCap, fs_w: &FsWriteCap, sys: &ProcessCa
 }
 
 fn ooda_tui_version() -> String {
-    return "v0.1.0";
+    return "v0.1.1";
 }

@@ -1,37 +1,22 @@
-// # Line-based TUI session
+// # Line-based TUI session (v0.1.1 chrome)
 //
-// Logline: Sit at a prompt without OODACODEX. /login is how you attach an
-//   LLM. /exit leaves. Full slash/LLM loop is a later wire-up.
+// Logline: Sit at a prompt, render the line-mode chrome (header + pane + input + status bar) each turn. Slash commands are handled inline (/help, /theme, /login, /exit).
 //
-// Setup: FsReadCap for stdin. No app.oo import (that graph cycles).
+// Setup: FsReadCap for stdin, EnvCap for OODACODEX. Uses chrome.oo to compose the frame; pane.oo to keep the scrollback.
 //
 // Beats:
-//   1. Banner and /login hint.
-//   2. Read lines via oo_read_stdin_chunk.
-//   3. /exit and /quit stop; /help lists commands.
+//   1. Render the chrome once on entry; clear-screen, header, pane, input, status bar.
+//   2. Loop: oo_read_stdin_chunk each turn.
+//   3. Inline slash dispatcher (just the v0.1.1 commands).
+//   4. Otherwise append to the pane and re-render.
+//   5. /exit or EOF closes.
 
 import "std/fs/process/env.oo";
-
-fn take_line(buf: String) -> List[String] {
-    let n: Int = chars_len(buf);
-    let mut i: Int = 0;
-    while i < n {
-        if char_at(buf, i) == "\n" {
-            let mut o: List[String] = list_new();
-            o = list_push(o, str_slice(buf, 0, i));
-            o = list_push(o, str_slice(buf, i + 1, n));
-            return o;
-        }
-        i = i + 1;
-    }
-    return list_new();
-}
-
-fn repl_help() {
-    println("  /login [provider]   connect an LLM (keys in ~/.config/ooda-tui/)");
-    println("  /help               this list");
-    println("  /exit  /quit        leave");
-}
+import "chrome.oo";
+import "pane.oo";
+import "popover.oo";
+import "theme.oo";
+import "keys.oo";
 
 pub fn run_tui_session(fs_r: &FsReadCap, env: &EnvCap, teamwork: Bool, yolo: Bool, cwd0: String, provider: String, model: String, theme: String) -> Int {
     let mut cwd: String = cwd0;
@@ -41,35 +26,58 @@ pub fn run_tui_session(fs_r: &FsReadCap, env: &EnvCap, teamwork: Bool, yolo: Boo
     }
     let mut th: String = theme;
     if th == "" { th = "1982"; }
-    println("");
-    println("ooda-tui  theme " + th);
-    println("cwd " + cwd);
-    if provider != "" { println("provider " + provider); }
-    if model != "" { println("model " + model); }
-    if teamwork { println("teamwork on"); }
-    if yolo { println("yolo on"); }
-    println("Connect an LLM with /login.  /help  /exit");
-    let mut buf: String = "";
+    if th != "1982" && th != "minimax" { th = "1982"; }
+
+    let mut pane: Pane = pane_new();
+    pane = pane_append(pane, ansi_fg(theme_color(th, "borderAccent")) + "ooda-tui v0.1.1" + ansi_reset());
+    pane = pane_append(pane, "  theme " + th);
+    pane = pane_append(pane, "  cwd " + cwd);
+    if provider != "" { pane = pane_append(pane, "  provider " + provider); }
+    if model != "" { pane = pane_append(pane, "  model " + model); }
+    if teamwork { pane = pane_append(pane, "  teamwork on"); }
+    if yolo { pane = pane_append(pane, "  yolo on"); }
+    pane = pane_append(pane, "  type /help for commands; /exit to leave");
+
     let mut live: Bool = true;
+    let cols: Int = chrome_term_cols();
     while live {
-        println(">");
+        let frame: String = chrome_render(th, pane, "", 0, "", teamwork, yolo, "off", "v0.1.1", cols, 24);
+        oo_print_str(frame);
+
         let cr: Result[String, String] = oo_read_stdin_chunk(fs_r, 60000);
-        if cr.is_err() { live = false; }
-        else {
-            let chunk: String = match cr { Ok(s) => s, Err(_) => "" };
-            if chunk != "" { buf = buf + chunk; }
-            let parts: List[String] = take_line(buf);
-            if list_len(parts) == 2 {
-                let t: String = str_trim(list_get(parts, 0));
-                buf = list_get(parts, 1);
-                if t == "/exit" || t == "/quit" { live = false; }
-                else if t == "/help" { repl_help(); }
-                else if str_starts_with(t, "/login") {
-                    println("Put provider keys in ~/.config/ooda-tui/config.oot (mode 0600).");
-                    println("Chat loop is next; this prompt is the session.");
-                } else if chars_len(t) > 0 {
-                    println("(no LLM connected yet — /login)");
+        let chunk: String = match cr { Ok(s) => s, Err(_) => "" };
+        if chunk == "" && cr.is_err() {
+            live = false;
+        } else {
+            let line: String = str_trim(chunk);
+            if line == "/exit" || line == "/quit" {
+                live = false;
+            } else if line == "/help" {
+                pane = pane_append(pane, ansi_fg(theme_color(th, "accent")) + "  /help               this list" + ansi_reset());
+                pane = pane_append(pane, "  /theme 1982|minimax switch theme");
+                pane = pane_append(pane, "  /login              connect an LLM");
+                pane = pane_append(pane, "  /model <name>       set model");
+                pane = pane_append(pane, "  /provider <name>    set provider");
+                pane = pane_append(pane, "  /cwd <path>         change cwd");
+                pane = pane_append(pane, "  /version            print version");
+                pane = pane_append(pane, "  /exit /quit         leave");
+            } else if str_starts_with(line, "/theme ") {
+                let new_th: String = str_trim(str_slice(line, 7, chars_len(line)));
+                if new_th == "1982" || new_th == "minimax" {
+                    th = new_th;
+                    pane = pane_append(pane, ansi_fg(theme_color(th, "success")) + "  theme switched to " + th + ansi_reset());
+                } else {
+                    pane = pane_append(pane, ansi_fg(theme_color(th, "error")) + "  unknown theme: " + new_th + ansi_reset());
+                    pane = pane_append(pane, "  available: 1982 minimax");
                 }
+            } else if line == "/version" {
+                pane = pane_append(pane, "  ooda-tui v0.1.1");
+            } else if str_starts_with(line, "/") {
+                pane = pane_append(pane, ansi_fg(theme_color(th, "muted")) + "  " + line + ansi_reset());
+                pane = pane_append(pane, "  (slash dispatch not yet wired in line mode; see docs/slash.oot)");
+            } else if line != "" {
+                pane = pane_append(pane, ansi_fg(theme_color(th, "muted")) + "> " + line + ansi_reset());
+                pane = pane_append(pane, "  (no LLM connected yet — /login)");
             }
         }
     }

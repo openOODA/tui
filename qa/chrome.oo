@@ -1,0 +1,77 @@
+// # qa/chrome.oo - Chrome Frame Probe
+//
+// Logline: Render the line-mode chrome at two sizes (80x24, 120x40), assert each frame is non-empty and contains the 4 required surface markers.
+//
+// Setup: In-process. Uses chrome.oo + header.oo + pane.oo + input.oo + statusbar.oo.
+//
+// Beats:
+//   1. Render at 80x24 and 120x40; both must be non-empty and contain "ooda-tui", the ">" prompt glyph, "theme=" status, and a leading clear-screen ESC[2J.
+//   2. Double-run: render twice, assert byte-equal.
+//   3. Print pass/fail.
+
+import "chrome.oo";
+import "pane.oo";
+import "theme.oo";
+
+pub fn qa_chrome_run() -> Int {
+    let mut pass: Int = 0;
+    let mut fail: Int = 0;
+    let p1: Pane = pane_new();
+    let p2: Pane = pane_append(pane_append(pane_new(), "alpha"), "beta");
+
+    let frame_80_24: String = chrome_render("1982", p1, "", 0, "", false, false, "off", "v0.1.1", 80, 24);
+    let frame_120_40: String = chrome_render("minimax", p2, "", 0, "", true, false, "medium", "v0.1.1", 120, 40);
+
+    if frame_80_24 != "" && contains(frame_80_24, "\x1b[2J") && contains(frame_80_24, "ooda-tui") && contains(frame_80_24, "> ") && contains(frame_80_24, "theme=") { pass = pass + 1; }
+    else { fail = fail + 1; println("FAIL: frame_80_24 missing required surface markers"); }
+
+    if frame_120_40 != "" && contains(frame_120_40, "\x1b[2J") && contains(frame_120_40, "ooda-tui") && contains(frame_120_40, "> ") && contains(frame_120_40, "theme=minimax") { pass = pass + 1; }
+    else { fail = fail + 1; println("FAIL: frame_120_40 missing required surface markers"); }
+
+    let frame_80_24_again: String = chrome_render("1982", p1, "", 0, "", false, false, "off", "v0.1.1", 80, 24);
+    if frame_80_24 == frame_80_24_again { pass = pass + 1; }
+    else { fail = fail + 1; println("FAIL: double-run not byte-equal"); }
+
+    println("qa/chrome: pass=" + int_to_str(pass) + " fail=" + int_to_str(fail));
+    if fail > 0 { return 1; }
+    return 0;
+}
+
+fn contains(hay: String, needle: String) -> Bool {
+    let hn: Int = chars_len(hay);
+    let nn: Int = chars_len(needle);
+    if nn == 0 { return true; }
+    if nn > hn { return false; }
+    let mut i: Int = 0;
+    while i + nn <= hn {
+        let mut ok: Bool = true;
+        let mut j: Int = 0;
+        while j < nn {
+            if char_at(hay, i + j) != char_at(needle, j) { ok = false; j = nn; }
+            j = j + 1;
+        }
+        if ok { return true; }
+        i = i + 1;
+    }
+    return false;
+}
+
+fn int_to_str(n: Int) -> String {
+    if n < 0 { return "0"; }
+    if n == 0 { return "0"; }
+    let digits: String = "0123456789";
+    let mut v: Int = n;
+    let mut rev: String = "";
+    while v > 0 {
+        let d: Int = v - (v / 10) * 10;
+        rev = rev + char_at(digits, d);
+        v = v / 10;
+    }
+    let mut out: String = "";
+    let mut k: Int = chars_len(rev) - 1;
+    while k >= 0 {
+        out = out + char_at(rev, k);
+        k = k - 1;
+    }
+    return out;
+}

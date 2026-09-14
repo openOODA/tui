@@ -1,0 +1,78 @@
+// # tool_card.oo - Tool-Call Card Renderer
+//
+// Logline: Render a tool-call envelope (tool name + status pill + body) as a multi-line styled card.
+//
+// Setup: Pure renderer. The card shape is:
+//
+//   ┌─ <name> ──[<status>]──┐
+//   │ <body line 1>        │
+//   │ <body line 2>        │
+//   └──────────────────────┘
+//
+// Beats:
+//   1. tool_card_render(theme, name, status, body) returns the SGR-styled card.
+//   2. status is one of "pending", "success", "error"; mapped to the matching token.
+
+import "theme.oo";
+import "diff.oo";
+
+pub fn tool_card_render(theme: String, name: String, status: String, body: String) -> String {
+    let border: String = theme_color(theme, "borderMuted");
+    let title: String = theme_color(theme, "toolTitle");
+    let output: String = theme_color(theme, "toolOutput");
+    let dim: String = theme_color(theme, "dim");
+
+    let pill_bg: String = match status {
+        "success" => theme_color(theme, "toolSuccessBg"),
+        "error"   => theme_color(theme, "toolErrorBg"),
+        _         => theme_color(theme, "toolPendingBg"),
+    };
+    let pill_fg: String = match status {
+        "success" => theme_color(theme, "success"),
+        "error"   => theme_color(theme, "error"),
+        _         => theme_color(theme, "warning"),
+    };
+
+    let mut s: String = "";
+    let top: String = "\xe2\x94\x8c\xe2\x94\x80 " + name + " \xe2\x94\x80\xe2\x94\x80";
+    s = s + ansi_fg(border) + top + ansi_reset();
+    s = s + ansi_bg(pill_bg) + ansi_fg(pill_fg) + " " + status + " " + ansi_reset();
+    s = s + ansi_fg(border) + "\xe2\x94\x80\xe2\x94\x80\xe2\x94\x90\n" + ansi_reset();
+
+    let body_lines: List[String] = str_split_lines(body);
+    let n: Int = list_len(body_lines);
+    let mut i: Int = 0;
+    while i < n {
+        let bl: String = list_get(body_lines, i);
+        let is_diff: Bool = str_starts_with(bl, "+") || str_starts_with(bl, "-") || str_starts_with(bl, "@@") || str_starts_with(bl, " ");
+        let mut line_sgr: String = "";
+        if is_diff {
+            line_sgr = diff_line_render(theme, bl);
+        } else {
+            line_sgr = ansi_fg(output) + bl + ansi_reset();
+        }
+        s = s + ansi_fg(border) + "\xe2\x94\x82" + ansi_reset() + " " + line_sgr + "\n";
+        i = i + 1;
+    }
+    s = s + ansi_fg(border) + "\xe2\x94\x94\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x98" + ansi_reset() + "\n";
+    return s;
+}
+
+fn str_split_lines(s: String) -> List[String] {
+    let mut out: List[String] = list_new();
+    let mut cur: String = "";
+    let len: Int = chars_len(s);
+    let mut i: Int = 0;
+    while i < len {
+        let c: String = char_at(s, i);
+        if c == "\n" {
+            out = list_push(out, cur);
+            cur = "";
+        } else {
+            cur = cur + c;
+        }
+        i = i + 1;
+    }
+    if cur != "" || len == 0 { out = list_push(out, cur); }
+    return out;
+}

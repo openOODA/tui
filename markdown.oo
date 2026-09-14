@@ -1,0 +1,91 @@
+// # markdown.oo - Markdown → styled lines
+//
+// Logline: Render a markdown string into a list of styled "lines" (each line is a tab-joined "token,text,token,text,..." string). The chrome renderer consumes the lines and emits SGR.
+//
+// Setup: Pure data. The supported block-level constructs are: # / ## / ### headings, ``` code fences, > blockquotes, - / * lists, + bold, _ italic, `inline code`. Inline emphasis is emitted as mdHeading/mdCode spans.
+//
+// Beats:
+//   1. markdown_render(theme, text) returns a multi-line string; each line is rendered with SGR and tokens.
+
+import "theme.oo";
+
+pub fn markdown_render(theme: String, text: String) -> String {
+    let head_t: String = theme_color(theme, "mdHeading");
+    let code_t: String = theme_color(theme, "mdCode");
+    let codeblock_t: String = theme_color(theme, "mdCodeBlock");
+    let codeborder_t: String = theme_color(theme, "mdCodeBlockBorder");
+    let list_t: String = theme_color(theme, "mdListBullet");
+    let muted_t: String = theme_color(theme, "muted");
+    let text_t: String = theme_color(theme, "text");
+    let dim_t: String = theme_color(theme, "dim");
+
+    let mut out: String = "";
+    let mut in_code: Bool = false;
+    let lines: List[String] = str_split_lines(text);
+    let n: Int = list_len(lines);
+    let mut i: Int = 0;
+    while i < n {
+        let line: String = list_get(lines, i);
+        let mut rendered: String = "";
+
+        if str_starts_with(line, "\x60\x60\x60") {
+            if in_code {
+                rendered = ansi_fg(codeborder_t) + "\xe2\x94\x82 end \xe2\x94\x82" + ansi_reset();
+                in_code = false;
+            } else {
+                rendered = ansi_fg(codeborder_t) + "\xe2\x94\x82 code \xe2\x94\x82" + ansi_reset();
+                in_code = true;
+            }
+        } else if in_code {
+            rendered = ansi_fg(codeblock_t) + "  " + line + ansi_reset();
+        } else if str_starts_with(line, "### ") {
+            let rest: String = str_slice(line, 4, chars_len(line));
+            rendered = ansi_fg(head_t) + "### " + ansi_reset() + ansi_fg(text_t) + rest + ansi_reset();
+        } else if str_starts_with(line, "## ") {
+            let rest: String = str_slice(line, 3, chars_len(line));
+            rendered = ansi_fg(head_t) + "## " + ansi_reset() + ansi_bold() + ansi_fg(text_t) + rest + ansi_reset();
+        } else if str_starts_with(line, "# ") {
+            let rest: String = str_slice(line, 2, chars_len(line));
+            rendered = ansi_fg(head_t) + "# " + ansi_reset() + ansi_bold() + ansi_fg(text_t) + rest + ansi_reset();
+        } else if str_starts_with(line, "> ") {
+            let rest: String = str_slice(line, 2, chars_len(line));
+            rendered = ansi_fg(dim_t) + "| " + ansi_reset() + ansi_fg(muted_t) + rest + ansi_reset();
+        } else if str_starts_with(line, "- ") || str_starts_with(line, "* ") {
+            let rest: String = str_slice(line, 2, chars_len(line));
+            rendered = ansi_fg(list_t) + "\xe2\x80\xa2 " + ansi_reset() + ansi_fg(text_t) + rest + ansi_reset();
+        } else if line == "" {
+            rendered = "";
+        } else {
+            rendered = ansi_fg(text_t) + line + ansi_reset();
+        }
+
+        out = out + rendered + "\n";
+        i = i + 1;
+    }
+    if in_code {
+        out = out + ansi_fg(codeborder_t) + "\xe2\x94\x82 end \xe2\x94\x82" + ansi_reset() + "\n";
+    }
+    return out;
+}
+
+// Stub: openOODA has str_split_lines in std but it's not auto-imported into tui/. We ship a simple local parser instead.
+fn str_split_lines(s: String) -> List[String] {
+    let mut out: List[String] = list_new();
+    let mut cur: String = "";
+    let len: Int = chars_len(s);
+    let mut i: Int = 0;
+    while i < len {
+        let c: String = char_at(s, i);
+        if c == "\n" {
+            out = list_push(out, cur);
+            cur = "";
+        } else if c == "\r" {
+            // skip; \r\n handled by next \n
+        } else {
+            cur = cur + c;
+        }
+        i = i + 1;
+    }
+    if cur != "" || len == 0 { out = list_push(out, cur); }
+    return out;
+}

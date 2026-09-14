@@ -1,0 +1,106 @@
+// # pane.oo - Scrollback Pane (line-mode)
+//
+// Logline: Maintain an append-only line buffer for the conversation scrollback and render it with a gutter.
+//
+// Setup: Pure-data pane. Lines are trimmed to `max_lines` (default 200). Each line is rendered with leading line number + trailing newline.
+//
+// Beats:
+//   1. pane_new() returns a fresh Pane with empty buffer.
+//   2. pane_append(p, line) appends one line; trims oldest if over max_lines.
+//   3. pane_render(p, cols) returns a multi-line SGR string with line numbers.
+//   4. pane_clear(p) empties the buffer.
+
+import "theme.oo";
+
+type Pane = struct {
+    lines: List[String],
+    max_lines: Int
+};
+
+pub fn pane_new() -> Pane {
+    let p: Pane = Pane { lines: list_new(), max_lines: 200 };
+    return p;
+}
+
+pub fn pane_append(p: Pane, line: String) -> Pane {
+    let n: Pane = Pane { lines: list_push(p.lines, line), max_lines: p.max_lines };
+    let len: Int = list_len(n.lines);
+    if len > n.max_lines {
+        let drop: Int = len - n.max_lines;
+        let mut i: Int = 0;
+        let mut kept: List[String] = list_new();
+        while i < len {
+            if i >= drop { kept = list_push(kept, list_get(n.lines, i)); }
+            i = i + 1;
+        }
+        return Pane { lines: kept, max_lines: n.max_lines };
+    }
+    return n;
+}
+
+pub fn pane_clear(p: Pane) -> Pane {
+    return Pane { lines: list_new(), max_lines: p.max_lines };
+}
+
+pub fn pane_height_lines() -> Int {
+    return 16;
+}
+
+pub fn pane_render(theme: String, p: Pane, cols: Int) -> String {
+    let dim: String = theme_color(theme, "dim");
+    let text: String = theme_color(theme, "text");
+    let muted: String = theme_color(theme, "muted");
+
+    let len: Int = list_len(p.lines);
+    let mut s: String = "";
+    let mut i: Int = 0;
+    while i < len {
+        let line: String = list_get(p.lines, i);
+        let n: Int = i + 1;
+        let gutter: String = int_pad_left(n, 4);
+        s = s + ansi_fg(dim) + gutter + ansi_reset();
+        s = s + " " + ansi_fg(text) + line + ansi_reset();
+        s = s + "\n";
+        i = i + 1;
+    }
+    let mut pad_lines: Int = pane_height_lines() - len;
+    if pad_lines < 0 { pad_lines = 0; }
+    let mut j: Int = 0;
+    while j < pad_lines {
+        let n: Int = len + j + 1;
+        let gutter: String = int_pad_left(n, 4);
+        s = s + ansi_fg(dim) + gutter + ansi_reset() + " " + ansi_fg(muted) + "~" + ansi_reset() + "\n";
+        j = j + 1;
+    }
+    return s;
+}
+
+// Local int_to_str for line numbers (replaces std one for isolation).
+fn int_pad_left(n: Int, width: Int) -> String {
+    let mut raw: String = int_to_str(n);
+    let mut pad: Int = width - chars_len(raw);
+    let mut s: String = "";
+    while pad > 0 { s = s + " "; pad = pad - 1; }
+    s = s + raw;
+    return s;
+}
+
+fn int_to_str(n: Int) -> String {
+    if n < 0 { return "0"; }
+    if n == 0 { return "0"; }
+    let digits: String = "0123456789";
+    let mut v: Int = n;
+    let mut rev: String = "";
+    while v > 0 {
+        let d: Int = v - (v / 10) * 10;
+        rev = rev + char_at(digits, d);
+        v = v / 10;
+    }
+    let mut out: String = "";
+    let mut k: Int = chars_len(rev) - 1;
+    while k >= 0 {
+        out = out + char_at(rev, k);
+        k = k - 1;
+    }
+    return out;
+}

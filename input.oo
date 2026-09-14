@@ -1,0 +1,35 @@
+// # input.oo - Prompt Input Renderer (line-mode)
+//
+// Logline: Render the prompt input row with `> ` glyph + buffer + cursor.
+//
+// Setup: One line. Cursor is rendered as a solid block (▍) at the end of the buffer. Tokens: userMessageBg, userMessageText, accent.
+//
+// Beats:
+//   1. input_render(theme, buf, cols) returns the SGR-styled single line + newline.
+//   2. The prompt is padded to `cols` characters.
+//   3. input_clear_marker() returns " " (the no-cursor glyph for a cleared buffer).
+
+import "theme.oo";
+
+pub fn input_render(theme: String, buf: String, cols: Int) -> String {
+    let bg: String = theme_color(theme, "userMessageBg");
+    let fg: String = theme_color(theme, "userMessageText");
+    let accent: String = theme_color(theme, "accent");
+
+    let mut s: String = ansi_bg(bg);
+    s = s + ansi_fg(accent) + "> " + ansi_reset();
+    s = s + ansi_fg(fg) + buf + ansi_reset();
+    s = s + ansi_fg(accent) + "\xe2\x96\x8d" + ansi_reset();
+    let used: Int = 2 + chars_len(buf) + 1;
+    let mut pad: Int = cols - used;
+    if pad < 1 { pad = 1; }
+    let mut k: Int = 0;
+    while k < pad { s = s + " "; k = k + 1; }
+    s = s + ansi_reset();
+    s = s + "\n";
+    return s;
+}
+
+pub fn input_height() -> Int {
+    return 1;
+}

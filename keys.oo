@@ -2,11 +2,12 @@
 //
 // Logline: Maps key events (Ctrl+T, Ctrl+Y, Ctrl+C, Ctrl+D, Ctrl+L, Ctrl+R) to action names. The TUI shell consumes these.
 //
-// Setup: Pure data module. Action names are strings ("toggle_teamwork", "toggle_yolo", "cancel", "exit_save", "clear_screen", "history_search").
+// Setup: Pure data module. Action names are strings ("toggle_teamwork", "toggle_yolo", "cancel", "exit_save", "clear_screen", "history_search"). v0.1.1 also adds `keys_decode` for line-mode esc-sequence handling.
 //
 // Beats:
 //   1. key_action(name) -> String: returns the action name for a key event.
-//   2. Reserved keys (future): Ctrl+P (palette), Ctrl+S (settings).
+//   2. keys_decode(byte_seq) -> String: returns an action for a single byte (control chars) or esc-prefixed sequences.
+//   3. Reserved keys (future): Ctrl+P (palette), Ctrl+S (settings).
 
 pub fn key_ctrl_t() -> String {
     return "toggle_teamwork";
@@ -40,4 +41,21 @@ pub fn key_action(name: String) -> String {
     if name == "ctrl_l" { return key_ctrl_l(); }
     if name == "ctrl_r" { return key_ctrl_r(); }
     return "";
+}
+
+// Decode a single byte into an action name. Line-mode (no raw TTY), so
+// only the printable byte (or control char) is processed. Arrow keys
+// arrive as multi-byte ESC sequences and require raw mode (deferred to
+// v0.2.0); in line mode the user types "/<filter>" and the popover
+// responds.
+pub fn keys_decode(b: String) -> String {
+    if chars_len(b) < 1 { return ""; }
+    if b == "\n" { return "enter"; }
+    if b == "\r" { return "enter"; }
+    if b == "" { return "exit_save"; }
+    if b == "\x7f" { return "backspace"; }
+    if b == "\x08" { return "backspace"; }
+    if b == "\x03" { return "cancel"; }
+    if b == "\x0c" { return "clear_screen"; }
+    return "char";
 }

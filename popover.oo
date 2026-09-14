@@ -1,0 +1,102 @@
+// # popover.oo - Slash Command Popover (line-mode)
+//
+// Logline: When the user is typing `/<filter>`, render a 1-line list of matching slash commands above the prompt with the active match highlighted.
+//
+// Setup: Pure data. popover_filter returns the matched commands; popover_render returns the SGR string.
+//
+// Beats:
+//   1. popover_match(prefix) returns a tab-joined string of all slash commands matching the prefix.
+//   2. popover_render(theme, matches, active_idx, cols) returns the highlighted single line + newline.
+
+import "theme.oo";
+
+pub fn popover_match(prefix: String) -> String {
+    let mut r: String = "";
+    if str_starts_with(prefix, "/he") { r = "/help"; }
+    else if str_starts_with(prefix, "/ex") { r = "/exit"; }
+    else if str_starts_with(prefix, "/qu") { r = "/quit"; }
+    else if str_starts_with(prefix, "/cl") { r = "/clear"; }
+    else if str_starts_with(prefix, "/th") { r = "/theme 1982"; r = r + "\t/theme minimax"; }
+    else if str_starts_with(prefix, "/mo") { r = "/model"; }
+    else if str_starts_with(prefix, "/pr") { r = "/provider anthropic\t/provider openai\t/provider google\t/provider ollama\t/provider custom"; }
+    else if str_starts_with(prefix, "/lo") { r = "/login"; }
+    else if str_starts_with(prefix, "/cd") { r = "/cwd"; }
+    else if str_starts_with(prefix, "/re") { r = "/resume"; }
+    else if str_starts_with(prefix, "/co") { r = "/compact"; }
+    else if str_starts_with(prefix, "/pl") { r = "/plan"; }
+    else if str_starts_with(prefix, "/ve") { r = "/version"; }
+    else if str_starts_with(prefix, "/") { r = "/help\t/exit\t/quit\t/clear\t/theme\t/model\t/provider\t/login\t/cwd\t/resume\t/compact\t/plan\t/version"; }
+    return r;
+}
+
+pub fn popover_render(theme: String, matches: String, active_idx: Int, cols: Int) -> String {
+    let dim: String = theme_color(theme, "dim");
+    let muted: String = theme_color(theme, "muted");
+    let accent: String = theme_color(theme, "accent");
+    let selected_bg: String = theme_color(theme, "selectedBg");
+
+    let mut s: String = "";
+    let n: Int = tab_count(matches);
+    let mut i: Int = 0;
+    let mut col_pos: Int = 0;
+    while i < n {
+        let m: String = tab_get(matches, i);
+        if m == "" { i = i + 1; continue; }
+        let is_active: Bool = i == active_idx;
+        if is_active {
+            s = s + ansi_bg(selected_bg) + ansi_fg(accent) + " " + m + " " + ansi_reset();
+            col_pos = col_pos + chars_len(m) + 3;
+        } else {
+            s = s + ansi_fg(muted) + " " + m + " " + ansi_reset();
+            col_pos = col_pos + chars_len(m) + 3;
+        }
+        if i + 1 < n && col_pos + 12 < cols {
+            s = s + ansi_fg(dim) + "\xe2\x94\x82" + ansi_reset();
+            col_pos = col_pos + 1;
+        }
+        i = i + 1;
+    }
+    let mut pad: Int = cols - col_pos;
+    if pad < 0 { pad = 0; }
+    let mut k: Int = 0;
+    while k < pad { s = s + " "; k = k + 1; }
+    s = s + "\n";
+    return s;
+}
+
+pub fn popover_height() -> Int {
+    return 1;
+}
+
+fn tab_count(s: String) -> Int {
+    if s == "" { return 0; }
+    let mut n: Int = 1;
+    let mut i: Int = 0;
+    let len: Int = chars_len(s);
+    while i < len {
+        if char_at(s, i) == "\t" { n = n + 1; }
+        i = i + 1;
+    }
+    return n;
+}
+
+fn tab_get(s: String, idx: Int) -> String {
+    let len: Int = chars_len(s);
+    let mut start: Int = 0;
+    let mut cur: Int = 0;
+    let mut i: Int = 0;
+    let mut out: String = "";
+    while i < len {
+        if char_at(s, i) == "\t" {
+            if cur == idx { return out; }
+            cur = cur + 1;
+            start = i + 1;
+            out = "";
+        } else {
+            out = out + char_at(s, i);
+        }
+        i = i + 1;
+    }
+    if cur == idx { return out; }
+    return "";
+}
