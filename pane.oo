@@ -60,27 +60,30 @@ pub fn pane_keep_last(p: Pane, n: Int) -> Pane {
     return Pane { lines: kept, max_lines: p.max_lines };
 }
 
-pub fn pane_render(theme: String, p: Pane, color: Bool, cols: Int) -> String {
-    let dim: String = theme_color(theme, "dim");
+pub fn pane_render(theme: String, p: Pane, color: Bool, cols: Int, height: Int) -> String {
     let text: String = theme_color(theme, "text");
-    let muted: String = theme_color(theme, "muted");
-
     let len: Int = list_len(p.lines);
+    let mut h: Int = height;
+    if h < 3 { h = 3; }
+    let mut start: Int = 0;
+    if len > h { start = len - h; }
+    let shown: Int = len - start;
     let mut s: String = "";
-    let mut i: Int = 0;
+    let mut i: Int = start;
     while i < len {
         let line: String = list_get(p.lines, i);
         s = s + ansi_fg(color, text) + line + ansi_reset(color);
         s = s + "\n";
         i = i + 1;
     }
-    let mut pad_lines: Int = pane_height_lines() - len;
+    let mut pad_lines: Int = h - shown;
     if pad_lines < 0 { pad_lines = 0; }
     let mut j: Int = 0;
     while j < pad_lines {
         s = s + "\n";
         j = j + 1;
     }
+    let _: Int = cols;
     return s;
 }
 

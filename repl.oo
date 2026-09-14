@@ -69,12 +69,16 @@ pub fn run_tui_session(fs_r: &FsReadCap, fs_w: &FsWriteCap, sys: &ProcessCap, en
     if st.brief != "" { pane = pane_append(pane, "brief on"); }
     else { pane = pane_append(pane, "brief off  /init writes AGENTS.md"); }
     pane = mcp_hello(sys, env, pane);
+    let host: Bool = have_tty(sys);
+    if host { paint_tty(fs_w, sys, chrome_enter_host()); }
     let mut live: Bool = true;
     let mut paint: Bool = true;
-    let cols: Int = chrome_term_cols();
     while true {
         if paint {
-            let frame: String = chrome_render(st.theme, pane, "", 0, in_buf(st), st.teamwork, st.yolo, think_of(st), ver, color, cols, 24, st.provider, st.model, st.cwd);
+            let geo: List[Int] = tty_geo(sys);
+            let cols: Int = list_get(geo, 0);
+            let rows: Int = list_get(geo, 1);
+            let frame: String = chrome_render(st.theme, pane, "", 0, in_buf(st), st.teamwork, st.yolo, think_of(st), ver, color, cols, rows, st.provider, st.model, st.cwd);
             paint_frame(fs_w, sys, frame);
             paint = false;
         }
@@ -97,13 +101,14 @@ pub fn run_tui_session(fs_r: &FsReadCap, fs_w: &FsWriteCap, sys: &ProcessCap, en
                         st = handle_line(fs_r, fs_w, sys, env, st, line, ver, color);
                         pane = apply_out(pane, st);
                         st.output = "";
-                        if st.exiting { live = false; }
+                        if st.exiting { live = false; paint = false; }
                     }
                 } else { cur = cur + ch; }
                 ci = ci + 1;
             }
         }
     }
+    if host { paint_tty(fs_w, sys, chrome_leave_host()); }
     return 0;
 }
 
@@ -161,6 +166,26 @@ fn pane_append_block(p: Pane, text: String) -> Pane {
     }
     if cur != "" { out = pane_append(out, cur); }
     return out;
+}
+
+fn have_tty(sys: &ProcessCap) -> Bool {
+    let r: Result[String, String] = process_exec(sys, "stty size < /dev/tty 2>/dev/null");
+    if r.is_err() { return false; }
+    let raw: String = match r { Ok(s) => s, Err(_) => "" };
+    return chars_len(str_trim(raw)) >= 3;
+}
+
+fn tty_geo(sys: &ProcessCap) -> List[Int] {
+    let r: Result[String, String] = process_exec(sys, "stty size < /dev/tty 2>/dev/null");
+    if r.is_err() { return chrome_geo_parse(""); }
+    let raw: String = match r { Ok(s) => s, Err(_) => "" };
+    return chrome_geo_parse(raw);
+}
+
+fn paint_tty(fw: &FsWriteCap, sys: &ProcessCap, frame: String) {
+    let wr: Result[Void, String] = write_file(fw, "/tmp/.ooda-tui-frame", frame);
+    if wr.is_err() { return; }
+    let _: Result[String, String] = process_exec(sys, "cat /tmp/.ooda-tui-frame >/dev/tty 2>/dev/null");
 }
 
 fn paint_frame(fw: &FsWriteCap, sys: &ProcessCap, frame: String) {

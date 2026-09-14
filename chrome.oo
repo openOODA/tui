@@ -1,6 +1,6 @@
 // # chrome.oo - Line-Mode Frame Renderer
 //
-// Logline: Compose the per-turn frame: clear + header + pane + status + compose prompt last so cooked typing lands in the box.
+// Logline: Full-window frame: header, flex pane, status, compose box last. Host enter/leave uses the alt screen.
 //
 // Setup: Pure renderer. Returns a single String ready to be written to stdout. Uses header.oo / pane.oo / popover.oo / input.oo / statusbar.oo. ANSI clear is ESC[2J ESC[H; cursor home.
 //
@@ -18,14 +18,69 @@ import "theme.oo";
 pub fn chrome_render(theme: String, pane: Pane, popover_buf: String, popover_idx: Int, input_buf: String, teamwork: Bool, yolo: Bool, thinking: String, version: String, color: Bool, cols: Int, rows: Int, provider: String, model: String, cwd: String) -> String {
     let mut s: String = "";
     if color { s = ansi_esc() + "[2J" + ansi_esc() + "[H"; }
+    let mut ph: Int = rows - 5;
+    if popover_buf != "" { ph = ph - 1; }
+    if ph < 3 { ph = 3; }
     s = s + header_render(theme, provider, model, cwd, color, cols);
-    s = s + pane_render(theme, pane, color, cols);
+    s = s + pane_render(theme, pane, color, cols, ph);
     if popover_buf != "" {
         s = s + popover_render(theme, popover_buf, popover_idx, color, cols);
     }
     s = s + statusbar_render(theme, teamwork, yolo, thinking, version, color, cols);
     s = s + input_render(theme, input_buf, color, cols);
     return s;
+}
+
+pub fn chrome_enter_host() -> String {
+    return ansi_esc() + "[?1049h" + ansi_esc() + "[2J" + ansi_esc() + "[H" + ansi_esc() + "[?25h";
+}
+
+pub fn chrome_leave_host() -> String {
+    return ansi_esc() + "[?1049l";
+}
+
+fn digit_val(c: String) -> Int {
+    let d: String = "0123456789";
+    let mut i: Int = 0;
+    while i < 10 {
+        if char_at(d, i) == c { return i; }
+        i = i + 1;
+    }
+    return -1;
+}
+
+pub fn chrome_geo_parse(raw: String) -> List[Int] {
+    let mut rows: Int = 24;
+    let mut cols: Int = 80;
+    let n: Int = chars_len(raw);
+    let mut i: Int = 0;
+    let mut acc: Int = 0;
+    let mut got: Bool = false;
+    while i < n {
+        let c: String = char_at(raw, i);
+        let v: Int = digit_val(c);
+        if v >= 0 { acc = acc * 10 + v; got = true; }
+        else if got { rows = acc; break; }
+        i = i + 1;
+    }
+    acc = 0;
+    got = false;
+    while i < n {
+        let c: String = char_at(raw, i);
+        let v: Int = digit_val(c);
+        if v >= 0 { acc = acc * 10 + v; got = true; }
+        else if got { cols = acc; break; }
+        i = i + 1;
+    }
+    if got { cols = acc; }
+    if rows < 12 { rows = 12; }
+    if cols < 40 { cols = 40; }
+    if rows > 80 { rows = 80; }
+    if cols > 200 { cols = 200; }
+    let mut out: List[Int] = list_new();
+    out = list_push(out, cols);
+    out = list_push(out, rows);
+    return out;
 }
 
 pub fn chrome_clear_only() -> String {
