@@ -117,8 +117,9 @@ jobs:
           export OODA_STD="$HOME/.openooda/std"
           export OODA_STD_ROOT="$HOME/.openooda/std"
           export OODA_FS_READDIR="$HOME/.openooda:${GITHUB_WORKSPACE}:/tmp"
-          export OODA_FS_WRITEDIR="${GITHUB_WORKSPACE}:/tmp"
+          export OODA_FS_WRITEDIR="${GITHUB_WORKSPACE}/tui:/tmp"
           export OODA_NO_JAIL=1
+          mkdir -p .ooda-cache/ooda-tmp /tmp/.ooda-cache/ooda-tmp
           for f in $(find . -name "*.oo" -not -path "./qa/*" -not -path "./.ooda-cache/*"); do
             echo "checking $f"
             "$OODA_COMPILER" check "$f" || exit 1
@@ -134,11 +135,11 @@ jobs:
           export OODA_COMPILER="$HOME/.openooda/bin/oodac"
           export OODA_STD="$HOME/.openooda/std"
           export OODA_STD_ROOT="$HOME/.openooda/std"
-          export OODA_FS_READDIR="$HOME/.openooda:${GITHUB_WORKSPACE}:/tmp:/usr"
-          export OODA_FS_WRITEDIR="${GITHUB_WORKSPACE}:/tmp"
+          export OODA_FS_READDIR="$HOME/.openooda:${GITHUB_WORKSPACE}:/tmp:/usr:/usr/bin:/bin"
+          export OODA_FS_WRITEDIR="${GITHUB_WORKSPACE}/tui:/tmp"
           export OODA_NO_JAIL=1
           rm -rf dist
-          mkdir -p dist
+          mkdir -p dist .ooda-cache/ooda-tmp /tmp/.ooda-cache/ooda-tmp
           "$OODA_COMPILER" build --backend c main.oo -o dist/ooda-tui
           chmod +x dist/ooda-tui
           cp dist/ooda-tui dist/ooda-tui-linux-x86_64
