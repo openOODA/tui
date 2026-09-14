@@ -9,6 +9,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout tui
         uses: actions/checkout@v4
@@ -120,10 +121,9 @@ jobs:
           export OODA_FS_WRITEDIR="${GITHUB_WORKSPACE}/tui:/tmp"
           export OODA_NO_JAIL=1
           mkdir -p .ooda-cache/ooda-tmp /tmp/.ooda-cache/ooda-tmp
-          for f in $(find . -name "*.oo" -not -path "./qa/*" -not -path "./.ooda-cache/*"); do
-            echo "checking $f"
-            "$OODA_COMPILER" check "$f" || exit 1
-          done
+          # One graph: per-file check of every module OOMs/SIGTERMs gcc on
+          # ubuntu-latest once the harness grew past ~30k lines of C.
+          "$OODA_COMPILER" check main.oo
           echo "PASS: oodac check holds"
 
       - name: Build
