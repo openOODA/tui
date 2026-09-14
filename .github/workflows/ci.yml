@@ -125,15 +125,7 @@ jobs:
           # wrapper never runs. Rewrite /usr/bin/gcc to drop -O2: -O2 on the
           # 37k-line TU SIGTERMs around 100s on ubuntu-latest.
           sudo cp -a /usr/bin/gcc /usr/bin/gcc.real
-          sudo tee /usr/bin/gcc >/dev/null <<'EOF'
-#!/bin/bash
-args=()
-for a in "$@"; do
-  if [ "$a" = "-O2" ]; then a="-O0"; fi
-  args+=("$a")
-done
-exec /usr/bin/gcc.real "${args[@]}"
-EOF
+          printf '%s\n' '#!/usr/bin/python3' 'import os, sys' 'a = [("-O0" if x == "-O2" else x) for x in sys.argv[1:]]' 'os.execvp("/usr/bin/gcc.real", ["/usr/bin/gcc.real"] + a)' | sudo tee /usr/bin/gcc >/dev/null
           sudo chmod +x /usr/bin/gcc
           "$OODA_COMPILER" build --backend c main.oo -o dist/ooda-tui
           chmod +x dist/ooda-tui
