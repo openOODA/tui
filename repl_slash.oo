@@ -1,0 +1,172 @@
+// # repl_slash.oo - Live slash commands
+//
+// Logline: Dispatch every advertised slash command against ReplState. Persist login/theme/model.
+//
+// Setup: ProcessCap for /btw and /compact LLM; FsWriteCap + EnvCap for config_save_flat.
+//
+// Beats:
+//   1. Session: /help /status /settings /version /theme /cwd /clear /exit.
+//   2. Model: /login /logout /providers /model /provider.
+//   3. Work: /plan /goal /btw /team /compact /resume /rename.
+
+import "repl_state.oo";
+import "config_io.oo";
+import "llm_exec.oo";
+
+fn onoff(b: Bool) -> String {
+    if b { return "on"; }
+    return "off";
+}
+
+fn say(st: ReplState, msg: String) -> ReplState {
+    let mut s: ReplState = st;
+    if s.output == "" { s.output = msg; } else { s.output = s.output + "\n" + msg; }
+    return s;
+}
+
+fn cmd_of(line: String) -> String {
+    let n: Int = chars_len(line);
+    let mut i: Int = 0;
+    let mut out: String = "";
+    while i < n {
+        let c: String = str_slice(line, i, i + 1);
+        if c == " " || c == "\t" { return out; }
+        out = out + c;
+        i = i + 1;
+    }
+    return out;
+}
+
+fn args_of(line: String, cmd: String) -> String {
+    return str_trim(str_slice(line, chars_len(cmd), chars_len(line)));
+}
+
+fn persist(st: ReplState, fw: &FsWriteCap, env: &EnvCap) -> ReplState {
+    let cfg: FlatCfg = FlatCfg {
+        provider: st.provider, ptype: st.ptype, key: st.key,
+        url: st.url, model: st.model, theme: st.theme
+    };
+    let ok: Bool = config_save_flat(fw, env, cfg);
+    if ok { return say(st, "saved " + config_path(env)); }
+    return say(st, "save skipped (set OODA_HOME to persist)");
+}
+
+fn apply_provider(st: ReplState, name: String) -> ReplState {
+    let mut s: ReplState = st;
+    s.provider = provider_norm(name);
+    s.ptype = s.provider;
+    s.model = provider_default_model(s.provider);
+    s.url = provider_default_url(s.provider);
+    return s;
+}
+
+fn llm_line(sys: &ProcessCap, fw: &FsWriteCap, ptype: String, key: String, model: String, url: String, prompt: String) -> String {
+    if ptype == "" { return "no LLM — /login muse|minimax|mistral <key>"; }
+    let r: Result[String, String] = llm_complete_exec(sys, fw, ptype, key, model, url, prompt);
+    return match r { Ok(t) => t, Err(e) => "llm: " + e };
+}
+
+pub fn slash_line(st: ReplState, line: String, ver: String, sys: &ProcessCap, fw: &FsWriteCap, env: &EnvCap) -> ReplState {
+    let cmd: String = cmd_of(line);
+    let args: String = args_of(line, cmd);
+    if cmd == "/exit" || cmd == "/quit" { let mut s: ReplState = st; s.exiting = true; return say(s, "exit"); }
+    if cmd == "/help" {
+        let mut s: ReplState = say(st, "commands: /login /logout /providers /model /theme /cwd /plan /goal");
+        s = say(s, "  /clear /compact /btw /team /resume /rename /settings /status /version /exit");
+        return say(s, "  /login muse|minimax|mistral|vibe <key>");
+    }
+    if cmd == "/version" { return say(st, "ooda-tui " + ver); }
+    if cmd == "/providers" { return say(st, "providers: " + provider_names()); }
+    if cmd == "/theme" {
+        if args == "" { return say(st, "theme: " + st.theme); }
+        if args != "1982" && args != "minimax" { return say(st, "unknown theme: " + args); }
+        let mut s: ReplState = st; s.theme = args; return persist(say(s, "theme: " + args), fw, env);
+    }
+    if cmd == "/cwd" {
+        if args == "" { return say(st, "cwd: " + st.cwd); }
+        let mut s: ReplState = st; s.cwd = args; return say(s, "cwd: " + args);
+    }
+    if cmd == "/login" {
+        if args == "" { return say(st, "login: /login muse|minimax|mistral|vibe <key>"); }
+        let mut s: ReplState = apply_provider(st, cmd_of(args));
+        let k: String = args_of(args, cmd_of(args));
+        if k != "" { s.key = k; }
+        if s.model == "" { s.model = provider_default_model(s.provider); }
+        if s.url == "" { s.url = provider_default_url(s.provider); }
+        return persist(say(s, "login: " + s.provider + " / " + s.model), fw, env);
+    }
+    if cmd == "/logout" { let mut s: ReplState = st; s.provider = ""; s.key = ""; s.url = ""; return persist(say(s, "logout"), fw, env); }
+    if cmd == "/provider" {
+        if args == "" { return say(st, "provider: " + st.provider); }
+        let mut s: ReplState = apply_provider(st, args);
+        return persist(say(s, "provider: " + s.provider + " / " + s.model), fw, env);
+    }
+    if cmd == "/model" {
+        if args == "" { return say(st, "model: " + st.provider + "/" + st.model); }
+        let mut s: ReplState = st;
+        let c: Int = str_index_of(args, ":");
+        if c < 0 { s.model = args; }
+        else {
+            s = apply_provider(s, str_slice(args, 0, c));
+            s.model = str_slice(args, c + 1, chars_len(args));
+        }
+        return persist(say(s, "model: " + s.provider + "/" + s.model), fw, env);
+    }
+    if cmd == "/plan" { if args == "" { return say(st, "plan: " + st.plan); } let mut s: ReplState = st; s.plan = args; return say(s, "plan: set"); }
+    if cmd == "/goal" { if args == "" { return say(st, "goal: " + st.goal); } let mut s: ReplState = st; s.goal = args; return say(s, "goal: set"); }
+    if cmd == "/status" || cmd == "/settings" {
+        return say(st, "status: " + st.provider + "/" + st.model + " theme=" + st.theme + " cwd=" + st.cwd + " session=" + st.session + " team=" + onoff(st.teamwork));
+    }
+    if cmd == "/clear" { let mut s: ReplState = st; s.hist = ""; s.output = "__CLEAR__"; return s; }
+    if cmd == "/rename" {
+        if args == "" { return say(st, "rename: /rename <name>"); }
+        let mut s: ReplState = st; s.session = args; return say(s, "session: " + args);
+    }
+    if cmd == "/resume" {
+        let mut s: ReplState = st;
+        if args != "" { s.session = args; }
+        return say(s, "resume: " + s.session + " (in-memory; hist " + int_to_str(chars_len(s.hist)) + " chars)");
+    }
+    if cmd == "/compact" {
+        let mut s: ReplState = st;
+        s.output = "__COMPACT__";
+        if s.provider != "" && s.hist != "" {
+            let sum: String = llm_line(sys, fw, s.ptype, s.key, s.model, s.url, "Summarize this thread in 6 bullets:\n" + s.hist);
+            s.hist = "summary: " + sum + "\n";
+            s = say(s, "compact: summarized");
+        } else { s.hist = ""; s = say(s, "compact: dropped scrollback"); }
+        return s;
+    }
+    if cmd == "/btw" {
+        if args == "" { return say(st, "btw: /btw <question>"); }
+        let a: String = llm_line(sys, fw, st.ptype, st.key, st.model, st.url, "BTW (aside, do not change the plan): " + args);
+        return say(st, "btw: " + a);
+    }
+    if cmd == "/team" {
+        let sub: String = cmd_of(args);
+        let rest: String = args_of(args, sub);
+        if sub == "on" || sub == "init" { let mut s: ReplState = st; s.teamwork = true; return say(s, "team: on (lead + review)"); }
+        if sub == "off" { let mut s: ReplState = st; s.teamwork = false; return say(s, "team: off"); }
+        if sub == "run" {
+            let mut job: String = st.plan;
+            if rest != "" { job = rest; }
+            if job == "" { return say(st, "team run: set /plan first"); }
+            let a: String = llm_line(sys, fw, st.ptype, st.key, st.model, st.url, "TEAM RUN as lead then reviewer.\nGOAL: " + st.goal + "\nPLAN: " + job);
+            return say(st, a);
+        }
+        return say(st, "team: " + onoff(st.teamwork) + "  /team on|off|init|run");
+    }
+    return say(st, "unknown command: " + cmd + "  (type /help)");
+}
+
+fn int_to_str(n: Int) -> String {
+    if n <= 0 { return "0"; }
+    let digits: String = "0123456789";
+    let mut v: Int = n;
+    let mut rev: String = "";
+    while v > 0 { let d: Int = v - (v / 10) * 10; rev = rev + char_at(digits, d); v = v / 10; }
+    let mut out: String = "";
+    let mut k: Int = chars_len(rev) - 1;
+    while k >= 0 { out = out + char_at(rev, k); k = k - 1; }
+    return out;
+}

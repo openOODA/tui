@@ -43,7 +43,21 @@ pub fn pane_clear(p: Pane) -> Pane {
 }
 
 pub fn pane_height_lines() -> Int {
-    return 16;
+    return 12;
+}
+
+pub fn pane_keep_last(p: Pane, n: Int) -> Pane {
+    let len: Int = list_len(p.lines);
+    if n <= 0 { return pane_clear(p); }
+    if len <= n { return p; }
+    let drop: Int = len - n;
+    let mut i: Int = 0;
+    let mut kept: List[String] = list_new();
+    while i < len {
+        if i >= drop { kept = list_push(kept, list_get(p.lines, i)); }
+        i = i + 1;
+    }
+    return Pane { lines: kept, max_lines: p.max_lines };
 }
 
 pub fn pane_render(theme: String, p: Pane, color: Bool, cols: Int) -> String {
@@ -69,7 +83,7 @@ pub fn pane_render(theme: String, p: Pane, color: Bool, cols: Int) -> String {
     while j < pad_lines {
         let n: Int = len + j + 1;
         let gutter: String = int_pad_left(n, 4);
-        s = s + ansi_fg(color, dim) + gutter + ansi_reset(color) + " " + ansi_fg(color, muted) + "~" + ansi_reset(color) + "\n";
+        s = s + ansi_fg(color, dim) + gutter + ansi_reset(color) + "\n";
         j = j + 1;
     }
     return s;

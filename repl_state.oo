@@ -1,0 +1,27 @@
+// # repl_state.oo - Flat live session record
+//
+// Logline: Shared ReplState for repl.oo and repl_slash.oo. Strings and bools only.
+//
+// Setup: No imports. Both the loop and slash dispatcher mutate this record.
+//
+// Beats:
+//   1. Provider/model/key/url/theme/cwd drive the chrome and LLM.
+//   2. session + hist back /resume /rename /compact /btw.
+
+type ReplState = struct {
+    theme: String,
+    provider: String,
+    ptype: String,
+    key: String,
+    url: String,
+    model: String,
+    cwd: String,
+    teamwork: Bool,
+    yolo: Bool,
+    plan: String,
+    goal: String,
+    output: String,
+    exiting: Bool,
+    session: String,
+    hist: String
+};

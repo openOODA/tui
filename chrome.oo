@@ -1,6 +1,6 @@
 // # chrome.oo - Line-Mode Frame Renderer
 //
-// Logline: Compose the per-turn render frame: clear-screen ANSI + header + pane + popover + input + status bar. Threads a `color: Bool` flag through every surface so the chrome degrades to plain text when NO_COLOR / TERM=dumb is set.
+// Logline: Compose the per-turn frame: clear + header + pane + status + compose prompt last so cooked typing lands in the box.
 //
 // Setup: Pure renderer. Returns a single String ready to be written to stdout. Uses header.oo / pane.oo / popover.oo / input.oo / statusbar.oo. ANSI clear is ESC[2J ESC[H; cursor home.
 //
@@ -23,8 +23,8 @@ pub fn chrome_render(theme: String, pane: Pane, popover_buf: String, popover_idx
     if popover_buf != "" {
         s = s + popover_render(theme, popover_buf, popover_idx, color, cols);
     }
-    s = s + input_render(theme, input_buf, color, cols);
     s = s + statusbar_render(theme, teamwork, yolo, thinking, version, color, cols);
+    s = s + input_render(theme, input_buf, color, cols);
     return s;
 }
 

@@ -2,9 +2,8 @@
 
 File: help.oot
 
-The `ooda-tui` binary is a generic coding harness with openOODA-aware
-defaults. It opens a TUI when invoked with no arguments. All control
-flows through startup flags, runtime slash commands, and keybindings.
+Line-mode coding harness. Conversation sits above a compose line.
+Type on `> ` and press enter. Slash commands start with `/`.
 
 ## Usage
 
@@ -14,58 +13,50 @@ ooda-tui [--teamwork] [--yolo] [--cwd PATH]
          [--no-color] [--token <sub> ...] [--help] [--version]
 ```
 
+## Providers
+
+| Name | Aliases | Default model | Key env |
+|------|---------|---------------|---------|
+| muse | meta, spark | muse-spark-1.3 | OODA_MUSE_API_KEY or OODA_MODEL_API_KEY |
+| minimax | | MiniMax-M2.5 | OODA_MINIMAX_API_KEY |
+| mistral | vibe | mistral-large-latest | OODA_MISTRAL_API_KEY or OODA_VIBE_API_KEY |
+
+```
+/login muse <key>
+/login minimax <key>
+/login mistral <key>
+```
+
+Keys persist to `$OODA_HOME/.config/ooda-tui/config.oot` or `./.ooda-tui.oot`.
+
+## Slash
+
+`/login <provider> [key]`  `/logout`  `/providers`
+`/model [name]`  `/model provider:model`  `/provider [name]`
+`/theme [1982|minimax]`  `/cwd [path]`
+`/plan [text]`  `/goal [text]`
+`/btw <question>`  aside, does not change the plan
+`/team on|off|init|run`
+`/clear`  `/compact`  `/resume [id]`  `/rename <name>`
+`/settings`  `/status`  `/version`  `/help`  `/exit`  `/quit`
+
 ## Flags
 
-| Flag | Effect |
-|------|--------|
-| `--teamwork` | Start with teamwork (multi-agent) mode on |
-| `--yolo` | Start with yolo (auto-approve all tool calls) on |
-| `--cwd PATH` | Run as if cwd were PATH |
-| `--no-color` | Disable ANSI codes |
-| `--provider NAME` | Override default provider for this run |
-| `--model NAME` | Override default model for this run |
-| `--theme NAME` | Override default theme for this run |
-| `--token <sub>` | Headless token telemetry; remaining argv is the subcommand |
-| `--help` | Print this help text |
-| `--version` | Print ooda-tui version |
+`--teamwork` `--yolo` `--cwd PATH` `--no-color`
+`--provider NAME` `--model NAME` `--theme NAME`
+`--token <sub>` `--help` `--version`
 
-## Slash commands (inside the TUI)
+## Env
 
-`/login [provider] [key]`, `/logout [provider]`, `/providers`,
-`/model [provider:model]`, `/provider [name]`, `/cwd [path]`,
-`/plan [text]`, `/goal [text]`,
-`/clear`, `/compact`, `/resume [id]`, `/rename <name>`,
-`/settings`, `/status`, `/version`, `/btw <question>`,
-`/team <sub> [args]`, `/theme [name]`, `/help`,
-`/exit`, `/quit`.
-
-## Keybindings
-
-| Key | Action |
-|-----|--------|
-| Ctrl+T | Toggle teamwork mode |
-| Ctrl+Y | Toggle yolo mode |
-| Ctrl+C | Cancel current tool call (or exit if idle) |
-| Ctrl+D | Exit TUI (saves session first) |
-| Ctrl+L | Clear screen, redraw |
-| Ctrl+R | Reverse search history |
-
-## Environment
-
-| Variable | Required | Purpose |
-|----------|----------|---------|
-| `OODACODEX` | no | Path to a `.oot` file (e.g. `northstar.oot`). Optional in v0.1.3. |
-| `ANTHROPIC_API_KEY` | no | Hydrates an `anthropic` provider when config has none |
-| `OODA_COMPILER` | optional | Path to `oodac` (for diagnostics) |
-| `OODA_FS_READDIR` | optional | Landlock read scope (forwarded to ooda-mcp) |
-| `OODA_FS_WRITEDIR` | optional | Landlock write scope (forwarded to ooda-mcp) |
-| `OODA_TUI_VERSION` | optional | Override version string |
+`OODACODEX` optional. `OODA_HOME` config root. `OODA_NO_COLOR=1` disables color.
+`OODA_TUI_VERSION` overrides the version string.
 
 ## Examples
 
 ```
-ooda-tui
-ooda-tui --teamwork
-ooda-tui --provider anthropic --model claude-sonnet-4.5
-ooda-tui --cwd ~/Projects/myapp --yolo
+ooda
+/login muse "$OODA_MUSE_API_KEY"
+hello, what can you see in this repo?
+/btw what model am I on?
+/exit
 ```

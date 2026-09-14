@@ -1,13 +1,13 @@
 // # llm_exec.oo - One-shot LLM complete via curl
 //
-// Logline: POST a prompt to Anthropic / OpenAI / Ollama / Google / custom using curl. std http_client_post currently drops the body, so the harness shells out.
+// Logline: POST a prompt to a provider using curl. Headers live in a temp file so the key is not on argv.
 //
-// Setup: ProcessCap runs curl; FsWriteCap writes a temp JSON body. Key is passed as a header.
+// Setup: ProcessCap runs curl; FsWriteCap writes JSON body and header file.
 //
 // Beats:
-//   1. Build a provider-shaped JSON body from (ptype, model, prompt).
-//   2. Write /tmp/ooda-tui-llm.json and curl -sS --fail -d @file.
-//   3. Extract the assistant text from the JSON response.
+//   1. Normalize muse/minimax/mistral (OpenAI-shape) vs anthropic/ollama/google.
+//   2. Write body + header files; curl -H @hdr --data-binary @body.
+//   3. Pull assistant text from "text" then "content".
 
 import "std/fs/process/process.oo";
 import "std/fs/file/file_writer.oo";
@@ -28,14 +28,44 @@ fn json_escape(s: String) -> String {
     return out;
 }
 
+pub fn provider_norm(name: String) -> String {
+    if name == "meta" || name == "spark" || name == "muse" { return "muse"; }
+    if name == "vibe" { return "mistral"; }
+    return name;
+}
+
+pub fn provider_default_model(name: String) -> String {
+    let p: String = provider_norm(name);
+    if p == "muse" { return "muse-spark-1.3"; }
+    if p == "minimax" { return "MiniMax-M2.5"; }
+    if p == "mistral" { return "mistral-large-latest"; }
+    if p == "anthropic" { return "claude-sonnet-4-5"; }
+    if p == "openai" { return "gpt-4.1"; }
+    if p == "ollama" { return "llama3.1"; }
+    if p == "google" { return "gemini-2.0-flash"; }
+    return "";
+}
+
+pub fn provider_default_url(name: String) -> String {
+    let p: String = provider_norm(name);
+    if p == "muse" { return "https://api.meta.ai/v1/chat/completions"; }
+    if p == "minimax" { return "https://api.minimax.io/v1/chat/completions"; }
+    if p == "mistral" { return "https://api.mistral.ai/v1/chat/completions"; }
+    if p == "anthropic" { return "https://api.anthropic.com/v1/messages"; }
+    if p == "openai" { return "https://api.openai.com/v1/chat/completions"; }
+    if p == "ollama" { return "http://localhost:11434/api/chat"; }
+    return "";
+}
+
+pub fn provider_names() -> String {
+    return "muse minimax mistral vibe anthropic openai ollama google";
+}
+
 fn build_body(ptype: String, model: String, prompt: String) -> String {
     let p: String = json_escape(prompt);
     let m: String = json_escape(model);
     if ptype == "anthropic" {
         return "{\"model\":\"" + m + "\",\"max_tokens\":2048,\"messages\":[{\"role\":\"user\",\"content\":\"" + p + "\"}]}";
-    }
-    if ptype == "ollama" {
-        return "{\"model\":\"" + m + "\",\"stream\":false,\"messages\":[{\"role\":\"user\",\"content\":\"" + p + "\"}]}";
     }
     if ptype == "google" {
         return "{\"contents\":[{\"parts\":[{\"text\":\"" + p + "\"}]}]}";
@@ -43,22 +73,13 @@ fn build_body(ptype: String, model: String, prompt: String) -> String {
     return "{\"model\":\"" + m + "\",\"messages\":[{\"role\":\"user\",\"content\":\"" + p + "\"}]}";
 }
 
-fn curl_cmd(ptype: String, key: String, url: String, tmp: String) -> String {
-    let mut u: String = url;
+fn hdr_body(ptype: String, key: String) -> String {
     if ptype == "anthropic" {
-        if u == "" { u = "https://api.anthropic.com/v1/messages"; }
-        return "curl -sS --fail -m 60 -X POST " + u + " -H 'content-type: application/json' -H 'anthropic-version: 2023-06-01' -H 'x-api-key: " + key + "' --data-binary @" + tmp;
+        return "content-type: application/json\nanthropic-version: 2023-06-01\nx-api-key: " + key + "\n";
     }
-    if ptype == "ollama" {
-        if u == "" { u = "http://localhost:11434/api/chat"; }
-        return "curl -sS --fail -m 60 -X POST " + u + " -H 'content-type: application/json' --data-binary @" + tmp;
-    }
-    if ptype == "google" {
-        if u == "" { u = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" + key; }
-        return "curl -sS --fail -m 60 -X POST '" + u + "' -H 'content-type: application/json' --data-binary @" + tmp;
-    }
-    if u == "" { u = "https://api.openai.com/v1/chat/completions"; }
-    return "curl -sS --fail -m 60 -X POST " + u + " -H 'content-type: application/json' -H 'authorization: Bearer " + key + "' --data-binary @" + tmp;
+    if ptype == "ollama" { return "content-type: application/json\n"; }
+    if ptype == "google" { return "content-type: application/json\n"; }
+    return "content-type: application/json\nauthorization: Bearer " + key + "\n";
 }
 
 fn extract_json_string(raw: String, key: String) -> String {
@@ -88,15 +109,28 @@ fn extract_json_string(raw: String, key: String) -> String {
     return "";
 }
 
-pub fn llm_complete_exec(sys: &ProcessCap, fw: &FsWriteCap, ptype: String, key: String, model: String, url: String, prompt: String) -> Result[String, String] {
-    if ptype != "ollama" && key == "" { return Err("no api key — /login or set the provider env var"); }
+pub fn llm_complete_exec(sys: &ProcessCap, fw: &FsWriteCap, ptype0: String, key: String, model0: String, url0: String, prompt: String) -> Result[String, String] {
+    let ptype: String = provider_norm(ptype0);
+    if ptype != "ollama" && key == "" { return Err("no api key — /login " + ptype + " <key>"); }
+    let mut model: String = model0;
+    if model == "" { model = provider_default_model(ptype); }
     if model == "" { return Err("no model — /model <name>"); }
+    let mut url: String = url0;
+    if url == "" { url = provider_default_url(ptype); }
+    if ptype == "google" && url == "" {
+        url = "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent?key=" + key;
+    }
+    if url == "" { return Err("no url for provider " + ptype); }
     let body: String = build_body(ptype, model, prompt);
     let tmp: String = "/tmp/ooda-tui-llm.json";
+    let hdr: String = "/tmp/ooda-tui-llm.hdr";
     let w: FileWriter = file_writer_open(fw, tmp, false);
     let wr: Result[FileWriter, String] = file_writer_write(fw, w, body);
     if wr.is_err() { return Err("write llm body"); }
-    let cmd: String = curl_cmd(ptype, key, url, tmp);
+    let hw: FileWriter = file_writer_open(fw, hdr, false);
+    let hr: Result[FileWriter, String] = file_writer_write(fw, hw, hdr_body(ptype, key));
+    if hr.is_err() { return Err("write llm headers"); }
+    let cmd: String = "curl -sS --fail -m 60 -X POST " + url + " -H @" + hdr + " --data-binary @" + tmp;
     let r: Result[String, String] = process_exec(sys, cmd);
     if r.is_err() {
         let e: String = match r { Ok(_) => "", Err(m) => m };
