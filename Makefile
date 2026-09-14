@@ -126,8 +126,9 @@ verify: line-cap file-law academy check
 install: $(BIN)
 	@mkdir -p $(HOME)/.openooda/bin
 	@cp $(BIN) $(HOME)/.openooda/bin/ooda-tui
-	@chmod +x $(HOME)/.openooda/bin/ooda-tui
-	@echo "installed $(HOME)/.openooda/bin/ooda-tui"
+	@cp $(BIN) $(HOME)/.openooda/bin/tui
+	@chmod +x $(HOME)/.openooda/bin/ooda-tui $(HOME)/.openooda/bin/tui
+	@echo "installed $(HOME)/.openooda/bin/{ooda-tui,tui}"
 
 clean:
 	@rm -rf dist .ooda-cache
