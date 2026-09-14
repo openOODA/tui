@@ -94,6 +94,7 @@ jobs:
           export OO_LIST_AMBIENT_QUOTA=1073741824
           export OODACODEX="$HOME/.openooda/northstar.oot"
           export OODA_COMPILER="$HOME/.openooda/bin/oodac"
+          export OODA_STD="$HOME/.openooda/std"
           export OODA_STD_ROOT="$HOME/.openooda/std"
           export OODA_FS_READDIR="$HOME/.openooda:${GITHUB_WORKSPACE}:/tmp"
           export OODA_FS_WRITEDIR="${GITHUB_WORKSPACE}:/tmp"
@@ -110,6 +111,7 @@ jobs:
           export OO_LIST_AMBIENT_QUOTA=1073741824
           export OODACODEX="$HOME/.openooda/northstar.oot"
           export OODA_COMPILER="$HOME/.openooda/bin/oodac"
+          export OODA_STD="$HOME/.openooda/std"
           export OODA_STD_ROOT="$HOME/.openooda/std"
           export OODA_FS_READDIR="$HOME/.openooda:${GITHUB_WORKSPACE}:/tmp:/usr"
           export OODA_FS_WRITEDIR="${GITHUB_WORKSPACE}:/tmp"
@@ -151,6 +153,7 @@ jobs:
           export OO_LIST_AMBIENT_QUOTA=1073741824
           export OODACODEX="$HOME/.openooda/northstar.oot"
           export OODA_COMPILER="$HOME/.openooda/bin/oodac"
+          export OODA_STD="$HOME/.openooda/std"
           export OODA_STD_ROOT="$HOME/.openooda/std"
           export OODA_NO_JAIL=1
           for f in $(find qa -name "*.oo"); do
