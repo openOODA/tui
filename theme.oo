@@ -26,21 +26,20 @@ pub fn theme_list() -> String {
     return "1982 minimax";
 }
 
-// Probe the session environment and decide whether ANSI color is allowed.
-// Honors https://no-color.org: any non-empty NO_COLOR disables color.
-// Honors TERM=dumb and empty TERM (a fully uncolored terminal).
-// Returns true when color is allowed, false when plain-text mode is required.
+// EnvCap only exposes OODA_/OO_ keys, so TERM and NO_COLOR cannot be read.
+// Color is on unless OODA_NO_COLOR is set. --no-color is handled by theme_color_forced.
 pub fn theme_color_session(env: &EnvCap) -> Bool {
-    let nr: Result[String, String] = env_get(env, "NO_COLOR");
+    let nr: Result[String, String] = env_get(env, "OODA_NO_COLOR");
     if nr.is_ok() {
         let n: String = match nr { Ok(s) => s, Err(_) => "" };
         if n != "" { return false; }
     }
-    let tr: Result[String, String] = env_get(env, "TERM");
-    let t: String = match tr { Ok(s) => s, Err(_) => "" };
-    if t == "dumb" { return false; }
-    if t == "" { return false; }
     return true;
+}
+
+// openOODA string literals do not parse \xHH. Build ESC (byte 27) from a byte.
+pub fn ansi_esc() -> String {
+    return bytes_to_str(bytes_push(bytes_new(), 27));
 }
 
 // Honor an explicit --no-color flag in addition to the env probe.
@@ -54,7 +53,7 @@ pub fn ansi_fg(color: Bool, hex: String) -> String {
     let r: Int = hex_to_r(hex);
     let g: Int = hex_to_g(hex);
     let b: Int = hex_to_b(hex);
-    return "\x1b[38;2;" + int_to_str(r) + ";" + int_to_str(g) + ";" + int_to_str(b) + "m";
+    return ansi_esc() + "[38;2;" + int_to_str(r) + ";" + int_to_str(g) + ";" + int_to_str(b) + "m";
 }
 
 pub fn ansi_bg(color: Bool, hex: String) -> String {
@@ -62,27 +61,27 @@ pub fn ansi_bg(color: Bool, hex: String) -> String {
     let r: Int = hex_to_r(hex);
     let g: Int = hex_to_g(hex);
     let b: Int = hex_to_b(hex);
-    return "\x1b[48;2;" + int_to_str(r) + ";" + int_to_str(g) + ";" + int_to_str(b) + "m";
+    return ansi_esc() + "[48;2;" + int_to_str(r) + ";" + int_to_str(g) + ";" + int_to_str(b) + "m";
 }
 
 pub fn ansi_reset(color: Bool) -> String {
     if !color { return ""; }
-    return "\x1b[0m";
+    return ansi_esc() + "[0m";
 }
 
 pub fn ansi_bold(color: Bool) -> String {
     if !color { return ""; }
-    return "\x1b[1m";
+    return ansi_esc() + "[1m";
 }
 
 pub fn ansi_italic(color: Bool) -> String {
     if !color { return ""; }
-    return "\x1b[3m";
+    return ansi_esc() + "[3m";
 }
 
 pub fn ansi_underline(color: Bool) -> String {
     if !color { return ""; }
-    return "\x1b[4m";
+    return ansi_esc() + "[4m";
 }
 
 // Compose a single SGR prefix from fg/bg hex codes and attribute flags.

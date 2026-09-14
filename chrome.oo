@@ -17,7 +17,7 @@ import "theme.oo";
 
 pub fn chrome_render(theme: String, pane: Pane, popover_buf: String, popover_idx: Int, input_buf: String, teamwork: Bool, yolo: Bool, thinking: String, version: String, color: Bool, cols: Int, rows: Int, provider: String, model: String, cwd: String) -> String {
     let mut s: String = "";
-    if color { s = "\x1b[2J\x1b[H"; }
+    if color { s = ansi_esc() + "[2J" + ansi_esc() + "[H"; }
     s = s + header_render(theme, provider, model, cwd, color, cols);
     s = s + pane_render(theme, pane, color, cols);
     if popover_buf != "" {
@@ -29,7 +29,7 @@ pub fn chrome_render(theme: String, pane: Pane, popover_buf: String, popover_idx
 }
 
 pub fn chrome_clear_only() -> String {
-    return "\x1b[2J\x1b[H";
+    return ansi_esc() + "[2J" + ansi_esc() + "[H";
 }
 
 pub fn chrome_default_cols() -> Int {

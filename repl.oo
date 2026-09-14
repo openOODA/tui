@@ -58,18 +58,23 @@ pub fn run_tui_session(fs_r: &FsReadCap, fs_w: &FsWriteCap, sys: &ProcessCap, en
     if st.provider != "" { pane = pane_append(pane, "  provider " + st.provider + "/" + st.model); }
     if st.teamwork { pane = pane_append(pane, "  teamwork on"); }
     if st.yolo { pane = pane_append(pane, "  yolo on"); }
-    pane = pane_append(pane, "  type /help for commands; /exit to leave");
+    pane = pane_append(pane, "  type a line and press enter; /help ; /exit");
     pane = mcp_hello(sys, env, pane);
     let mut live: Bool = true;
+    let mut paint: Bool = true;
     let cols: Int = chrome_term_cols();
     while true {
-        let frame: String = chrome_render(st.theme, pane, "", 0, "", st.teamwork, st.yolo, "off", ver, color, cols, 24, st.provider, st.model, st.cwd);
-        println(frame);
+        if paint {
+            let frame: String = chrome_render(st.theme, pane, "", 0, "", st.teamwork, st.yolo, "off", ver, color, cols, 24, st.provider, st.model, st.cwd);
+            println(frame);
+            paint = false;
+        }
         if !live { break; }
-        let cr: Result[String, String] = oo_read_stdin_chunk(fs_r, 60000);
+        let cr: Result[String, String] = oo_read_stdin_chunk(fs_r, 200);
         let chunk: String = match cr { Ok(s) => s, Err(_) => "" };
-        if chunk == "" && cr.is_err() { live = false; }
-        else {
+        if chunk == "" && cr.is_err() { live = false; paint = true; }
+        else if chunk != "" {
+            paint = true;
             let mut cur: String = "";
             let cn: Int = chars_len(chunk);
             let mut ci: Int = 0;

@@ -2,7 +2,7 @@
 //
 // Logline: Render the prompt input row with `> ` glyph + buffer + cursor. Honors the color: Bool flag from theme_color_session.
 //
-// Setup: One line. Cursor is rendered as a solid block (▍) at the end of the buffer. Tokens: userMessageBg, userMessageText, accent.
+// Setup: One line. Cursor is ASCII "_" (openOODA has no \\xHH escapes). Tokens: userMessageBg, userMessageText, accent.
 //
 // Beats:
 //   1. input_render(theme, buf, color, cols) returns the SGR-styled single line + newline.
@@ -19,7 +19,7 @@ pub fn input_render(theme: String, buf: String, color: Bool, cols: Int) -> Strin
     let mut s: String = ansi_bg(color, bg);
     s = s + ansi_fg(color, accent) + "> " + ansi_reset(color);
     s = s + ansi_fg(color, fg) + buf + ansi_reset(color);
-    s = s + ansi_fg(color, accent) + "\xe2\x96\x8d" + ansi_reset(color);
+    s = s + ansi_fg(color, accent) + "_" + ansi_reset(color);
     let used: Int = 2 + chars_len(buf) + 1;
     let mut pad: Int = cols - used;
     if pad < 1 { pad = 1; }

@@ -1,7 +1,6 @@
-# ooda-tui v0.1.3 Makefile
+# ooda-tui v0.1.4 Makefile
 #
-# Build and verify the harness. v0.1.3 wires --token, --no-color,
-# slash commands, config load, LLM complete, and MCP hello.
+# Build and verify the harness. v0.1.4 fixes ESC/color and line input.
 #
 # Usage:
 #   make build       - compile main.oo to dist/ooda-tui
@@ -137,19 +136,19 @@ install: $(BIN)
 	@echo "installed $(HOME)/.openooda/bin/{ooda-tui,tui}"
 
 no-color: $(BIN)
-	@sgr=$$(echo '/exit' | NO_COLOR=1 ./$(BIN) 2>&1 | grep -c 'x1b\[' || true); \
+	@sgr=$$(echo '/exit' | ./$(BIN) --no-color 2>&1 | python3 -c "import sys; print(sys.stdin.buffer.read().count(bytes([0x1b])))"); \
 	if [ "$$sgr" -eq 0 ]; then \
-		echo "PASS: NO_COLOR=1 zero SGR bytes"; \
+		echo "PASS: --no-color zero ESC bytes"; \
 	else \
-		echo "FAIL: NO_COLOR=1 emits $$sgr SGR occurrences"; exit 1; \
+		echo "FAIL: --no-color emits $$sgr ESC bytes"; exit 1; \
 	fi
 
 dumb-term: $(BIN)
-	@sgr=$$(echo '/exit' | TERM=dumb ./$(BIN) 2>&1 | grep -c 'x1b\[' || true); \
+	@sgr=$$(echo '/exit' | OODA_NO_COLOR=1 ./$(BIN) 2>&1 | python3 -c "import sys; print(sys.stdin.buffer.read().count(bytes([0x1b])))"); \
 	if [ "$$sgr" -eq 0 ]; then \
-		echo "PASS: TERM=dumb zero SGR bytes"; \
+		echo "PASS: OODA_NO_COLOR=1 zero ESC bytes"; \
 	else \
-		echo "FAIL: TERM=dumb emits $$sgr SGR occurrences"; exit 1; \
+		echo "FAIL: OODA_NO_COLOR=1 emits $$sgr ESC bytes"; exit 1; \
 	fi
 
 token-help: $(BIN)

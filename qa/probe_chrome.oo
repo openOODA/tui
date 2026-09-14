@@ -5,9 +5,9 @@
 // Setup: In-process. Uses chrome.oo + header.oo + pane.oo + input.oo + statusbar.oo.
 //
 // Beats:
-//   1. Render at 80x24 with color=true; must contain "ooda-tui", ">" prompt glyph, "theme=" status, leading clear-screen ESC[2J.
+//   1. Render at 80x24 with color=true; must contain "ooda-tui", ">" prompt, "theme=", and a real ESC[2J.
 //   2. Render at 120x40 with color=true; same markers + "theme=minimax".
-//   3. Render at 80x24 with color=false; must contain "ooda-tui" + "theme=" but ZERO 24-bit SGR bytes (no "\x1b[38;2;" or "\x1b[48;2;").
+//   3. Render at 80x24 with color=false; "ooda-tui" + "theme=" and zero ESC bytes.
 //   4. Double-run: render twice with color=true, assert byte-equal.
 
 import "chrome.oo";
@@ -24,13 +24,14 @@ pub fn qa_chrome_run() -> Int {
     let frame_120_40: String = chrome_render("minimax", p2, "", 0, "", true, false, "medium", "v0.1.3", true, 120, 40, "anthropic", "claude", "/tmp");
     let frame_80_24_plain: String = chrome_render("1982", p1, "", 0, "", false, false, "off", "v0.1.3", false, 80, 24, "", "", "");
 
-    if frame_80_24 != "" && contains(frame_80_24, "\x1b[2J") && contains(frame_80_24, "ooda-tui") && contains(frame_80_24, "> ") && contains(frame_80_24, "theme=") { pass = pass + 1; }
+    let clear: String = ansi_esc() + "[2J";
+    if frame_80_24 != "" && contains(frame_80_24, clear) && contains(frame_80_24, "ooda-tui") && contains(frame_80_24, "> ") && contains(frame_80_24, "theme=") { pass = pass + 1; }
     else { fail = fail + 1; println("FAIL: frame_80_24 missing required surface markers"); }
 
-    if frame_120_40 != "" && contains(frame_120_40, "\x1b[2J") && contains(frame_120_40, "ooda-tui") && contains(frame_120_40, "> ") && contains(frame_120_40, "theme=minimax") { pass = pass + 1; }
+    if frame_120_40 != "" && contains(frame_120_40, clear) && contains(frame_120_40, "ooda-tui") && contains(frame_120_40, "> ") && contains(frame_120_40, "theme=minimax") { pass = pass + 1; }
     else { fail = fail + 1; println("FAIL: frame_120_40 missing required surface markers"); }
 
-    if frame_80_24_plain != "" && contains(frame_80_24_plain, "ooda-tui") && contains(frame_80_24_plain, "theme=") && !contains(frame_80_24_plain, "\x1b[") { pass = pass + 1; }
+    if frame_80_24_plain != "" && contains(frame_80_24_plain, "ooda-tui") && contains(frame_80_24_plain, "theme=") && !contains(frame_80_24_plain, ansi_esc()) { pass = pass + 1; }
     else { fail = fail + 1; println("FAIL: frame_80_24_plain missing required markers or contains ESC"); }
 
     let frame_80_24_again: String = chrome_render("1982", p1, "", 0, "", false, false, "off", "v0.1.3", true, 80, 24, "", "", "");
