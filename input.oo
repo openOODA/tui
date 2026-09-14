@@ -13,7 +13,8 @@ import "theme.oo";
 pub fn input_render(theme: String, buf: String, color: Bool, cols: Int) -> String {
     let accent: String = theme_color(theme, "accent");
     let muted: String = theme_color(theme, "muted");
-    let label: String = "+ compose · enter sends · /help · /exit";
+    let mut label: String = "+ compose · enter sends · /help · /exit";
+    if buf == "ask" { label = "+ APPROVE · y yes · n no · a always · d deny"; }
     let mut s: String = ansi_fg(color, muted) + label + ansi_reset(color);
     let mut pad: Int = cols - chars_len(label);
     if pad < 1 { pad = 1; }

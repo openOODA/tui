@@ -1,0 +1,45 @@
+// # agents_md.oo - Project briefing
+//
+// Logline: Load AGENTS.md, else CLAUDE.md, else OODACODEX. /init writes a stub AGENTS.md in cwd.
+//
+// Setup: FsReadCap load; FsWriteCap init. EnvCap for OODACODEX.
+//
+// Beats:
+//   1. agents_load reads the first existing briefing file, clipped.
+//   2. agents_init writes cwd/AGENTS.md if missing.
+
+import "std/fs/file/path.oo";
+import "std/fs/process/env.oo";
+
+fn clip_brief(s: String) -> String {
+    if chars_len(s) <= 4000 { return s; }
+    return str_slice(s, 0, 4000);
+}
+
+fn try_file(fs_r: &FsReadCap, path: String) -> String {
+    if path == "" { return ""; }
+    if !path_exists(fs_r, path) { return ""; }
+    let r: Result[String, String] = read_file(fs_r, path);
+    if r.is_err() { return ""; }
+    let body: String = match r { Ok(s) => s, Err(_) => "" };
+    return clip_brief(body);
+}
+
+pub fn agents_load(fs_r: &FsReadCap, env: &EnvCap, cwd: String) -> String {
+    let a: String = try_file(fs_r, cwd + "/AGENTS.md");
+    if a != "" { return a; }
+    let c: String = try_file(fs_r, cwd + "/CLAUDE.md");
+    if c != "" { return c; }
+    let er: Result[String, String] = env_get(env, "OODACODEX");
+    let codex: String = match er { Ok(s) => s, Err(_) => "" };
+    return try_file(fs_r, codex);
+}
+
+pub fn agents_init(fw: &FsWriteCap, fs_r: &FsReadCap, cwd: String) -> String {
+    let path: String = cwd + "/AGENTS.md";
+    if path_exists(fs_r, path) { return "AGENTS.md already exists"; }
+    let body: String = "# AGENTS.md\n\nThis is an openOODA tree. Prefer `ooda build` and `ooda fmt`.\nKeep files under the 256-line cap. Do not invent paths.\nAsk before writes and shell unless the user said yolo.\n";
+    let wr: Result[Void, String] = write_file(fw, path, body);
+    if wr.is_err() { return "init failed"; }
+    return "wrote AGENTS.md";
+}

@@ -1,6 +1,6 @@
-# ooda-tui v0.1.5 Makefile
+# ooda-tui v0.2.0 Makefile
 #
-# Compose-box chrome, muse/minimax/mistral, live slash set.
+# Agent loop: read/grep/glob/write/bash, ask/allow/yolo, AGENTS.md.
 #
 # Usage:
 #   make build       - compile main.oo to dist/ooda-tui
@@ -30,7 +30,7 @@ all: build verify test
 
 build: $(BIN)
 
-$(BIN): main.oo version.oo anchor.oo app.oo config.oo config_io.oo loop.oo mcp_client.oo lsp_client.oo llm.oo llm_exec.oo llm_anthropic.oo llm_openai.oo llm_ollama.oo llm_google.oo llm_custom.oo teamwork.oo slash.oo slash_extra.oo session.oo compact.oo plan.oo btw.oo keys.oo theme.oo themes/1982.oo themes/minimax.oo chrome.oo header.oo statusbar.oo pane.oo input.oo popover.oo markdown.oo tool_card.oo diff.oo repl.oo repl_state.oo repl_slash.oo
+$(BIN): main.oo version.oo anchor.oo app.oo config.oo config_io.oo loop.oo mcp_client.oo lsp_client.oo llm.oo llm_exec.oo llm_anthropic.oo llm_openai.oo llm_ollama.oo llm_google.oo llm_custom.oo teamwork.oo slash.oo slash_extra.oo session.oo compact.oo plan.oo btw.oo keys.oo theme.oo themes/1982.oo themes/minimax.oo chrome.oo header.oo statusbar.oo pane.oo input.oo popover.oo markdown.oo tool_card.oo diff.oo repl.oo repl_state.oo repl_slash.oo native_tools.oo card.oo agent_turn.oo agents_md.oo
 	@mkdir -p dist
 	OO_LIST_AMBIENT_QUOTA=1073741824 OODACODEX=$(OODACODEX) OODA_COMPILER=$(OODA_COMPILER) OODA_STD=$(HOME)/.openooda/std OODA_NO_JAIL=1 $(OODA_COMPILER) build --backend c main.oo -o $(BIN)
 	@echo "built $(BIN)"

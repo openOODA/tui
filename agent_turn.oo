@@ -1,0 +1,205 @@
+// # agent_turn.oo - Multi-hop tool loop
+//
+// Logline: One user line becomes think -> TOOL -> result, up to 8 hops. Write/bash ask unless yolo/allow. Plan mode denies them.
+//
+// Setup: Prints rad cards live. Pending ask stores tool fields on ReplState.
+//
+// Beats:
+//   1. Parse a TOOL line from the model. Exec natives under cwd.
+//   2. If ask is required, freeze and wait for y/n/a/d.
+//   3. Final prose (no TOOL) is the answer.
+
+import "repl_state.oo";
+import "llm_exec.oo";
+import "native_tools.oo";
+import "card.oo";
+
+fn sys_prompt(st: ReplState) -> String {
+    let mut s: String = "You are ooda, a coding agent in cwd " + st.cwd + ".\n";
+    s = s + "Emit tools as a single block, then stop:\n";
+    s = s + "TOOL read <relpath>\nTOOL grep <pattern>\nTOOL glob <pattern>\n";
+    s = s + "TOOL bash <command>\nTOOL write <relpath>\n---\nfile body\n---\n";
+    s = s + "No TOOL line means you are done talking to the user.\n";
+    s = s + "Stay inside cwd. Prefer read before write.\n";
+    if st.mode == "plan" { s = s + "PLAN MODE: do not write or bash; only read/grep/glob.\n"; }
+    if st.brief != "" { s = s + "BRIEFING:\n" + st.brief + "\n"; }
+    if st.plan != "" { s = s + "PLAN: " + st.plan + "\n"; }
+    if st.goal != "" { s = s + "GOAL: " + st.goal + "\n"; }
+    return s;
+}
+
+fn find_tool(text: String) -> Int {
+    let t: String = str_trim(text);
+    if str_starts_with(t, "TOOL ") { return 0; }
+    let n: Int = chars_len(text);
+    let mut i: Int = 0;
+    while i + 6 <= n {
+        if str_slice(text, i, i + 6) == "\nTOOL " { return i + 1; }
+        i = i + 1;
+    }
+    return -1;
+}
+
+fn line_at(text: String, start: Int) -> String {
+    let n: Int = chars_len(text);
+    let mut j: Int = start;
+    while j < n {
+        if char_at(text, j) == "\n" { return str_slice(text, start, j); }
+        j = j + 1;
+    }
+    return str_slice(text, start, n);
+}
+
+fn parse_name(line: String) -> String {
+    let rest: String = str_trim(str_slice(line, 5, chars_len(line)));
+    let n: Int = chars_len(rest);
+    let mut i: Int = 0;
+    while i < n {
+        let c: String = str_slice(rest, i, i + 1);
+        if c == " " || c == "\t" { return str_slice(rest, 0, i); }
+        i = i + 1;
+    }
+    return rest;
+}
+
+fn parse_args(line: String) -> String {
+    let rest: String = str_trim(str_slice(line, 5, chars_len(line)));
+    let name: String = parse_name(line);
+    return str_trim(str_slice(rest, chars_len(name), chars_len(rest)));
+}
+
+fn parse_body(text: String, start: Int) -> String {
+    let n: Int = chars_len(text);
+    let mut j: Int = start;
+    while j < n {
+        if char_at(text, j) == "\n" { j = j + 1; break; }
+        j = j + 1;
+    }
+    let mut body: String = str_slice(text, j, n);
+    if str_starts_with(body, "---\n") { body = str_slice(body, 4, chars_len(body)); }
+    let e: Int = chars_len(body);
+    if e >= 4 && str_slice(body, e - 4, e) == "\n---" { body = str_slice(body, 0, e - 4); }
+    return body;
+}
+
+fn deny_plan(st: ReplState, name: String) -> Bool {
+    if st.mode != "plan" { return false; }
+    return tool_needs_ask(name);
+}
+
+fn should_ask(st: ReplState, name: String) -> Bool {
+    if !tool_needs_ask(name) { return false; }
+    if st.yolo { return false; }
+    if st.perm == "yolo" { return false; }
+    if st.perm == "allow" { return false; }
+    return true;
+}
+
+fn run_one(fs_r: &FsReadCap, fw: &FsWriteCap, sys: &ProcessCap, st: ReplState, name: String, args: String, body: String) -> String {
+    let r: Result[String, String] = tool_exec(fs_r, fw, sys, st.cwd, name, args, body);
+    if r.is_err() { return match r { Ok(_) => "", Err(e) => e }; }
+    return match r { Ok(s) => s, Err(_) => "" };
+}
+
+fn hop(fs_r: &FsReadCap, fw: &FsWriteCap, sys: &ProcessCap, st: ReplState, ctx: String, color: Bool) -> ReplState {
+    let mut s: ReplState = st;
+    let mut ctx2: String = ctx;
+    let mut n: Int = 0;
+    while n < 8 {
+        println(card_think(s.theme, color, s.model));
+        let rr: Result[String, String] = llm_complete_exec(sys, fw, s.ptype, s.key, s.model, s.url, ctx2);
+        if rr.is_err() {
+            let e: String = match rr { Ok(_) => "", Err(m) => m };
+            s.output = s.output + card_tool(s.theme, color, "x", "llm", "", e) + "\n";
+            return s;
+        }
+        let raw: String = match rr { Ok(t) => t, Err(_) => "" };
+        let idx: Int = find_tool(raw);
+        if idx < 0 {
+            s.output = s.output + card_say(str_trim(raw)) + "\n";
+            s.hist = s.hist + "A: " + str_trim(raw) + "\n";
+            return s;
+        }
+        let tl: String = line_at(raw, idx);
+        let name: String = parse_name(tl);
+        let args: String = parse_args(tl);
+        let body: String = parse_body(raw, idx);
+        if deny_plan(s, name) {
+            let msg: String = "denied in plan mode";
+            println(card_tool(s.theme, color, "x", name, args, msg));
+            s.output = s.output + card_tool(s.theme, color, "x", name, args, msg) + "\n";
+            ctx2 = ctx2 + "\nASSISTANT:\n" + raw + "\nTOOL_RESULT:\n" + msg;
+            n = n + 1;
+            continue;
+        }
+        if should_ask(s, name) {
+            s.pending_tool = name;
+            s.pending_args = args;
+            s.pending_body = body;
+            s.hist = ctx2 + "\nASSISTANT:\n" + raw;
+            let box: String = card_ask(s.theme, color, name, args, "this mutates the tree");
+            println(box);
+            s.output = s.output + box + "\n";
+            return s;
+        }
+        println(card_tool(s.theme, color, "*", name, args, ""));
+        let res: String = run_one(fs_r, fw, sys, s, name, args, body);
+        let note: String = int_to_str(tool_line_count(res)) + " ln";
+        println(card_tool(s.theme, color, ".", name, args, note));
+        s.output = s.output + card_tool(s.theme, color, ".", name, args, note) + "\n";
+        ctx2 = ctx2 + "\nASSISTANT:\n" + raw + "\nTOOL_RESULT:\n" + res;
+        n = n + 1;
+    }
+    s.output = s.output + card_say("(hop cap)") + "\n";
+    return s;
+}
+
+fn int_to_str(n: Int) -> String {
+    if n <= 0 { return "0"; }
+    let digits: String = "0123456789";
+    let mut v: Int = n;
+    let mut rev: String = "";
+    while v > 0 { let d: Int = v - (v / 10) * 10; rev = rev + char_at(digits, d); v = v / 10; }
+    let mut out: String = "";
+    let mut k: Int = chars_len(rev) - 1;
+    while k >= 0 { out = out + char_at(rev, k); k = k - 1; }
+    return out;
+}
+
+pub fn agent_run(fs_r: &FsReadCap, fw: &FsWriteCap, sys: &ProcessCap, st: ReplState, user: String, color: Bool) -> ReplState {
+    let mut s: ReplState = st;
+    s.output = "";
+    s.hist = s.hist + "U: " + user + "\n";
+    let ctx: String = sys_prompt(s) + "\n" + s.hist + "\nUSER:\n" + user;
+    return hop(fs_r, fw, sys, s, ctx, color);
+}
+
+pub fn agent_resume(fs_r: &FsReadCap, fw: &FsWriteCap, sys: &ProcessCap, st: ReplState, color: Bool) -> ReplState {
+    let mut s: ReplState = st;
+    let name: String = s.pending_tool;
+    let args: String = s.pending_args;
+    let body: String = s.pending_body;
+    s.pending_tool = "";
+    s.pending_args = "";
+    s.pending_body = "";
+    s.output = "";
+    println(card_tool(s.theme, color, "*", name, args, ""));
+    let res: String = run_one(fs_r, fw, sys, s, name, args, body);
+    let note: String = int_to_str(tool_line_count(res)) + " ln";
+    println(card_tool(s.theme, color, ".", name, args, note));
+    s.output = card_tool(s.theme, color, ".", name, args, note) + "\n";
+    let ctx: String = s.hist + "\nTOOL_RESULT:\n" + res;
+    return hop(fs_r, fw, sys, s, ctx, color);
+}
+
+pub fn agent_deny(st: ReplState, color: Bool) -> ReplState {
+    let mut s: ReplState = st;
+    let name: String = s.pending_tool;
+    let args: String = s.pending_args;
+    s.pending_tool = "";
+    s.pending_args = "";
+    s.pending_body = "";
+    s.output = card_tool(s.theme, color, "x", name, args, "denied") + "\n";
+    s.hist = s.hist + "\nTOOL_RESULT:\ndenied by user\n";
+    return s;
+}

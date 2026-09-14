@@ -2,8 +2,8 @@
 
 File: help.oot
 
-Line-mode coding harness. Conversation sits above a compose line.
-Type on `> ` and press enter. Slash commands start with `/`.
+Coding agent. Conversation up, compose down. Enter sends.
+Write and bash ask first unless `/perm yolo` or `--yolo`.
 
 ## Usage
 
@@ -37,8 +37,10 @@ Keys persist to `$OODA_HOME/.config/ooda-tui/config.oot` or `./.ooda-tui.oot`.
 `/plan [text]`  `/goal [text]`
 `/btw <question>`  aside, does not change the plan
 `/team on|off|init|run`
-`/clear`  `/compact`  `/resume [id]`  `/rename <name>`
-`/settings`  `/status`  `/version`  `/help`  `/exit`  `/quit`
+`/init` writes AGENTS.md. `/perm ask|allow|yolo`. `/mode build|plan`.
+`/clear` `/compact` `/resume` `/rename` `/settings` `/status` `/help` `/exit`
+
+Tools the model may call: read, grep, glob, write, bash (cwd-capped).
 
 ## Flags
 

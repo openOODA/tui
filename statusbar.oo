@@ -19,14 +19,19 @@ pub fn statusbar_render(theme: String, teamwork: Bool, yolo: Bool, thinking: Str
     let success: String = theme_color(theme, "success");
 
     let mut s: String = "";
+    if thinking == "WAIT" {
+        s = s + ansi_fg(color, error) + ansi_bold(color) + " ASK " + ansi_reset(color);
+    } else if thinking == "yolo" || yolo {
+        s = s + ansi_fg(color, error) + " YOLO " + ansi_reset(color);
+    } else if thinking == "plan" {
+        s = s + ansi_fg(color, accent) + " PLAN " + ansi_reset(color);
+    } else if thinking == "allow" {
+        s = s + ansi_fg(color, success) + " ALLOW " + ansi_reset(color);
+    } else {
+        s = s + ansi_fg(color, muted) + " ASK " + ansi_reset(color);
+    }
     if teamwork {
-        s = s + ansi_fg(color, accent) + " teamwork " + ansi_reset(color);
-    }
-    if yolo {
-        s = s + ansi_fg(color, error) + " yolo " + ansi_reset(color);
-    }
-    if thinking != "" && thinking != "off" {
-        s = s + ansi_fg(color, success) + " think:" + thinking + " " + ansi_reset(color);
+        s = s + ansi_fg(color, accent) + " TEAM " + ansi_reset(color);
     }
     let mut used: Int = chars_len(s);
     let mid_pad: Int = 2;

@@ -1,0 +1,118 @@
+// # native_tools.oo - cwd-capped read/grep/glob/write/bash
+//
+// Logline: Four tools the agent may call. Paths stay under cwd. `..` and absolute paths die.
+//
+// Setup: FsReadCap/FsWriteCap/ProcessCap. Results truncated to 8000 chars.
+//
+// Beats:
+//   1. tool_join(cwd, rel) builds a safe path or Err.
+//   2. tool_exec(name, args, body) runs one tool and returns text.
+
+import "std/fs/file/path.oo";
+import "std/fs/process/process.oo";
+
+fn has_dotdot(rel: String) -> Bool {
+    if rel == ".." { return true; }
+    if str_starts_with(rel, "../") { return true; }
+    let n: Int = chars_len(rel);
+    let mut i: Int = 0;
+    while i + 3 < n {
+        if str_slice(rel, i, i + 4) == "/../" { return true; }
+        i = i + 1;
+    }
+    if n >= 3 && str_slice(rel, n - 3, n) == "/.." { return true; }
+    return false;
+}
+
+pub fn tool_join(cwd: String, rel0: String) -> Result[String, String] {
+    let rel: String = str_trim(rel0);
+    if rel == "" { return Err("empty path"); }
+    if str_starts_with(rel, "/") { return Err("absolute path denied"); }
+    if has_dotdot(rel) { return Err(".. denied"); }
+    if cwd == "" || cwd == "." { return Ok(rel); }
+    return Ok(cwd + "/" + rel);
+}
+
+fn clip(s: String) -> String {
+    if chars_len(s) <= 8000 { return s; }
+    return str_slice(s, 0, 8000) + "\n... truncated";
+}
+
+fn count_nl(s: String) -> Int {
+    let n: Int = chars_len(s);
+    let mut c: Int = 1;
+    let mut i: Int = 0;
+    while i < n {
+        if char_at(s, i) == "\n" { c = c + 1; }
+        i = i + 1;
+    }
+    return c;
+}
+
+pub fn tool_read(fs_r: &FsReadCap, cwd: String, rel: String) -> Result[String, String] {
+    let jp: Result[String, String] = tool_join(cwd, rel);
+    if jp.is_err() { return jp; }
+    let path: String = match jp { Ok(p) => p, Err(_) => "" };
+    if !path_exists(fs_r, path) { return Err("not found: " + rel); }
+    let r: Result[String, String] = read_file(fs_r, path);
+    if r.is_err() { return Err("read failed"); }
+    let body: String = match r { Ok(s) => s, Err(_) => "" };
+    return Ok(clip(body));
+}
+
+pub fn tool_write(fw: &FsWriteCap, cwd: String, rel: String, body: String) -> Result[String, String] {
+    let jp: Result[String, String] = tool_join(cwd, rel);
+    if jp.is_err() { return jp; }
+    let path: String = match jp { Ok(p) => p, Err(_) => "" };
+    let wr: Result[Void, String] = write_file(fw, path, body);
+    if wr.is_err() { return Err("write failed"); }
+    return Ok("wrote " + rel);
+}
+
+pub fn tool_bash(sys: &ProcessCap, cwd: String, cmd: String) -> Result[String, String] {
+    if cmd == "" { return Err("empty cmd"); }
+    let sh: String = "cd \"" + cwd + "\" && " + cmd;
+    let r: Result[String, String] = process_exec(sys, sh);
+    if r.is_err() {
+        let e: String = match r { Ok(_) => "", Err(m) => m };
+        return Err(clip(e));
+    }
+    let out: String = match r { Ok(s) => s, Err(_) => "" };
+    if out == "" { return Ok("(ok)"); }
+    return Ok(clip(out));
+}
+
+pub fn tool_grep(sys: &ProcessCap, cwd: String, spec: String) -> Result[String, String] {
+    let sh: String = "cd \"" + cwd + "\" && grep -R -n -I -E -- " + spec + " . 2>/dev/null | head -n 80";
+    let r: Result[String, String] = process_exec(sys, sh);
+    let out: String = match r { Ok(s) => s, Err(m) => m };
+    if str_trim(out) == "" { return Ok("(no matches)"); }
+    return Ok(clip(out));
+}
+
+pub fn tool_glob(sys: &ProcessCap, cwd: String, pat: String) -> Result[String, String] {
+    let sh: String = "cd \"" + cwd + "\" && find . -name \"" + pat + "\" 2>/dev/null | head -n 80";
+    let r: Result[String, String] = process_exec(sys, sh);
+    let out: String = match r { Ok(s) => s, Err(m) => m };
+    if str_trim(out) == "" { return Ok("(none)"); }
+    return Ok(clip(out));
+}
+
+pub fn tool_line_count(s: String) -> Int {
+    return count_nl(s);
+}
+
+pub fn tool_exec(fs_r: &FsReadCap, fw: &FsWriteCap, sys: &ProcessCap, cwd: String, name: String, args: String, body: String) -> Result[String, String] {
+    if name == "read" { return tool_read(fs_r, cwd, args); }
+    if name == "write" { return tool_write(fw, cwd, args, body); }
+    if name == "bash" { return tool_bash(sys, cwd, args); }
+    if name == "grep" { return tool_grep(sys, cwd, args); }
+    if name == "glob" { return tool_glob(sys, cwd, args); }
+    return Err("unknown tool: " + name);
+}
+
+pub fn tool_needs_ask(name: String) -> Bool {
+    if name == "write" { return true; }
+    if name == "bash" { return true; }
+    return false;
+}

@@ -12,7 +12,7 @@
 import "theme.oo";
 
 pub fn header_render(theme: String, provider: String, model: String, cwd: String, color: Bool, cols: Int) -> String {
-    let left: String = "ooda-tui";
+    let left: String = "ooda";
     let mut mid: String = "";
     if provider != "" { mid = mid + provider; }
     if model != "" {

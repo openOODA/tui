@@ -12,6 +12,7 @@
 import "repl_state.oo";
 import "config_io.oo";
 import "llm_exec.oo";
+import "agents_md.oo";
 
 fn onoff(b: Bool) -> String {
     if b { return "on"; }
@@ -66,14 +67,14 @@ fn llm_line(sys: &ProcessCap, fw: &FsWriteCap, ptype: String, key: String, model
     return match r { Ok(t) => t, Err(e) => "llm: " + e };
 }
 
-pub fn slash_line(st: ReplState, line: String, ver: String, sys: &ProcessCap, fw: &FsWriteCap, env: &EnvCap) -> ReplState {
+pub fn slash_line(st: ReplState, line: String, ver: String, sys: &ProcessCap, fw: &FsWriteCap, env: &EnvCap, fs_r: &FsReadCap) -> ReplState {
     let cmd: String = cmd_of(line);
     let args: String = args_of(line, cmd);
     if cmd == "/exit" || cmd == "/quit" { let mut s: ReplState = st; s.exiting = true; return say(s, "exit"); }
     if cmd == "/help" {
         let mut s: ReplState = say(st, "commands: /login /logout /providers /model /theme /cwd /plan /goal");
-        s = say(s, "  /clear /compact /btw /team /resume /rename /settings /status /version /exit");
-        return say(s, "  /login muse|minimax|mistral|vibe <key>");
+        s = say(s, "  /init /perm /mode /clear /compact /btw /team /resume /rename /settings /status /exit");
+        return say(s, "  tools: read grep glob write bash  ·  /perm ask|allow|yolo  /mode build|plan");
     }
     if cmd == "/version" { return say(st, "ooda-tui " + ver); }
     if cmd == "/providers" { return say(st, "providers: " + provider_names()); }
@@ -115,7 +116,7 @@ pub fn slash_line(st: ReplState, line: String, ver: String, sys: &ProcessCap, fw
     if cmd == "/plan" { if args == "" { return say(st, "plan: " + st.plan); } let mut s: ReplState = st; s.plan = args; return say(s, "plan: set"); }
     if cmd == "/goal" { if args == "" { return say(st, "goal: " + st.goal); } let mut s: ReplState = st; s.goal = args; return say(s, "goal: set"); }
     if cmd == "/status" || cmd == "/settings" {
-        return say(st, "status: " + st.provider + "/" + st.model + " theme=" + st.theme + " cwd=" + st.cwd + " session=" + st.session + " team=" + onoff(st.teamwork));
+        return say(st, "status: " + st.provider + "/" + st.model + " " + st.mode + "/" + st.perm + " cwd=" + st.cwd + " session=" + st.session);
     }
     if cmd == "/clear" { let mut s: ReplState = st; s.hist = ""; s.output = "__CLEAR__"; return s; }
     if cmd == "/rename" {
@@ -155,6 +156,17 @@ pub fn slash_line(st: ReplState, line: String, ver: String, sys: &ProcessCap, fw
             return say(st, a);
         }
         return say(st, "team: " + onoff(st.teamwork) + "  /team on|off|init|run");
+    }
+    if cmd == "/init" { return say(st, agents_init(fw, fs_r, st.cwd)); }
+    if cmd == "/perm" {
+        if args == "" { return say(st, "perm: " + st.perm); }
+        if args != "ask" && args != "allow" && args != "yolo" { return say(st, "perm: ask|allow|yolo"); }
+        let mut s: ReplState = st; s.perm = args; s.yolo = args == "yolo"; return say(s, "perm: " + args);
+    }
+    if cmd == "/mode" {
+        if args == "" { return say(st, "mode: " + st.mode); }
+        if args != "build" && args != "plan" { return say(st, "mode: build|plan"); }
+        let mut s: ReplState = st; s.mode = args; return say(s, "mode: " + args);
     }
     return say(st, "unknown command: " + cmd + "  (type /help)");
 }

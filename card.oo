@@ -1,0 +1,67 @@
+// # card.oo - Tool and permission chrome
+//
+// Logline: One-line tool rows and a four-line ASCII ask box. No unicode; dress-right columns.
+//
+// Setup: theme + color flag. Width 80 by default.
+//
+// Beats:
+//   1. card_tool(mark, name, target, note) -> 80-col row.
+//   2. card_ask(name, target, note) -> unmissable approve box.
+
+import "theme.oo";
+
+fn pad_r(s: String, w: Int) -> String {
+    let mut out: String = s;
+    while chars_len(out) < w { out = out + " "; }
+    if chars_len(out) > w { return str_slice(out, 0, w); }
+    return out;
+}
+
+pub fn card_tool(theme: String, color: Bool, mark: String, name: String, target: String, note: String) -> String {
+    let dim: String = theme_color(theme, "dim");
+    let acc: String = theme_color(theme, "accent");
+    let ok: String = theme_color(theme, "success");
+    let err: String = theme_color(theme, "error");
+    let mut mk: String = theme_color(theme, "dim");
+    if mark == "*" { mk = acc; }
+    if mark == "." { mk = ok; }
+    if mark == "?" { mk = acc; }
+    if mark == "x" { mk = err; }
+    let mut s: String = "  ";
+    s = s + ansi_fg(color, mk) + mark + ansi_reset(color) + " ";
+    s = s + ansi_fg(color, acc) + pad_r(name, 6) + ansi_reset(color) + " ";
+    s = s + pad_r(target, 40);
+    if note != "" {
+        s = s + " " + ansi_fg(color, dim) + note + ansi_reset(color);
+    }
+    return s;
+}
+
+pub fn card_you(line: String) -> String {
+    return "  >  " + line;
+}
+
+pub fn card_say(line: String) -> String {
+    return "     " + line;
+}
+
+pub fn card_ask(theme: String, color: Bool, name: String, target: String, note: String) -> String {
+    let err: String = theme_color(theme, "error");
+    let acc: String = theme_color(theme, "accent");
+    let dim: String = theme_color(theme, "dim");
+    let bar: String = "+--------------------------------------------------------------+";
+    let mut s: String = ansi_fg(color, err) + "  " + bar + ansi_reset(color) + "\n";
+    s = s + ansi_fg(color, err) + "  | ASK  " + pad_r(name, 6) + " " + pad_r(target, 44) + " |" + ansi_reset(color) + "\n";
+    if note != "" {
+        s = s + ansi_fg(color, dim) + "  |      " + pad_r(note, 51) + " |" + ansi_reset(color) + "\n";
+    }
+    s = s + ansi_fg(color, acc) + "  |  y yes    n no    a always    d deny                       |" + ansi_reset(color) + "\n";
+    s = s + ansi_fg(color, err) + "  " + bar + ansi_reset(color);
+    return s;
+}
+
+pub fn card_think(theme: String, color: Bool, model: String) -> String {
+    let dim: String = theme_color(theme, "dim");
+    let acc: String = theme_color(theme, "accent");
+    return "  " + ansi_fg(color, acc) + "*" + ansi_reset(color) + " " + ansi_fg(color, dim) + "think  " + model + ansi_reset(color);
+}

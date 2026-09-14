@@ -7,6 +7,7 @@
 // Beats:
 //   1. Provider/model/key/url/theme/cwd drive the chrome and LLM.
 //   2. session + hist back /resume /rename /compact /btw.
+//   3. perm/mode/pending drive the tool ask loop.
 
 type ReplState = struct {
     theme: String,
@@ -23,5 +24,11 @@ type ReplState = struct {
     output: String,
     exiting: Bool,
     session: String,
-    hist: String
+    hist: String,
+    perm: String,
+    mode: String,
+    brief: String,
+    pending_tool: String,
+    pending_args: String,
+    pending_body: String
 };

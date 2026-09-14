@@ -1,13 +1,13 @@
-// # Line-based TUI session (compose box + slash + LLM)
+// # Line-based TUI session (compose box + agent loop)
 //
-// Logline: Chrome each turn. Slash mutates ReplState. Free-form text goes to curl LLM. Compose line is last so cooked stdin lands in the box.
+// Logline: Chrome each turn. Slash mutates ReplState. Free-form text runs the tool loop. Pending write/bash waits on y/n/a/d.
 //
-// Setup: FsReadCap stdin; EnvCap color/config; ProcessCap curl/mcp; FsWriteCap llm body and config.
+// Setup: FsRead/Write, ProcessCap, EnvCap. Compose is last so cooked stdin lands in the box.
 //
 // Beats:
-//   1. Load flat config, apply argv, probe color.
-//   2. Optional ooda-mcp initialize.
-//   3. Loop: render, read, slash or LLM. /exit leaves.
+//   1. Load config + AGENTS.md. yolo argv becomes perm=yolo.
+//   2. Pending ask intercepts the next line.
+//   3. Else slash or agent_run (read/grep/glob/write/bash, 8 hops).
 
 import "std/fs/process/env.oo";
 import "chrome.oo";
@@ -19,6 +19,21 @@ import "mcp_client.oo";
 import "version.oo";
 import "repl_state.oo";
 import "repl_slash.oo";
+import "agent_turn.oo";
+import "agents_md.oo";
+import "card.oo";
+
+fn think_of(st: ReplState) -> String {
+    if st.pending_tool != "" { return "WAIT"; }
+    if st.yolo || st.perm == "yolo" { return "yolo"; }
+    if st.mode == "plan" { return "plan"; }
+    return st.perm;
+}
+
+fn in_buf(st: ReplState) -> String {
+    if st.pending_tool != "" { return "ask"; }
+    return "";
+}
 
 pub fn run_tui_session(fs_r: &FsReadCap, fs_w: &FsWriteCap, sys: &ProcessCap, env: &EnvCap, teamwork: Bool, yolo: Bool, cwd0: String, provider: String, model: String, theme0: String, no_color: Bool) -> Int {
     let mut cwd: String = cwd0;
@@ -27,11 +42,14 @@ pub fn run_tui_session(fs_r: &FsReadCap, fs_w: &FsWriteCap, sys: &ProcessCap, en
         cwd = match pr { Ok(s) => s, Err(_) => "." };
     }
     let loaded: FlatCfg = config_load_flat(fs_r, env);
+    let mut perm: String = "ask";
+    if yolo { perm = "yolo"; }
     let mut st: ReplState = ReplState {
         theme: loaded.theme, provider: loaded.provider, ptype: loaded.ptype,
         key: loaded.key, url: loaded.url, model: loaded.model, cwd: cwd,
         teamwork: teamwork, yolo: yolo, plan: "", goal: "", output: "", exiting: false,
-        session: "main", hist: ""
+        session: "main", hist: "", perm: perm, mode: "build", brief: "",
+        pending_tool: "", pending_args: "", pending_body: ""
     };
     if theme0 != "" { st.theme = theme0; }
     if st.theme != "1982" && st.theme != "minimax" { st.theme = "1982"; }
@@ -39,20 +57,23 @@ pub fn run_tui_session(fs_r: &FsReadCap, fs_w: &FsWriteCap, sys: &ProcessCap, en
     if model != "" { st.model = model; }
     if st.provider != "" && st.model == "" { st.model = provider_default_model(st.provider); }
     if st.provider != "" && st.url == "" { st.url = provider_default_url(st.provider); }
+    st.brief = agents_load(fs_r, env, st.cwd);
     let color: Bool = theme_color_forced(env, no_color);
     let ver: String = ooda_tui_version();
     let mut pane: Pane = pane_new();
-    pane = pane_append(pane, "ooda-tui " + ver);
-    pane = pane_append(pane, "theme " + st.theme + "  cwd " + st.cwd);
+    pane = pane_append(pane, "ooda " + ver + "  " + st.mode + "/" + st.perm);
+    pane = pane_append(pane, "cwd " + st.cwd);
     if st.provider != "" { pane = pane_append(pane, "llm " + st.provider + "/" + st.model); }
     else { pane = pane_append(pane, "llm off  /login muse|minimax|mistral <key>"); }
+    if st.brief != "" { pane = pane_append(pane, "brief on"); }
+    else { pane = pane_append(pane, "brief off  /init writes AGENTS.md"); }
     pane = mcp_hello(sys, env, pane);
     let mut live: Bool = true;
     let mut paint: Bool = true;
     let cols: Int = chrome_term_cols();
     while true {
         if paint {
-            let frame: String = chrome_render(st.theme, pane, "", 0, "", st.teamwork, st.yolo, "off", ver, color, cols, 24, st.provider, st.model, st.cwd);
+            let frame: String = chrome_render(st.theme, pane, "", 0, in_buf(st), st.teamwork, st.yolo, think_of(st), ver, color, cols, 24, st.provider, st.model, st.cwd);
             println(frame);
             paint = false;
         }
@@ -71,28 +92,11 @@ pub fn run_tui_session(fs_r: &FsReadCap, fs_w: &FsWriteCap, sys: &ProcessCap, en
                 if ch == "\n" || ch == "\r" {
                     let line: String = str_trim(cur);
                     cur = "";
-                    if line != "" && str_starts_with(line, "/") {
-                        st = slash_line(st, line, ver, sys, fs_w, env);
-                        if st.output == "__CLEAR__" {
-                            pane = pane_new();
-                            pane = pane_append(pane, "cleared");
-                            st.output = "";
-                        } else if str_starts_with(st.output, "__COMPACT__") {
-                            pane = pane_keep_last(pane, 4);
-                            st.output = str_trim(str_slice(st.output, 11, chars_len(st.output)));
-                            pane = pane_append_block(pane, st.output);
-                            st.output = "";
-                        } else {
-                            pane = pane_append_block(pane, st.output);
-                            st.output = "";
-                        }
+                    if line != "" {
+                        st = handle_line(fs_r, fs_w, sys, env, st, line, ver, color);
+                        pane = apply_out(pane, st);
+                        st.output = "";
                         if st.exiting { live = false; }
-                    } else if line != "" {
-                        pane = pane_append(pane, "you  " + line);
-                        println("  ...");
-                        let reply: String = run_llm_turn(sys, fs_w, st, line);
-                        pane = pane_append_block(pane, reply);
-                        st.hist = st.hist + "U: " + line + "\nA: " + reply + "\n";
                     }
                 } else { cur = cur + ch; }
                 ci = ci + 1;
@@ -100,6 +104,47 @@ pub fn run_tui_session(fs_r: &FsReadCap, fs_w: &FsWriteCap, sys: &ProcessCap, en
         }
     }
     return 0;
+}
+
+fn apply_out(pane: Pane, st: ReplState) -> Pane {
+    if st.output == "__CLEAR__" {
+        let p: Pane = pane_new();
+        return pane_append(p, "cleared");
+    }
+    if str_starts_with(st.output, "__COMPACT__") {
+        let rest: String = str_trim(str_slice(st.output, 11, chars_len(st.output)));
+        return pane_append_block(pane_keep_last(pane, 4), rest);
+    }
+    if st.output == "" { return pane; }
+    return pane_append_block(pane, st.output);
+}
+
+fn handle_line(fs_r: &FsReadCap, fs_w: &FsWriteCap, sys: &ProcessCap, env: &EnvCap, st: ReplState, line: String, ver: String, color: Bool) -> ReplState {
+    if st.pending_tool != "" { return handle_ask(fs_r, fs_w, sys, st, line, color); }
+    if str_starts_with(line, "/") { return slash_line(st, line, ver, sys, fs_w, env, fs_r); }
+    if st.provider == "" {
+        let mut s: ReplState = st;
+        s.output = card_you(line) + "\n" + card_say("no LLM — /login muse|minimax|mistral <key>");
+        return s;
+    }
+    println(card_you(line));
+    let mut s: ReplState = agent_run(fs_r, fs_w, sys, st, line, color);
+    s.output = card_you(line) + "\n" + s.output;
+    return s;
+}
+
+fn handle_ask(fs_r: &FsReadCap, fs_w: &FsWriteCap, sys: &ProcessCap, st: ReplState, line: String, color: Bool) -> ReplState {
+    let a: String = str_slice(line, 0, 1);
+    if a == "y" || a == "Y" { return agent_resume(fs_r, fs_w, sys, st, color); }
+    if a == "a" || a == "A" {
+        let mut s: ReplState = st;
+        s.perm = "allow";
+        return agent_resume(fs_r, fs_w, sys, s, color);
+    }
+    if a == "n" || a == "N" || a == "d" || a == "D" { return agent_deny(st, color); }
+    let mut s: ReplState = st;
+    s.output = "type y / n / a / d";
+    return s;
 }
 
 fn pane_append_block(p: Pane, text: String) -> Pane {
@@ -122,15 +167,6 @@ fn mcp_hello(sys: &ProcessCap, env: &EnvCap, pane: Pane) -> Pane {
     let codex: String = match cr { Ok(s) => s, Err(_) => "" };
     let mcp: McpClient = mcp_new(codex, ".", "");
     let ir: Result[String, String] = mcp_init(mcp, sys);
-    if ir.is_err() { return pane_append(pane, "mcp off (optional)"); }
+    if ir.is_err() { return pane_append(pane, "mcp off"); }
     return pane_append(pane, "mcp on");
-}
-
-fn run_llm_turn(sys: &ProcessCap, fw: &FsWriteCap, st: ReplState, line: String) -> String {
-    if st.provider == "" { return "no LLM — /login muse|minimax|mistral <key>"; }
-    let mut prompt: String = line;
-    if st.plan != "" { prompt = "PLAN: " + st.plan + "\nGOAL: " + st.goal + "\n" + prompt; }
-    if st.teamwork { prompt = "TEAM (lead then review):\n" + prompt; }
-    let r: Result[String, String] = llm_complete_exec(sys, fw, st.ptype, st.key, st.model, st.url, prompt);
-    return match r { Ok(s) => s, Err(e) => "llm: " + e };
 }
