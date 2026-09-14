@@ -98,9 +98,18 @@ jobs:
           set -e
           export OO_LIST_AMBIENT_QUOTA=1073741824
           export OODACODEX="$(pwd)/help.oot"
+          # Clean stale dist/ so the release ships only the binary we just built.
+          rm -rf dist
+          mkdir -p dist
           ooda build main.oo -o dist/ooda-tui
+          # Mirror to the historical asset name pattern (ooda install.sh looks up
+          # both `ooda-tui` and `tui-linux-x86_64`). Same binary, two names.
+          cp dist/ooda-tui dist/ooda-tui-linux-x86_64
+          cp dist/ooda-tui dist/tui-linux-x86_64
+          sha256sum dist/ooda-tui         | awk '{print $1}' > dist/ooda-tui.sha256
+          sha256sum dist/ooda-tui-linux-x86_64 | awk '{print $1}' > dist/ooda-tui-linux-x86_64.sha256
+          sha256sum dist/tui-linux-x86_64  | awk '{print $1}' > dist/tui-linux-x86_64.sha256
           ls -la dist/
-          sha256sum dist/ooda-tui > dist/ooda-tui.sha256
 
       - name: Smoke test (--help, --version, --unknown-flag)
         run: |
@@ -131,6 +140,10 @@ jobs:
           path: |
             dist/ooda-tui
             dist/ooda-tui.sha256
+            dist/ooda-tui-linux-x86_64
+            dist/ooda-tui-linux-x86_64.sha256
+            dist/tui-linux-x86_64
+            dist/tui-linux-x86_64.sha256
 
   release:
     needs: build
