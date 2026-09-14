@@ -1,13 +1,14 @@
 // # qa/chrome.oo - Chrome Frame Probe
 //
-// Logline: Render the line-mode chrome at two sizes (80x24, 120x40), assert each frame is non-empty and contains the 4 required surface markers.
+// Logline: Render the line-mode chrome at three sizes (80x24 color, 80x24 plain, 120x40 color), assert each frame is non-empty and contains the 4 required surface markers. Plain-mode frame must contain zero 24-bit SGR bytes.
 //
 // Setup: In-process. Uses chrome.oo + header.oo + pane.oo + input.oo + statusbar.oo.
 //
 // Beats:
-//   1. Render at 80x24 and 120x40; both must be non-empty and contain "ooda-tui", the ">" prompt glyph, "theme=" status, and a leading clear-screen ESC[2J.
-//   2. Double-run: render twice, assert byte-equal.
-//   3. Print pass/fail.
+//   1. Render at 80x24 with color=true; must contain "ooda-tui", ">" prompt glyph, "theme=" status, leading clear-screen ESC[2J.
+//   2. Render at 120x40 with color=true; same markers + "theme=minimax".
+//   3. Render at 80x24 with color=false; must contain "ooda-tui" + "theme=" but ZERO 24-bit SGR bytes (no "\x1b[38;2;" or "\x1b[48;2;").
+//   4. Double-run: render twice with color=true, assert byte-equal.
 
 import "chrome.oo";
 import "pane.oo";
@@ -19,8 +20,9 @@ pub fn qa_chrome_run() -> Int {
     let p1: Pane = pane_new();
     let p2: Pane = pane_append(pane_append(pane_new(), "alpha"), "beta");
 
-    let frame_80_24: String = chrome_render("1982", p1, "", 0, "", false, false, "off", "v0.1.1", 80, 24);
-    let frame_120_40: String = chrome_render("minimax", p2, "", 0, "", true, false, "medium", "v0.1.1", 120, 40);
+    let frame_80_24: String = chrome_render("1982", p1, "", 0, "", false, false, "off", "v0.1.2", true, 80, 24);
+    let frame_120_40: String = chrome_render("minimax", p2, "", 0, "", true, false, "medium", "v0.1.2", true, 120, 40);
+    let frame_80_24_plain: String = chrome_render("1982", p1, "", 0, "", false, false, "off", "v0.1.2", false, 80, 24);
 
     if frame_80_24 != "" && contains(frame_80_24, "\x1b[2J") && contains(frame_80_24, "ooda-tui") && contains(frame_80_24, "> ") && contains(frame_80_24, "theme=") { pass = pass + 1; }
     else { fail = fail + 1; println("FAIL: frame_80_24 missing required surface markers"); }
@@ -28,7 +30,10 @@ pub fn qa_chrome_run() -> Int {
     if frame_120_40 != "" && contains(frame_120_40, "\x1b[2J") && contains(frame_120_40, "ooda-tui") && contains(frame_120_40, "> ") && contains(frame_120_40, "theme=minimax") { pass = pass + 1; }
     else { fail = fail + 1; println("FAIL: frame_120_40 missing required surface markers"); }
 
-    let frame_80_24_again: String = chrome_render("1982", p1, "", 0, "", false, false, "off", "v0.1.1", 80, 24);
+    if frame_80_24_plain != "" && contains(frame_80_24_plain, "ooda-tui") && contains(frame_80_24_plain, "theme=") && !contains(frame_80_24_plain, "\x1b[38;2;") && !contains(frame_80_24_plain, "\x1b[48;2;") { pass = pass + 1; }
+    else { fail = fail + 1; println("FAIL: frame_80_24_plain missing required markers or contains 24-bit SGR"); }
+
+    let frame_80_24_again: String = chrome_render("1982", p1, "", 0, "", false, false, "off", "v0.1.2", true, 80, 24);
     if frame_80_24 == frame_80_24_again { pass = pass + 1; }
     else { fail = fail + 1; println("FAIL: double-run not byte-equal"); }
 

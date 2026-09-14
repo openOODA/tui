@@ -1,15 +1,16 @@
-// # Line-based TUI session (v0.1.1 chrome)
+// # Line-based TUI session (v0.1.2 NO_COLOR fallback)
 //
-// Logline: Sit at a prompt, render the line-mode chrome (header + pane + input + status bar) each turn. Slash commands are handled inline (/help, /theme, /login, /exit).
+// Logline: Sit at a prompt, render the line-mode chrome (header + pane + input + status bar) each turn. Color is gated by theme_color_session(env); when false, all renderers emit plain text with the same layout. Slash commands are handled inline (/help, /theme, /login, /exit).
 //
-// Setup: FsReadCap for stdin, EnvCap for OODACODEX. Uses chrome.oo to compose the frame; pane.oo to keep the scrollback.
+// Setup: FsReadCap for stdin, EnvCap for theme_color_session probe and OODACODEX. Uses chrome.oo to compose the frame; pane.oo to keep the scrollback.
 //
 // Beats:
-//   1. Render the chrome once on entry; clear-screen, header, pane, input, status bar.
-//   2. Loop: oo_read_stdin_chunk each turn.
-//   3. Inline slash dispatcher (just the v0.1.1 commands).
-//   4. Otherwise append to the pane and re-render.
-//   5. /exit or EOF closes.
+//   1. Probe env once at entry; cache the color flag for the whole session.
+//   2. Render the chrome once on entry; clear-screen, header, pane, input, status bar.
+//   3. Loop: oo_read_stdin_chunk each turn.
+//   4. Inline slash dispatcher (just the v0.1.x commands).
+//   5. Otherwise append to the pane and re-render.
+//   6. /exit or EOF closes.
 
 import "std/fs/process/env.oo";
 import "chrome.oo";
@@ -28,8 +29,11 @@ pub fn run_tui_session(fs_r: &FsReadCap, env: &EnvCap, teamwork: Bool, yolo: Boo
     if th == "" { th = "1982"; }
     if th != "1982" && th != "minimax" { th = "1982"; }
 
+    // Probe env once: honor NO_COLOR / TERM=dumb / empty TERM.
+    let color: Bool = theme_color_session(env);
+
     let mut pane: Pane = pane_new();
-    pane = pane_append(pane, ansi_fg(theme_color(th, "borderAccent")) + "ooda-tui v0.1.1" + ansi_reset());
+    pane = pane_append(pane, colored(color, theme_color(th, "borderAccent"), "ooda-tui v0.1.2"));
     pane = pane_append(pane, "  theme " + th);
     pane = pane_append(pane, "  cwd " + cwd);
     if provider != "" { pane = pane_append(pane, "  provider " + provider); }
@@ -41,7 +45,7 @@ pub fn run_tui_session(fs_r: &FsReadCap, env: &EnvCap, teamwork: Bool, yolo: Boo
     let mut live: Bool = true;
     let cols: Int = chrome_term_cols();
     while live {
-        let frame: String = chrome_render(th, pane, "", 0, "", teamwork, yolo, "off", "v0.1.1", cols, 24);
+        let frame: String = chrome_render(th, pane, "", 0, "", teamwork, yolo, "off", "v0.1.2", color, cols, 24);
         oo_print_str(frame);
 
         let cr: Result[String, String] = oo_read_stdin_chunk(fs_r, 60000);
@@ -53,7 +57,7 @@ pub fn run_tui_session(fs_r: &FsReadCap, env: &EnvCap, teamwork: Bool, yolo: Boo
             if line == "/exit" || line == "/quit" {
                 live = false;
             } else if line == "/help" {
-                pane = pane_append(pane, ansi_fg(theme_color(th, "accent")) + "  /help               this list" + ansi_reset());
+                pane = pane_append(pane, colored(color, theme_color(th, "accent"), "  /help               this list"));
                 pane = pane_append(pane, "  /theme 1982|minimax switch theme");
                 pane = pane_append(pane, "  /login              connect an LLM");
                 pane = pane_append(pane, "  /model <name>       set model");
@@ -65,21 +69,28 @@ pub fn run_tui_session(fs_r: &FsReadCap, env: &EnvCap, teamwork: Bool, yolo: Boo
                 let new_th: String = str_trim(str_slice(line, 7, chars_len(line)));
                 if new_th == "1982" || new_th == "minimax" {
                     th = new_th;
-                    pane = pane_append(pane, ansi_fg(theme_color(th, "success")) + "  theme switched to " + th + ansi_reset());
+                    pane = pane_append(pane, colored(color, theme_color(th, "success"), "  theme switched to " + th));
                 } else {
-                    pane = pane_append(pane, ansi_fg(theme_color(th, "error")) + "  unknown theme: " + new_th + ansi_reset());
+                    pane = pane_append(pane, colored(color, theme_color(th, "error"), "  unknown theme: " + new_th));
                     pane = pane_append(pane, "  available: 1982 minimax");
                 }
             } else if line == "/version" {
-                pane = pane_append(pane, "  ooda-tui v0.1.1");
+                pane = pane_append(pane, "  ooda-tui v0.1.2");
             } else if str_starts_with(line, "/") {
-                pane = pane_append(pane, ansi_fg(theme_color(th, "muted")) + "  " + line + ansi_reset());
+                pane = pane_append(pane, colored(color, theme_color(th, "muted"), "  " + line));
                 pane = pane_append(pane, "  (slash dispatch not yet wired in line mode; see docs/slash.oot)");
             } else if line != "" {
-                pane = pane_append(pane, ansi_fg(theme_color(th, "muted")) + "> " + line + ansi_reset());
+                pane = pane_append(pane, colored(color, theme_color(th, "muted"), "> " + line));
                 pane = pane_append(pane, "  (no LLM connected yet — /login)");
             }
         }
     }
     return 0;
+}
+
+// Inline helper for styled text. Returns plain text when color=false,
+// ansi_fg(hex) + text + ansi_reset() when color=true.
+fn colored(color: Bool, hex: String, text: String) -> String {
+    if !color { return text; }
+    return ansi_fg(color, hex) + text + ansi_reset(color);
 }

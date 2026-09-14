@@ -1,7 +1,7 @@
-# ooda-tui v0.1.1 Makefile
+# ooda-tui v0.1.2 Makefile
 #
-# Build and verify the harness. v0.1.1 adds the line-mode chrome
-# (header, pane, input, status bar, popover) plus a second theme.
+# Build and verify the harness. v0.1.2 adds NO_COLOR / TERM=dumb
+# plain-text fallback to the line-mode chrome.
 #
 # Usage:
 #   make build       - compile main.oo to dist/ooda-tui
@@ -16,11 +16,13 @@
 #   make install     - copy dist/ooda-tui to ~/.openooda/bin/
 #   make clean       - remove build artifacts
 #   make all         - build + verify + test
+#   make no-color    - smoke test NO_COLOR=1 ooda-tui emits zero SGR
+#   make dumb-term   - smoke test TERM=dumb ooda-tui emits zero SGR
 
 OODA_COMPILER ?= $(HOME)/.openooda/bin/oodac
 BIN := dist/ooda-tui
 
-.PHONY: all build test parity line-cap file-law academy check qa verify install clean
+.PHONY: all build test parity line-cap file-law academy check qa verify install clean no-color dumb-term
 
 all: build verify test
 
@@ -129,6 +131,22 @@ install: $(BIN)
 	@cp $(BIN) $(HOME)/.openooda/bin/tui
 	@chmod +x $(HOME)/.openooda/bin/ooda-tui $(HOME)/.openooda/bin/tui
 	@echo "installed $(HOME)/.openooda/bin/{ooda-tui,tui}"
+
+no-color: $(BIN)
+	@body_sgr=$$(echo '/exit' | NO_COLOR=1 ./$(BIN) 2>&1 | grep -v '^x1b\[2Jx1b\[H' | grep -c 'x1b\[' || true); \
+	if [ "$$body_sgr" -eq 0 ]; then \
+		echo "PASS: NO_COLOR=1 zero SGR bytes in body (clear-screen leader only)"; \
+	else \
+		echo "FAIL: NO_COLOR=1 body emits $$body_sgr SGR occurrences"; exit 1; \
+	fi
+
+dumb-term: $(BIN)
+	@body_sgr=$$(echo '/exit' | TERM=dumb ./$(BIN) 2>&1 | grep -v '^x1b\[2Jx1b\[H' | grep -c 'x1b\[' || true); \
+	if [ "$$body_sgr" -eq 0 ]; then \
+		echo "PASS: TERM=dumb zero SGR bytes in body (clear-screen leader only)"; \
+	else \
+		echo "FAIL: TERM=dumb body emits $$body_sgr SGR occurrences"; exit 1; \
+	fi
 
 clean:
 	@rm -rf dist .ooda-cache

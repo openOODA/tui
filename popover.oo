@@ -1,12 +1,12 @@
 // # popover.oo - Slash Command Popover (line-mode)
 //
-// Logline: When the user is typing `/<filter>`, render a 1-line list of matching slash commands above the prompt with the active match highlighted.
+// Logline: When the user is typing `/<filter>`, render a 1-line list of matching slash commands above the prompt with the active match highlighted. Honors the color: Bool flag from theme_color_session.
 //
 // Setup: Pure data. popover_filter returns the matched commands; popover_render returns the SGR string.
 //
 // Beats:
 //   1. popover_match(prefix) returns a tab-joined string of all slash commands matching the prefix.
-//   2. popover_render(theme, matches, active_idx, cols) returns the highlighted single line + newline.
+//   2. popover_render(theme, matches, active_idx, color, cols) returns the highlighted single line + newline.
 
 import "theme.oo";
 
@@ -29,7 +29,7 @@ pub fn popover_match(prefix: String) -> String {
     return r;
 }
 
-pub fn popover_render(theme: String, matches: String, active_idx: Int, cols: Int) -> String {
+pub fn popover_render(theme: String, matches: String, active_idx: Int, color: Bool, cols: Int) -> String {
     let dim: String = theme_color(theme, "dim");
     let muted: String = theme_color(theme, "muted");
     let accent: String = theme_color(theme, "accent");
@@ -44,14 +44,14 @@ pub fn popover_render(theme: String, matches: String, active_idx: Int, cols: Int
         if m == "" { i = i + 1; continue; }
         let is_active: Bool = i == active_idx;
         if is_active {
-            s = s + ansi_bg(selected_bg) + ansi_fg(accent) + " " + m + " " + ansi_reset();
+            s = s + ansi_bg(color, selected_bg) + ansi_fg(color, accent) + " " + m + " " + ansi_reset(color);
             col_pos = col_pos + chars_len(m) + 3;
         } else {
-            s = s + ansi_fg(muted) + " " + m + " " + ansi_reset();
+            s = s + ansi_fg(color, muted) + " " + m + " " + ansi_reset(color);
             col_pos = col_pos + chars_len(m) + 3;
         }
         if i + 1 < n && col_pos + 12 < cols {
-            s = s + ansi_fg(dim) + "\xe2\x94\x82" + ansi_reset();
+            s = s + ansi_fg(color, dim) + "\xe2\x94\x82" + ansi_reset(color);
             col_pos = col_pos + 1;
         }
         i = i + 1;

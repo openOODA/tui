@@ -15,7 +15,7 @@ pub fn qa_negative_run() -> Int {
     let mut pass: Int = 0;
     let mut fail: Int = 0;
 
-    let s1: String = ansi_fg("");
+    let s1: String = ansi_fg(true, "");
     if chars_len(s1) > 0 { pass = pass + 1; }
     else { fail = fail + 1; println("FAIL: ansi_fg(\"\") returned empty"); }
 
@@ -23,15 +23,15 @@ pub fn qa_negative_run() -> Int {
     if chars_len(s2) > 0 { pass = pass + 1; }
     else { fail = fail + 1; println("FAIL: theme_color fallback returned empty"); }
 
-    let s3: String = ansi_fg("#");
+    let s3: String = ansi_fg(true, "#");
     if chars_len(s3) > 0 { pass = pass + 1; }
     else { fail = fail + 1; println("FAIL: ansi_fg(\"#\") returned empty"); }
 
-    let s4: String = ansi_fg("#FF");
+    let s4: String = ansi_fg(true, "#FF");
     if chars_len(s4) > 0 { pass = pass + 1; }
     else { fail = fail + 1; println("FAIL: ansi_fg(\"#FF\") returned empty"); }
 
-    let s5: String = ansi_fg("#ZZZZZZ");
+    let s5: String = ansi_fg(true, "#ZZZZZZ");
     if chars_len(s5) > 0 { pass = pass + 1; }
     else { fail = fail + 1; println("FAIL: ansi_fg(\"#ZZZZZZ\") returned empty"); }
 

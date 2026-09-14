@@ -1,13 +1,13 @@
 // # pane.oo - Scrollback Pane (line-mode)
 //
-// Logline: Maintain an append-only line buffer for the conversation scrollback and render it with a gutter.
+// Logline: Maintain an append-only line buffer for the conversation scrollback and render it with a gutter. Honors the color: Bool flag from theme_color_session.
 //
 // Setup: Pure-data pane. Lines are trimmed to `max_lines` (default 200). Each line is rendered with leading line number + trailing newline.
 //
 // Beats:
 //   1. pane_new() returns a fresh Pane with empty buffer.
 //   2. pane_append(p, line) appends one line; trims oldest if over max_lines.
-//   3. pane_render(p, cols) returns a multi-line SGR string with line numbers.
+//   3. pane_render(theme, p, color, cols) returns a multi-line SGR string with line numbers.
 //   4. pane_clear(p) empties the buffer.
 
 import "theme.oo";
@@ -46,7 +46,7 @@ pub fn pane_height_lines() -> Int {
     return 16;
 }
 
-pub fn pane_render(theme: String, p: Pane, cols: Int) -> String {
+pub fn pane_render(theme: String, p: Pane, color: Bool, cols: Int) -> String {
     let dim: String = theme_color(theme, "dim");
     let text: String = theme_color(theme, "text");
     let muted: String = theme_color(theme, "muted");
@@ -58,8 +58,8 @@ pub fn pane_render(theme: String, p: Pane, cols: Int) -> String {
         let line: String = list_get(p.lines, i);
         let n: Int = i + 1;
         let gutter: String = int_pad_left(n, 4);
-        s = s + ansi_fg(dim) + gutter + ansi_reset();
-        s = s + " " + ansi_fg(text) + line + ansi_reset();
+        s = s + ansi_fg(color, dim) + gutter + ansi_reset(color);
+        s = s + " " + ansi_fg(color, text) + line + ansi_reset(color);
         s = s + "\n";
         i = i + 1;
     }
@@ -69,7 +69,7 @@ pub fn pane_render(theme: String, p: Pane, cols: Int) -> String {
     while j < pad_lines {
         let n: Int = len + j + 1;
         let gutter: String = int_pad_left(n, 4);
-        s = s + ansi_fg(dim) + gutter + ansi_reset() + " " + ansi_fg(muted) + "~" + ansi_reset() + "\n";
+        s = s + ansi_fg(color, dim) + gutter + ansi_reset(color) + " " + ansi_fg(color, muted) + "~" + ansi_reset(color) + "\n";
         j = j + 1;
     }
     return s;

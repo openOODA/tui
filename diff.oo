@@ -1,16 +1,16 @@
 // # diff.oo - Unified Diff Renderer
 //
-// Logline: Render a unified diff string as SGR-styled lines, with hunk headers, line numbers, and +/- coloring.
+// Logline: Render a unified diff string as SGR-styled lines, with hunk headers, line numbers, and +/- coloring. Honors the color: Bool flag from theme_color_session.
 //
 // Setup: Pure renderer. diff_render emits the full diff. diff_line_render renders a single +/- / context / hunk line.
 //
 // Beats:
-//   1. diff_render(theme, body) returns SGR-styled multi-line string.
-//   2. diff_line_render(theme, line) returns SGR for a single line; used by tool_card.oo too.
+//   1. diff_render(theme, body, color) returns SGR-styled multi-line string.
+//   2. diff_line_render(theme, line, color) returns SGR for a single line; used by tool_card.oo too.
 
 import "theme.oo";
 
-pub fn diff_render(theme: String, body: String) -> String {
+pub fn diff_render(theme: String, body: String, color: Bool) -> String {
     let mut out: String = "";
     let lines: List[String] = str_split_lines(body);
     let n: Int = list_len(lines);
@@ -19,31 +19,31 @@ pub fn diff_render(theme: String, body: String) -> String {
     while i < n {
         let line: String = list_get(lines, i);
         if str_starts_with(line, "@@") {
-            out = out + ansi_fg(theme_color(theme, "borderAccent")) + line + ansi_reset() + "\n";
+            out = out + ansi_fg(color, theme_color(theme, "borderAccent")) + line + ansi_reset(color) + "\n";
         } else {
-            out = out + diff_line_render(theme, line) + "\n";
+            out = out + diff_line_render(theme, line, color) + "\n";
         }
         i = i + 1;
     }
     return out;
 }
 
-pub fn diff_line_render(theme: String, line: String) -> String {
+pub fn diff_line_render(theme: String, line: String, color: Bool) -> String {
     if line == "" { return ""; }
     let first: String = char_at(line, 0);
     if first == "+" {
         let rest: String = str_slice(line, 1, chars_len(line));
-        return ansi_fg(theme_color(theme, "toolDiffAdded")) + "+" + ansi_reset() + ansi_fg(theme_color(theme, "text")) + rest + ansi_reset();
+        return ansi_fg(color, theme_color(theme, "toolDiffAdded")) + "+" + ansi_reset(color) + ansi_fg(color, theme_color(theme, "text")) + rest + ansi_reset(color);
     }
     if first == "-" {
         let rest: String = str_slice(line, 1, chars_len(line));
-        return ansi_fg(theme_color(theme, "toolDiffRemoved")) + "-" + ansi_reset() + ansi_fg(theme_color(theme, "text")) + rest + ansi_reset();
+        return ansi_fg(color, theme_color(theme, "toolDiffRemoved")) + "-" + ansi_reset(color) + ansi_fg(color, theme_color(theme, "text")) + rest + ansi_reset(color);
     }
     if first == " " {
         let rest: String = str_slice(line, 1, chars_len(line));
-        return ansi_fg(theme_color(theme, "toolDiffContext")) + " " + ansi_reset() + ansi_fg(theme_color(theme, "muted")) + rest + ansi_reset();
+        return ansi_fg(color, theme_color(theme, "toolDiffContext")) + " " + ansi_reset(color) + ansi_fg(color, theme_color(theme, "muted")) + rest + ansi_reset(color);
     }
-    return ansi_fg(theme_color(theme, "text")) + line + ansi_reset();
+    return ansi_fg(color, theme_color(theme, "text")) + line + ansi_reset(color);
 }
 
 fn str_split_lines(s: String) -> List[String] {

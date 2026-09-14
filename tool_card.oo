@@ -1,6 +1,6 @@
 // # tool_card.oo - Tool-Call Card Renderer
 //
-// Logline: Render a tool-call envelope (tool name + status pill + body) as a multi-line styled card.
+// Logline: Render a tool-call envelope (tool name + status pill + body) as a multi-line styled card. Honors the color: Bool flag from theme_color_session.
 //
 // Setup: Pure renderer. The card shape is:
 //
@@ -10,13 +10,13 @@
 //   └──────────────────────┘
 //
 // Beats:
-//   1. tool_card_render(theme, name, status, body) returns the SGR-styled card.
+//   1. tool_card_render(theme, name, status, body, color) returns the SGR-styled card.
 //   2. status is one of "pending", "success", "error"; mapped to the matching token.
 
 import "theme.oo";
 import "diff.oo";
 
-pub fn tool_card_render(theme: String, name: String, status: String, body: String) -> String {
+pub fn tool_card_render(theme: String, name: String, status: String, body: String, color: Bool) -> String {
     let border: String = theme_color(theme, "borderMuted");
     let title: String = theme_color(theme, "toolTitle");
     let output: String = theme_color(theme, "toolOutput");
@@ -35,9 +35,9 @@ pub fn tool_card_render(theme: String, name: String, status: String, body: Strin
 
     let mut s: String = "";
     let top: String = "\xe2\x94\x8c\xe2\x94\x80 " + name + " \xe2\x94\x80\xe2\x94\x80";
-    s = s + ansi_fg(border) + top + ansi_reset();
-    s = s + ansi_bg(pill_bg) + ansi_fg(pill_fg) + " " + status + " " + ansi_reset();
-    s = s + ansi_fg(border) + "\xe2\x94\x80\xe2\x94\x80\xe2\x94\x90\n" + ansi_reset();
+    s = s + ansi_fg(color, border) + top + ansi_reset(color);
+    s = s + ansi_bg(color, pill_bg) + ansi_fg(color, pill_fg) + " " + status + " " + ansi_reset(color);
+    s = s + ansi_fg(color, border) + "\xe2\x94\x80\xe2\x94\x80\xe2\x94\x90\n" + ansi_reset(color);
 
     let body_lines: List[String] = str_split_lines(body);
     let n: Int = list_len(body_lines);
@@ -47,14 +47,14 @@ pub fn tool_card_render(theme: String, name: String, status: String, body: Strin
         let is_diff: Bool = str_starts_with(bl, "+") || str_starts_with(bl, "-") || str_starts_with(bl, "@@") || str_starts_with(bl, " ");
         let mut line_sgr: String = "";
         if is_diff {
-            line_sgr = diff_line_render(theme, bl);
+            line_sgr = diff_line_render(theme, bl, color);
         } else {
-            line_sgr = ansi_fg(output) + bl + ansi_reset();
+            line_sgr = ansi_fg(color, output) + bl + ansi_reset(color);
         }
-        s = s + ansi_fg(border) + "\xe2\x94\x82" + ansi_reset() + " " + line_sgr + "\n";
+        s = s + ansi_fg(color, border) + "\xe2\x94\x82" + ansi_reset(color) + " " + line_sgr + "\n";
         i = i + 1;
     }
-    s = s + ansi_fg(border) + "\xe2\x94\x94\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x98" + ansi_reset() + "\n";
+    s = s + ansi_fg(color, border) + "\xe2\x94\x94\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x98" + ansi_reset(color) + "\n";
     return s;
 }
 

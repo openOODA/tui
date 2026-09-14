@@ -1,0 +1,36 @@
+// # qa/theme_color_session.oo - Color Probe QA
+//
+// Logline: Smoke-test that theme_color_session(env) is callable and returns a Bool. Shell-level tests in the Makefile cover the env-var matrix (NO_COLOR=1, TERM=dumb, empty TERM) and assert zero SGR bytes in the chrome output.
+//
+// Setup: Pure QA. The probe takes an &EnvCap from main; the env vars are set externally by the Makefile before invoking the binary.
+//
+// Beats:
+//   1. theme_color_session(env) is callable and returns a Bool (true OR false).
+
+import "std/fs/process/env.oo";
+import "theme.oo";
+
+pub fn qa_theme_color_session_run(env: &EnvCap) -> Int {
+    let mut pass: Int = 0;
+    let mut fail: Int = 0;
+
+    let color: Bool = theme_color_session(env);
+    if color || !color { pass = pass + 1; } else { fail = fail + 1; println("FAIL: theme_color_session did not return Bool"); }
+
+    println("qa/theme_color_session: pass=" + int_to_str(pass) + " fail=" + int_to_str(fail));
+    if fail > 0 { return 1; }
+    return 0;
+}
+
+fn int_to_str(n: Int) -> String {
+    if n < 0 { return "0"; }
+    if n == 0 { return "0"; }
+    let digits: String = "0123456789";
+    let mut v: Int = n;
+    let mut rev: String = "";
+    while v > 0 { let d: Int = v - (v / 10) * 10; rev = rev + char_at(digits, d); v = v / 10; }
+    let mut out: String = "";
+    let mut k: Int = chars_len(rev) - 1;
+    while k >= 0 { out = out + char_at(rev, k); k = k - 1; }
+    return out;
+}

@@ -1,17 +1,17 @@
 // # header.oo - Top-of-Screen Status Bar
 //
-// Logline: Render the single-line header that sits above the scrollback pane in the line-mode chrome.
+// Logline: Render the single-line header that sits above the scrollback pane in the line-mode chrome. Honors the color: Bool flag from theme_color_session.
 //
 // Setup: One line. Left = product title. Middle = provider/model. Right = cwd. Tokens: borderAccent, muted.
 //
 // Beats:
-//   1. header_render(theme, provider, model, cwd, cols) returns the SGR-styled single line + newline.
+//   1. header_render(theme, provider, model, cwd, color, cols) returns the SGR-styled single line + newline.
 //   2. The header is padded to `cols` characters.
 //   3. Empty provider/model/cwd segments are skipped.
 
 import "theme.oo";
 
-pub fn header_render(theme: String, provider: String, model: String, cwd: String, cols: Int) -> String {
+pub fn header_render(theme: String, provider: String, model: String, cwd: String, color: Bool, cols: Int) -> String {
     let left: String = "ooda-tui";
     let mut mid: String = "";
     if provider != "" { mid = mid + provider; }
@@ -24,15 +24,15 @@ pub fn header_render(theme: String, provider: String, model: String, cwd: String
     let muted: String = theme_color(theme, "muted");
     let dim: String = theme_color(theme, "dim");
 
-    let mut s: String = ansi_fg(accent);
-    s = s + left + ansi_reset();
+    let mut s: String = ansi_fg(color, accent);
+    s = s + left + ansi_reset(color);
     let mut used: Int = chars_len(left);
     if mid != "" {
         let pad1: Int = 2;
         let mut k1: Int = 0;
         while k1 < pad1 { s = s + " "; k1 = k1 + 1; }
         used = used + pad1;
-        s = s + ansi_fg(muted) + mid + ansi_reset();
+        s = s + ansi_fg(color, muted) + mid + ansi_reset(color);
         used = used + chars_len(mid);
     }
     let right_pad: Int = 2;
@@ -42,7 +42,7 @@ pub fn header_render(theme: String, provider: String, model: String, cwd: String
     let mut k2: Int = 0;
     while k2 < remaining { s = s + " "; k2 = k2 + 1; }
     if right != "" {
-        s = s + ansi_fg(dim) + right + ansi_reset();
+        s = s + ansi_fg(color, dim) + right + ansi_reset(color);
     }
     s = s + "\n";
     return s;

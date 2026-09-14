@@ -1,17 +1,17 @@
 // # statusbar.oo - Bottom-of-Screen Status Line
 //
-// Logline: Render the single-line status bar at the bottom of the line-mode chrome.
+// Logline: Render the single-line status bar at the bottom of the line-mode chrome. Honors the color: Bool flag from theme_color_session.
 //
 // Setup: One line. Left = mode chips (teamwork, yolo, thinking). Middle = theme. Right = version. Tokens: dim, muted, accent, error, success.
 //
 // Beats:
-//   1. statusbar_render(theme, teamwork, yolo, thinking, version, cols) returns the SGR-styled single line.
+//   1. statusbar_render(theme, teamwork, yolo, thinking, version, color, cols) returns the SGR-styled single line.
 //   2. Status bar is padded to `cols` characters.
 //   3. Empty mode chips are skipped.
 
 import "theme.oo";
 
-pub fn statusbar_render(theme: String, teamwork: Bool, yolo: Bool, thinking: String, version: String, cols: Int) -> String {
+pub fn statusbar_render(theme: String, teamwork: Bool, yolo: Bool, thinking: String, version: String, color: Bool, cols: Int) -> String {
     let dim: String = theme_color(theme, "dim");
     let muted: String = theme_color(theme, "muted");
     let accent: String = theme_color(theme, "accent");
@@ -20,20 +20,20 @@ pub fn statusbar_render(theme: String, teamwork: Bool, yolo: Bool, thinking: Str
 
     let mut s: String = "";
     if teamwork {
-        s = s + ansi_fg(accent) + " teamwork " + ansi_reset();
+        s = s + ansi_fg(color, accent) + " teamwork " + ansi_reset(color);
     }
     if yolo {
-        s = s + ansi_fg(error) + " yolo " + ansi_reset();
+        s = s + ansi_fg(color, error) + " yolo " + ansi_reset(color);
     }
     if thinking != "" && thinking != "off" {
-        s = s + ansi_fg(success) + " think:" + thinking + " " + ansi_reset();
+        s = s + ansi_fg(color, success) + " think:" + thinking + " " + ansi_reset(color);
     }
     let mut used: Int = chars_len(s);
     let mid_pad: Int = 2;
     let mut k1: Int = 0;
     while k1 < mid_pad { s = s + " "; k1 = k1 + 1; }
     used = used + mid_pad;
-    s = s + ansi_fg(muted) + "theme=" + theme + ansi_reset();
+    s = s + ansi_fg(color, muted) + "theme=" + theme + ansi_reset(color);
     used = used + chars_len(theme) + 7;
     let right_pad: Int = 2;
     let mut remaining: Int = cols - used - right_pad;
@@ -42,7 +42,7 @@ pub fn statusbar_render(theme: String, teamwork: Bool, yolo: Bool, thinking: Str
     let mut k2: Int = 0;
     while k2 < remaining { s = s + " "; k2 = k2 + 1; }
     if version != "" {
-        s = s + ansi_fg(dim) + version + ansi_reset();
+        s = s + ansi_fg(color, dim) + version + ansi_reset(color);
     }
     s = s + "\n";
     return s;

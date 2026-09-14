@@ -1,17 +1,18 @@
 // # Theme Loader - ANSI Renderer
 //
-// Logline: Load a theme module by name and render hex codes as ANSI SGR escape sequences.
+// Logline: Load a theme module by name and render hex codes as ANSI SGR escape sequences. Thread a `color: Bool` flag through every renderer so the chrome degrades to plain text when NO_COLOR / TERM=dumb is set.
 //
 // Setup: Reads themes/<name>.oo. For v0.2, "1982" and "minimax" are wired via theme_color.
 //
 // Beats:
-//   1. theme_load(name) returns the theme's name string.
-//   2. theme_color(name, token) returns the hex code for a semantic token.
-//   3. ansi_fg(hex) and ansi_bg(hex) render SGR escape codes from "#RRGGBB".
-//   4. ansi_reset() returns the standard reset sequence.
-//   5. ansi_combine(fg, bg, bold, italic, underline) emits a single SGR prefix.
-//   6. theme_render_cell(fg, bg, attrs) returns the SGR prefix for one cell.
+//   1. theme_color(name, token) returns the theme's name string.
+//   2. theme_color_session(env) probes NO_COLOR / TERM=dumb / TERM="" and returns false when color must be suppressed.
+//   3. ansi_fg(color, hex) and ansi_bg(color, hex) render SGR escape codes from "#RRGGBB"; return "" when color is false.
+//   4. ansi_reset(color) returns the standard reset sequence; "" when color is false.
+//   5. ansi_combine(color, fg, bg, attr) emits a single SGR prefix; "" when color is false.
+//   6. theme_render_cell(color, fg, bg, attr) returns the SGR prefix for one cell.
 
+import "std/fs/process/env.oo";
 import "themes/1982.oo";
 import "themes/minimax.oo";
 
@@ -25,54 +26,78 @@ pub fn theme_list() -> String {
     return "1982 minimax";
 }
 
-pub fn ansi_fg(hex: String) -> String {
+// Probe the session environment and decide whether ANSI color is allowed.
+// Honors https://no-color.org: any non-empty NO_COLOR disables color.
+// Honors TERM=dumb and empty TERM (a fully uncolored terminal).
+// Returns true when color is allowed, false when plain-text mode is required.
+pub fn theme_color_session(env: &EnvCap) -> Bool {
+    let nr: Result[String, String] = env_get(env, "NO_COLOR");
+    if nr.is_ok() {
+        let n: String = match nr { Ok(s) => s, Err(_) => "" };
+        if n != "" { return false; }
+    }
+    let tr: Result[String, String] = env_get(env, "TERM");
+    let t: String = match tr { Ok(s) => s, Err(_) => "" };
+    if t == "dumb" { return false; }
+    if t == "" { return false; }
+    return true;
+}
+
+pub fn ansi_fg(color: Bool, hex: String) -> String {
+    if !color { return ""; }
     let r: Int = hex_to_r(hex);
     let g: Int = hex_to_g(hex);
     let b: Int = hex_to_b(hex);
     return "\x1b[38;2;" + int_to_str(r) + ";" + int_to_str(g) + ";" + int_to_str(b) + "m";
 }
 
-pub fn ansi_bg(hex: String) -> String {
+pub fn ansi_bg(color: Bool, hex: String) -> String {
+    if !color { return ""; }
     let r: Int = hex_to_r(hex);
     let g: Int = hex_to_g(hex);
     let b: Int = hex_to_b(hex);
     return "\x1b[48;2;" + int_to_str(r) + ";" + int_to_str(g) + ";" + int_to_str(b) + "m";
 }
 
-pub fn ansi_reset() -> String {
+pub fn ansi_reset(color: Bool) -> String {
+    if !color { return ""; }
     return "\x1b[0m";
 }
 
-pub fn ansi_bold() -> String {
+pub fn ansi_bold(color: Bool) -> String {
+    if !color { return ""; }
     return "\x1b[1m";
 }
 
-pub fn ansi_italic() -> String {
+pub fn ansi_italic(color: Bool) -> String {
+    if !color { return ""; }
     return "\x1b[3m";
 }
 
-pub fn ansi_underline() -> String {
+pub fn ansi_underline(color: Bool) -> String {
+    if !color { return ""; }
     return "\x1b[4m";
 }
 
 // Compose a single SGR prefix from fg/bg hex codes and attribute flags.
 // attr is a 3-bit mask: bit0=bold bit1=italic bit2=underline.
-// Returns the empty string when fg == "" and bg == "" and attr == 0.
-pub fn ansi_combine(fg: String, bg: String, attr: Int) -> String {
+// Returns the empty string when color is false OR when fg == "" and bg == "" and attr == 0.
+pub fn ansi_combine(color: Bool, fg: String, bg: String, attr: Int) -> String {
+    if !color { return ""; }
     let mut s: String = "";
-    if attr & 1 == 1 { s = s + ansi_bold(); }
-    if attr & 2 == 2 { s = s + ansi_italic(); }
-    if attr & 4 == 4 { s = s + ansi_underline(); }
-    if fg != "" { s = s + ansi_fg(fg); }
-    if bg != "" { s = s + ansi_bg(bg); }
+    if attr & 1 == 1 { s = s + ansi_bold(color); }
+    if attr & 2 == 2 { s = s + ansi_italic(color); }
+    if attr & 4 == 4 { s = s + ansi_underline(color); }
+    if fg != "" { s = s + ansi_fg(color, fg); }
+    if bg != "" { s = s + ansi_bg(color, bg); }
     return s;
 }
 
 // Render one cell. Returns the SGR prefix only; the caller writes the
-// glyph and then ansi_reset(). Empty fg + bg + attr means "no SGR,
+// glyph and then ansi_reset(color). Empty fg + bg + attr means "no SGR,
 // inherit previous state".
-pub fn theme_render_cell(fg: String, bg: String, attr: Int) -> String {
-    return ansi_combine(fg, bg, attr);
+pub fn theme_render_cell(color: Bool, fg: String, bg: String, attr: Int) -> String {
+    return ansi_combine(color, fg, bg, attr);
 }
 
 // Hex digit -> value 0..15. Accepts both cases.

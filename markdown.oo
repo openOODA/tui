@@ -1,15 +1,15 @@
 // # markdown.oo - Markdown → styled lines
 //
-// Logline: Render a markdown string into a list of styled "lines" (each line is a tab-joined "token,text,token,text,..." string). The chrome renderer consumes the lines and emits SGR.
+// Logline: Render a markdown string into a multi-line SGR string. Honors the color: Bool flag from theme_color_session; when false, emits plain text only.
 //
 // Setup: Pure data. The supported block-level constructs are: # / ## / ### headings, ``` code fences, > blockquotes, - / * lists, + bold, _ italic, `inline code`. Inline emphasis is emitted as mdHeading/mdCode spans.
 //
 // Beats:
-//   1. markdown_render(theme, text) returns a multi-line string; each line is rendered with SGR and tokens.
+//   1. markdown_render(theme, text, color) returns a multi-line string; each line is rendered with SGR (or plain text when color=false).
 
 import "theme.oo";
 
-pub fn markdown_render(theme: String, text: String) -> String {
+pub fn markdown_render(theme: String, text: String, color: Bool) -> String {
     let head_t: String = theme_color(theme, "mdHeading");
     let code_t: String = theme_color(theme, "mdCode");
     let codeblock_t: String = theme_color(theme, "mdCodeBlock");
@@ -30,40 +30,40 @@ pub fn markdown_render(theme: String, text: String) -> String {
 
         if str_starts_with(line, "\x60\x60\x60") {
             if in_code {
-                rendered = ansi_fg(codeborder_t) + "\xe2\x94\x82 end \xe2\x94\x82" + ansi_reset();
+                rendered = ansi_fg(color, codeborder_t) + "\xe2\x94\x82 end \xe2\x94\x82" + ansi_reset(color);
                 in_code = false;
             } else {
-                rendered = ansi_fg(codeborder_t) + "\xe2\x94\x82 code \xe2\x94\x82" + ansi_reset();
+                rendered = ansi_fg(color, codeborder_t) + "\xe2\x94\x82 code \xe2\x94\x82" + ansi_reset(color);
                 in_code = true;
             }
         } else if in_code {
-            rendered = ansi_fg(codeblock_t) + "  " + line + ansi_reset();
+            rendered = ansi_fg(color, codeblock_t) + "  " + line + ansi_reset(color);
         } else if str_starts_with(line, "### ") {
             let rest: String = str_slice(line, 4, chars_len(line));
-            rendered = ansi_fg(head_t) + "### " + ansi_reset() + ansi_fg(text_t) + rest + ansi_reset();
+            rendered = ansi_fg(color, head_t) + "### " + ansi_reset(color) + ansi_fg(color, text_t) + rest + ansi_reset(color);
         } else if str_starts_with(line, "## ") {
             let rest: String = str_slice(line, 3, chars_len(line));
-            rendered = ansi_fg(head_t) + "## " + ansi_reset() + ansi_bold() + ansi_fg(text_t) + rest + ansi_reset();
+            rendered = ansi_fg(color, head_t) + "## " + ansi_reset(color) + ansi_bold(color) + ansi_fg(color, text_t) + rest + ansi_reset(color);
         } else if str_starts_with(line, "# ") {
             let rest: String = str_slice(line, 2, chars_len(line));
-            rendered = ansi_fg(head_t) + "# " + ansi_reset() + ansi_bold() + ansi_fg(text_t) + rest + ansi_reset();
+            rendered = ansi_fg(color, head_t) + "# " + ansi_reset(color) + ansi_bold(color) + ansi_fg(color, text_t) + rest + ansi_reset(color);
         } else if str_starts_with(line, "> ") {
             let rest: String = str_slice(line, 2, chars_len(line));
-            rendered = ansi_fg(dim_t) + "| " + ansi_reset() + ansi_fg(muted_t) + rest + ansi_reset();
+            rendered = ansi_fg(color, dim_t) + "| " + ansi_reset(color) + ansi_fg(color, muted_t) + rest + ansi_reset(color);
         } else if str_starts_with(line, "- ") || str_starts_with(line, "* ") {
             let rest: String = str_slice(line, 2, chars_len(line));
-            rendered = ansi_fg(list_t) + "\xe2\x80\xa2 " + ansi_reset() + ansi_fg(text_t) + rest + ansi_reset();
+            rendered = ansi_fg(color, list_t) + "\xe2\x80\xa2 " + ansi_reset(color) + ansi_fg(color, text_t) + rest + ansi_reset(color);
         } else if line == "" {
             rendered = "";
         } else {
-            rendered = ansi_fg(text_t) + line + ansi_reset();
+            rendered = ansi_fg(color, text_t) + line + ansi_reset(color);
         }
 
         out = out + rendered + "\n";
         i = i + 1;
     }
     if in_code {
-        out = out + ansi_fg(codeborder_t) + "\xe2\x94\x82 end \xe2\x94\x82" + ansi_reset() + "\n";
+        out = out + ansi_fg(color, codeborder_t) + "\xe2\x94\x82 end \xe2\x94\x82" + ansi_reset(color) + "\n";
     }
     return out;
 }
