@@ -10,15 +10,29 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout tui
         uses: actions/checkout@v4
+        with:
+          path: tui
+
+      - name: Checkout std
+        uses: actions/checkout@v4
+        with:
+          repository: openOODA/std
+          path: std
+
+      - name: Checkout oodar
+        uses: actions/checkout@v4
+        with:
+          repository: openOODA/oodar
+          path: oodar
 
       - name: Install toolchain
         run: |
           set -euo pipefail
           sudo apt-get update -qq
           sudo apt-get install -y -qq gcc
-          mkdir -p "$HOME/.openooda/bin" "$HOME/.openooda/lib" "$HOME/.openooda/oodar"
+          mkdir -p "$HOME/.openooda/bin" "$HOME/.openooda/lib"
           GH=https://github.com/openOODA
           # oodac v0.2.70 still has the C backend. Later tags are LLVM-only
           # and cannot yet emit this harness (SSA + List[struct] gaps).
@@ -27,15 +41,18 @@ jobs:
           chmod +x "$HOME/.openooda/bin/oodac"
           curl -fsSL -o "$HOME/.openooda/lib/liboodar.a" \
             "$GH/oodar/releases/latest/download/liboodar.a-linux-x86_64"
-          git clone --depth 1 https://github.com/openOODA/oodar.git "$HOME/.openooda/oodar"
-          git clone --depth 1 https://github.com/openOODA/std.git "$HOME/.openooda/std"
+          mkdir -p "$GITHUB_WORKSPACE/oodar/lib"
+          cp -f "$HOME/.openooda/lib/liboodar.a" "$GITHUB_WORKSPACE/oodar/lib/liboodar.a"
           curl -fsSL -o "$HOME/.openooda/northstar.oot" \
             https://raw.githubusercontent.com/openOODA/openOODA/main/northstar.oot
           echo "$HOME/.openooda/bin" >> "$GITHUB_PATH"
           test -x "$HOME/.openooda/bin/oodac"
+          test -f "$GITHUB_WORKSPACE/std/fs/process/env.oo"
+          test -f "$GITHUB_WORKSPACE/oodar/oodar.c"
           gcc --version | head -1
 
       - name: 256-line cap check (rules.oot §1.8)
+        working-directory: tui
         run: |
           set -e
           violations=0
@@ -53,6 +70,7 @@ jobs:
           echo "PASS: 256-line cap holds"
 
       - name: File-type ban check (rules.oot §1.14)
+        working-directory: tui
         run: |
           set -e
           forbidden="py js ts rb pl json sh"
@@ -67,6 +85,7 @@ jobs:
           echo "PASS: no forbidden file types"
 
       - name: Academy header check (rules.oot §1.11)
+        working-directory: tui
         run: |
           set -e
           failures=0
@@ -89,6 +108,7 @@ jobs:
           echo "PASS: all .oo files have Academy headers"
 
       - name: oodac check (non-qa sources)
+        working-directory: tui
         run: |
           set -e
           export OO_LIST_AMBIENT_QUOTA=1073741824
@@ -106,6 +126,7 @@ jobs:
           echo "PASS: oodac check holds"
 
       - name: Build
+        working-directory: tui
         run: |
           set -euo pipefail
           export OO_LIST_AMBIENT_QUOTA=1073741824
@@ -128,6 +149,7 @@ jobs:
           ls -la dist/
 
       - name: Smoke test (--help, --version, --unknown-flag, --token, --no-color)
+        working-directory: tui
         run: |
           set -e
           export OODACODEX="$HOME/.openooda/northstar.oot"
@@ -148,6 +170,7 @@ jobs:
           echo "PASS: smoke holds"
 
       - name: QA probes (compile only)
+        working-directory: tui
         run: |
           set -e
           export OO_LIST_AMBIENT_QUOTA=1073741824
@@ -167,12 +190,12 @@ jobs:
         with:
           name: ooda-tui-linux
           path: |
-            dist/ooda-tui
-            dist/ooda-tui.sha256
-            dist/ooda-tui-linux-x86_64
-            dist/ooda-tui-linux-x86_64.sha256
-            dist/tui-linux-x86_64
-            dist/tui-linux-x86_64.sha256
+            tui/dist/ooda-tui
+            tui/dist/ooda-tui.sha256
+            tui/dist/ooda-tui-linux-x86_64
+            tui/dist/ooda-tui-linux-x86_64.sha256
+            tui/dist/tui-linux-x86_64
+            tui/dist/tui-linux-x86_64.sha256
 
   release:
     needs: build
