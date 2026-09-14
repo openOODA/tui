@@ -108,7 +108,7 @@ jobs:
           fi
           echo "PASS: all .oo files have Academy headers"
 
-      - name: Build
+      - name: Check
         working-directory: tui
         run: |
           set -euo pipefail
@@ -116,18 +116,40 @@ jobs:
           export OODACODEX="$HOME/.openooda/northstar.oot"
           export OODA_COMPILER="$HOME/.openooda/bin/oodac"
           export OODA_STD="$HOME/.openooda/std"
-          export OODA_STD_ROOT="$HOME/.openooda/std"
-          unset OODA_FS_READDIR OODA_FS_WRITEDIR || true
           export OODA_NO_JAIL=1
-          rm -rf dist
+          unset OODA_FS_READDIR OODA_FS_WRITEDIR || true
           mkdir -p dist .ooda-cache/ooda-tmp
-          # oodac sys_exec("gcc") uses a jail PATH (/usr/bin), so a user-PATH
-          # wrapper never runs. Rewrite /usr/bin/gcc to drop -O2: -O2 on the
-          # 37k-line TU SIGTERMs around 100s on ubuntu-latest.
-          sudo cp -a /usr/bin/gcc /usr/bin/gcc.real
-          printf '%s\n' '#!/usr/bin/python3' 'import os, sys' 'a = [("-O0" if x == "-O2" else x) for x in sys.argv[1:]]' 'os.execvp("/usr/bin/gcc.real", ["/usr/bin/gcc.real"] + a)' | sudo tee /usr/bin/gcc >/dev/null
-          sudo chmod +x /usr/bin/gcc
-          "$OODA_COMPILER" build --backend c main.oo -o dist/ooda-tui
+          "$OODA_COMPILER" check main.oo
+
+      - name: Emit C
+        working-directory: tui
+        run: |
+          set -euo pipefail
+          export OO_LIST_AMBIENT_QUOTA=1073741824
+          export OODACODEX="$HOME/.openooda/northstar.oot"
+          export OODA_COMPILER="$HOME/.openooda/bin/oodac"
+          export OODA_STD="$HOME/.openooda/std"
+          export OODA_NO_JAIL=1
+          unset OODA_FS_READDIR OODA_FS_WRITEDIR || true
+          "$OODA_COMPILER" emit-c --concat main.oo > .ooda-cache/ooda-tmp/tui.c
+          wc -l .ooda-cache/ooda-tmp/tui.c
+
+      - name: gcc -O0
+        working-directory: tui
+        run: |
+          set -euo pipefail
+          export OODA_NO_JAIL=1
+          mkdir -p dist
+          # Tiny TU so oodac writes oodac_host_rt.c (needed at link).
+          printf '%s\n' '// # ci host_rt seed' '//' '// Logline: Force host_rt onto disk for the harness link.' '//' '// Setup: CI only.' '//' '// Beats:' '//   1. main returns.' 'fn main() -> Result[Int, String] { return Ok(0); }' > .ooda-cache/ooda-tmp/seed.oo
+          "$HOME/.openooda/bin/oodac" build --backend c .ooda-cache/ooda-tmp/seed.oo -o .ooda-cache/ooda-tmp/seed.bin
+          test -f .ooda-cache/ooda-tmp/oodac_host_rt.c
+          gcc -O0 -g0 -fno-ident -I "$GITHUB_WORKSPACE/oodar" \
+            "$GITHUB_WORKSPACE/oodar/oodar.c" \
+            .ooda-cache/ooda-tmp/oodac_host_rt.c \
+            .ooda-cache/ooda-tmp/tui.c \
+            -lm -ldl -lpthread \
+            -o dist/ooda-tui
           chmod +x dist/ooda-tui
           cp dist/ooda-tui dist/ooda-tui-linux-x86_64
           cp dist/ooda-tui dist/tui-linux-x86_64
