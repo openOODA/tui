@@ -12,7 +12,6 @@
 
 import "std/fs/file/path.oo";
 import "std/fs/file/file_reader.oo";
-import "std/fs/file/file_writer.oo";
 import "std/fs/process/env.oo";
 
 type Provider = struct {
@@ -61,26 +60,6 @@ pub fn config_has_provider(cfg: Config, name: String) -> Bool {
     return found;
 }
 
-pub fn config_provider_count(cfg: Config) -> Int {
-    return list_len(cfg.providers);
-}
-
-pub fn config_provider_at(cfg: Config, idx: Int) -> Provider {
-    return list_get(cfg.providers, idx);
-}
-
-pub fn config_provider_by_name(cfg: Config, name: String) -> Provider {
-    let n: Int = list_len(cfg.providers);
-    let mut i: Int = 0;
-    let mut found: Provider = provider_new("", "");
-    while i < n {
-        let p: Provider = list_get(cfg.providers, i);
-        if p.name == name { found = p; i = n; }
-        i = i + 1;
-    }
-    return found;
-}
-
 pub fn config_add_provider(cfg: Config, name: String, ptype: String, key: String, url: String, models: List[String]) -> Config {
     let p: Provider = Provider { name: name, ptype: ptype, key: key, url: url, models: models };
     cfg.providers = list_push(cfg.providers, p);
@@ -100,40 +79,6 @@ pub fn config_remove_provider(cfg: Config, name: String) -> Config {
     return cfg;
 }
 
-pub fn config_set_default(cfg: Config, provider: String, model: String) -> Config {
-    cfg.default_provider = provider;
-    cfg.default_model = model;
-    return cfg;
-}
-
-pub fn config_set_permission_mode(cfg: Config, mode: String) -> Config {
-    cfg.permission_mode = mode;
-    return cfg;
-}
-
-pub fn config_set_compact_threshold(cfg: Config, t: String) -> Config {
-    cfg.compact_threshold = t;
-    return cfg;
-}
-
-pub fn config_set_theme(cfg: Config, name: String) -> Config {
-    cfg.theme = name;
-    return cfg;
-}
-
-pub fn config_set_teamwork_agents(cfg: Config, n: Int) -> Config {
-    cfg.teamwork_agents = n;
-    return cfg;
-}
-
-pub fn config_load(fs_r: &FsReadCap, path: String) -> Result[Config, String] {
-    let openr: Result[FileReader, String] = file_reader_open(fs_r, path);
-    let reader: FileReader = match openr { Ok(r) => r, Err(e) => return Err("open: " + e); };
-    let readr: Result[String, String] = file_reader_read_all(fs_r, reader);
-    let content: String = match readr { Ok(s) => s, Err(e) => return Err("read: " + e); };
-    return config_parse(content);
-}
-
 fn skip_blank_or_comment(line: String) -> Bool {
     if chars_len(line) == 0 { return true; }
     if str_starts_with(line, "#") { return true; }
@@ -150,11 +95,7 @@ fn slice_after(line: String, after: Int) -> String {
 
 fn extract_quoted(s: String) -> String {
     let mut r: String = s;
-    if str_starts_with(r, "\"") {
-        if str_ends_with(r, "\"") {
-            r = str_slice(r, 1, chars_len(r) - 1);
-        }
-    }
+    if str_starts_with(r, "\"") && str_ends_with(r, "\"") { r = str_slice(r, 1, chars_len(r) - 1); }
     return r;
 }
 
@@ -204,19 +145,8 @@ pub fn config_parse(content: String) -> Result[Config, String] {
 
 fn extract_bracketed(s: String) -> String {
     let mut r: String = s;
-    if str_starts_with(r, "[") {
-        if str_ends_with(r, "]") {
-            r = str_slice(r, 1, chars_len(r) - 1);
-        }
-    }
+    if str_starts_with(r, "[") && str_ends_with(r, "]") { r = str_slice(r, 1, chars_len(r) - 1); }
     return r;
-}
-
-pub fn config_save(fs_w: &FsWriteCap, path: String, cfg: Config) -> Result[Int, String] {
-    let content: String = config_serialize(cfg);
-    let writer: Result[Int, String] = file_writer_write_all(fs_w, path, content);
-    let rc: Int = match writer { Ok(c) => c, Err(e) => return Err("write: " + e); };
-    return Ok(rc);
 }
 
 pub fn config_serialize(cfg: Config) -> String {
@@ -249,4 +179,78 @@ pub fn config_path(env: &EnvCap) -> String {
     let home: String = match hr { Ok(s) => s, Err(_) => "" };
     let dir: String = path_join(home, ".config/ooda-tui");
     return path_join(dir, "config.oot");
+}
+
+// Local str_split_lines stub (matches markdown.oo/diff.oo/tool_card.oo stubs).
+fn str_split_lines(s: String) -> List[String] {
+    let mut out: List[String] = list_new();
+    let mut cur: String = "";
+    let len: Int = chars_len(s);
+    let mut i: Int = 0;
+    while i < len {
+        let c: String = char_at(s, i);
+        if c == "\n" { out = list_push(out, cur); cur = ""; }
+        else if c != "\r" { cur = cur + c; }
+        i = i + 1;
+    }
+    if cur != "" || len == 0 { out = list_push(out, cur); }
+    return out;
+}
+
+// Local str_split_comma stub: split a comma-separated list, trim whitespace.
+fn str_split_comma(s: String) -> List[String] {
+    let mut out: List[String] = list_new();
+    let mut cur: String = "";
+    let len: Int = chars_len(s);
+    let mut i: Int = 0;
+    while i < len {
+        let c: String = char_at(s, i);
+        if c == "," { out = list_push(out, str_trim(cur)); cur = ""; }
+        else { cur = cur + c; }
+        i = i + 1;
+    }
+    if cur != "" || len == 0 { out = list_push(out, str_trim(cur)); }
+    return out;
+}
+
+// Local str_to_int stub: parse a non-negative integer. Returns 0 on
+// invalid input. Used by config.oo to parse teamwork_agents.
+fn str_to_int(s: String) -> Int {
+    let mut acc: Int = 0;
+    let len: Int = chars_len(s);
+    let mut i: Int = 0;
+    while i < len {
+        let c: String = char_at(s, i);
+        let digit: Int = if c == "0" { 0 } else if c == "1" { 1 } else if c == "2" { 2 } else if c == "3" { 3 } else if c == "4" { 4 } else if c == "5" { 5 } else if c == "6" { 6 } else if c == "7" { 7 } else if c == "8" { 8 } else if c == "9" { 9 } else { -1 };
+        if digit >= 0 { acc = acc * 10 + digit; }
+        i = i + 1;
+    }
+    return acc;
+}
+
+// Local str_join_comma stub: join a list of strings with comma separator.
+fn str_join_comma(items: List[String]) -> String {
+    let mut out: String = "";
+    let n: Int = list_len(items);
+    let mut i: Int = 0;
+    while i < n {
+        if i > 0 { out = out + ", "; }
+        out = out + list_get(items, i);
+        i = i + 1;
+    }
+    return out;
+}
+
+// Local int_to_str stub (matches theme.oo/markdown.oo/render.oo probes).
+fn int_to_str(n: Int) -> String {
+    if n < 0 { return "0"; }
+    if n == 0 { return "0"; }
+    let digits: String = "0123456789";
+    let mut v: Int = n;
+    let mut rev: String = "";
+    while v > 0 { let d: Int = v - (v / 10) * 10; rev = rev + char_at(digits, d); v = v / 10; }
+    let mut out: String = "";
+    let mut k: Int = chars_len(rev) - 1;
+    while k >= 0 { out = out + char_at(rev, k); k = k - 1; }
+    return out;
 }

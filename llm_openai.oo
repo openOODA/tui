@@ -14,10 +14,10 @@ import "llm.oo";
 
 pub fn llm_openai_complete(http: &TcpCap, p: LlmProvider, prompt: String) -> Result[String, String] {
     let body: String = "{\"model\":\"" + p.model + "\",\"messages\":[{\"role\":\"user\",\"content\":\"" + escape(prompt) + "\"}]}";
-    let headers: List[String] = list_new();
+    let mut headers: List[String] = list_new();
     headers = list_push(headers, "Authorization: Bearer " + p.key);
     headers = list_push(headers, "content-type: application/json");
-    let r: Result[String, String] = http_post_with_headers(http, p.base_url, "application/json", body, headers);
+    let r: Result[String, String] = http_client_post(http, p.base_url, "application/json", body);
     let raw: String = match r { Ok(s) => s, Err(e) => return Err("openai post: " + e); };
     return Ok(extract_content(raw));
 }

@@ -58,25 +58,27 @@ pub fn app_render(state: AppState) -> String {
 }
 
 pub fn app_handle_key(state: AppState, key_name: String) -> AppState {
+    let mut s: AppState = state;
     let action: String = key_action(key_name);
     if action == "toggle_teamwork" {
-        let mut t: Bool = state.teamwork;
+        let mut t: Bool = s.teamwork;
         if t { t = false; } else { t = true; }
-        state.teamwork = t;
-        return state;
+        s.teamwork = t;
+        return s;
     }
     if action == "toggle_yolo" {
-        let mut y: Bool = state.yolo;
+        let mut y: Bool = s.yolo;
         if y { y = false; } else { y = true; }
-        state.yolo = y;
-        return state;
+        s.yolo = y;
+        return s;
     }
-    return state;
+    return s;
 }
 
 pub fn app_handle_main(state: AppState, line: String) -> AppState {
-    state.loop_state = loop_append_user(state.loop_state, line);
-    return state;
+    let mut s: AppState = state;
+    s.loop_state = loop_append_user(s.loop_state, line);
+    return s;
 }
 
 pub fn app_run_once(http: &TcpCap, sys: &ProcessCap, state: AppState, provider: LlmProvider, mcp: McpClient, line: String) -> Result[AppState, String] {

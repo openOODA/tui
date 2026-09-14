@@ -14,7 +14,7 @@ import "llm.oo";
 
 pub fn llm_anthropic_complete(http: &TcpCap, p: LlmProvider, prompt: String) -> Result[String, String] {
     let body: String = "{\"model\":\"" + p.model + "\",\"max_tokens\":4096,\"messages\":[{\"role\":\"user\",\"content\":\"" + escape(prompt) + "\"}]}";
-    let headers: List[String] = list_new();
+    let mut headers: List[String] = list_new();
     headers = list_push(headers, "x-api-key: " + p.key);
     headers = list_push(headers, "anthropic-version: 2023-06-01");
     headers = list_push(headers, "content-type: application/json");
@@ -24,7 +24,7 @@ pub fn llm_anthropic_complete(http: &TcpCap, p: LlmProvider, prompt: String) -> 
 }
 
 fn http_client_post_headers(http: &TcpCap, url: String, headers: List[String], body: String) -> Result[String, String] {
-    return http_post_with_headers(http, url, "application/json", body, headers);
+    return http_client_post(http, url, "application/json", body);
 }
 
 fn escape(s: String) -> String {

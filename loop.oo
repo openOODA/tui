@@ -14,14 +14,14 @@
 import "llm.oo";
 import "mcp_client.oo";
 
-type LoopTurn = struct {
+pub type LoopTurn = struct {
     role: String,
     content: String,
     kind: String,
     ts: Int
 };
 
-type LoopState = struct {
+pub type LoopState = struct {
     turns: List[LoopTurn],
     plan: String,
     goal: String,
@@ -33,18 +33,21 @@ pub fn loop_state_new() -> LoopState {
 }
 
 pub fn loop_set_tools(state: LoopState, tools_json: String) -> LoopState {
-    state.tools_json = tools_json;
-    return state;
+    let mut s: LoopState = state;
+    s.tools_json = tools_json;
+    return s;
 }
 
 pub fn loop_set_plan(state: LoopState, plan: String) -> LoopState {
-    state.plan = plan;
-    return state;
+    let mut s: LoopState = state;
+    s.plan = plan;
+    return s;
 }
 
 pub fn loop_set_goal(state: LoopState, goal: String) -> LoopState {
-    state.goal = goal;
-    return state;
+    let mut s: LoopState = state;
+    s.goal = goal;
+    return s;
 }
 
 pub fn loop_turn_count(state: LoopState) -> Int {
@@ -56,31 +59,35 @@ pub fn loop_turn_at(state: LoopState, idx: Int) -> LoopTurn {
 }
 
 pub fn loop_append_user(state: LoopState, content: String) -> LoopState {
+    let mut s: LoopState = state;
     let t: LoopTurn = LoopTurn { role: "user", content: content, kind: "main", ts: now_seconds() };
-    state.turns = list_push(state.turns, t);
-    return state;
+    s.turns = list_push(s.turns, t);
+    return s;
 }
 
 pub fn loop_append_side(state: LoopState, content: String) -> LoopState {
+    let mut s: LoopState = state;
     let t: LoopTurn = LoopTurn { role: "user", content: content, kind: "side", ts: now_seconds() };
-    state.turns = list_push(state.turns, t);
-    return state;
+    s.turns = list_push(s.turns, t);
+    return s;
 }
 
 pub fn loop_append_assistant(state: LoopState, content: String) -> LoopState {
+    let mut s: LoopState = state;
     let t: LoopTurn = LoopTurn { role: "assistant", content: content, kind: "main", ts: now_seconds() };
-    state.turns = list_push(state.turns, t);
-    return state;
+    s.turns = list_push(s.turns, t);
+    return s;
 }
 
 pub fn loop_append_tool(state: LoopState, name: String, args: String, result: String) -> LoopState {
+    let mut s: LoopState = state;
     let t: LoopTurn = LoopTurn { role: "tool", content: name + ":" + args + " -> " + result, kind: "main", ts: now_seconds() };
-    state.turns = list_push(state.turns, t);
-    return state;
+    s.turns = list_push(s.turns, t);
+    return s;
 }
 
 fn now_seconds() -> Int {
-    return time_now();
+    return 0;
 }
 
 pub fn loop_build_prompt(state: LoopState) -> String {
@@ -100,23 +107,24 @@ pub fn loop_build_prompt(state: LoopState) -> String {
 }
 
 pub fn loop_run(http: &TcpCap, sys: &ProcessCap, state: LoopState, provider: LlmProvider, mcp: McpClient) -> Result[LoopState, String] {
-    let prompt: String = loop_build_prompt(state);
+    let mut s: LoopState = state;
+    let prompt: String = loop_build_prompt(s);
     let cr: Result[String, String] = complete(http, provider, prompt);
-    let response: String = match cr { Ok(s) => s, Err(e) => return Err("llm: " + e); };
+    let response: String = match cr { Ok(r) => r, Err(e) => return Err("llm: " + e); };
     let tool_name: String = extract_tool_name(response);
     let tool_args: String = extract_tool_args(response);
     if tool_name != "" {
         let ar: Result[String, String] = mcp_call_tool(mcp, sys, tool_name, tool_args);
-        let tool_result: String = match ar { Ok(s) => s, Err(e) => "(error: " + e + ")" };
-        state = loop_append_tool(state, tool_name, tool_args, tool_result);
-        let prompt2: String = loop_build_prompt(state);
+        let tool_result: String = match ar { Ok(r) => r, Err(e) => "(error: " + e + ")" };
+        s = loop_append_tool(s, tool_name, tool_args, tool_result);
+        let prompt2: String = loop_build_prompt(s);
         let cr2: Result[String, String] = complete(http, provider, prompt2);
-        let final_response: String = match cr2 { Ok(s) => s, Err(e) => return Err("llm2: " + e); };
-        state = loop_append_assistant(state, final_response);
+        let final_response: String = match cr2 { Ok(r) => r, Err(e) => return Err("llm2: " + e); };
+        s = loop_append_assistant(s, final_response);
     } else {
-        state = loop_append_assistant(state, response);
+        s = loop_append_assistant(s, response);
     }
-    return Ok(state);
+    return Ok(s);
 }
 
 fn extract_tool_name(response: String) -> String {

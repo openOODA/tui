@@ -33,6 +33,33 @@ pub fn session_new_sid() -> String {
     return s1 + "0000";
 }
 
+// Local time_now stub: openOODA std exposes &TimeCap but no zero-arg
+// time_now() function. session_new_sid() doesn't carry &TimeCap, so we
+// return 0 here. The session system is not exercised by v0.1.x chrome;
+// SIDs that all hash to "0000" are accepted as a known limitation.
+fn time_now() -> Int {
+    return 0;
+}
+
+// Local int_to_hex stub: openOODA std has int_to_hex in std/core/text/num_buffer.oo
+// but it is not auto-imported into tui/. Returns lowercase hex for the
+// 0..255 range (matches the input range from time_now() returning 0).
+fn int_to_hex(n: Int) -> String {
+    if n == 0 { return "0"; }
+    let hex: String = "0123456789abcdef";
+    let mut v: Int = n;
+    let mut rev: String = "";
+    while v > 0 {
+        let d: Int = v - (v / 16) * 16;
+        rev = rev + char_at(hex, d);
+        v = v / 16;
+    }
+    let mut out: String = "";
+    let mut k: Int = chars_len(rev) - 1;
+    while k >= 0 { out = out + char_at(rev, k); k = k - 1; }
+    return out;
+}
+
 pub fn session_create(name: String, provider: String, model: String, cwd: String) -> Session {
     return Session { sid: session_new_sid(), name: name, provider: provider, model: model, cwd: cwd, created: "now" };
 }
@@ -127,7 +154,7 @@ pub fn session_list(sys: &ProcessCap, env: &EnvCap) -> List[String] {
     let cmd: String = "ls " + path_parent(dir) + " 2>/dev/null";
     let r: Result[String, String] = process_exec(sys, cmd);
     let raw: String = match r { Ok(s) => s, Err(_) => "" };
-    let names: List[String] = list_new();
+    let mut names: List[String] = list_new();
     let mut i: Int = 0;
     let n: Int = chars_len(raw);
     let mut current: String = "";

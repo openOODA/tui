@@ -10,7 +10,9 @@
 //   3. Common helpers: extract_cmd, extract_args.
 
 import "app.oo";
+import "compact.oo";
 import "config.oo";
+import "plan.oo";
 import "slash_extra.oo";
 
 pub fn slash_run(state: AppState, line: String) -> AppState {
@@ -62,28 +64,30 @@ fn extract_args(line: String, cmd: String) -> String {
 }
 
 fn cmd_login(state: AppState, args: String) -> AppState {
+    let mut s: AppState = state;
     if args == "" {
-        println("login: specify a provider. configured: " + provider_names(state.cfg));
-        return state;
+        println("login: specify a provider. configured: " + provider_names(s.cfg));
+        return s;
     }
     let name: String = str_trim(args);
-    if config_has_provider(state.cfg, name) {
+    if config_has_provider(s.cfg, name) {
         println("login: provider " + name + " already configured");
-        return state;
+        return s;
     }
-    state.cfg = config_add_provider(state.cfg, name, "cloud", "", "", list_new());
+    s.cfg = config_add_provider(s.cfg, name, "cloud", "", "", list_new());
     println("login: added provider " + name + " (set key/url with /settings)");
-    return state;
+    return s;
 }
 
 fn cmd_logout(state: AppState, args: String) -> AppState {
+    let mut s: AppState = state;
     if args == "" {
         println("logout: specify a provider");
-        return state;
+        return s;
     }
-    state.cfg = config_remove_provider(state.cfg, str_trim(args));
+    s.cfg = config_remove_provider(s.cfg, str_trim(args));
     println("logout: removed " + str_trim(args));
-    return state;
+    return s;
 }
 
 fn provider_names(cfg: Config) -> String {
@@ -112,60 +116,65 @@ fn cmd_providers(state: AppState) -> AppState {
 }
 
 fn cmd_model(state: AppState, args: String) -> AppState {
+    let mut s: AppState = state;
     if args == "" {
-        println("model: current " + state.provider_name + "/" + state.model_name);
-        return state;
+        println("model: current " + s.provider_name + "/" + s.model_name);
+        return s;
     }
     let colon: Int = str_index_of(args, ":");
     if colon < 0 {
-        state.provider_name = str_trim(args);
-        println("model: switched provider to " + state.provider_name);
-        return state;
+        s.provider_name = str_trim(args);
+        println("model: switched provider to " + s.provider_name);
+        return s;
     }
-    state.provider_name = str_trim(str_slice(args, 0, colon));
-    state.model_name = str_trim(str_slice(args, colon + 1, chars_len(args)));
-    println("model: switched to " + state.provider_name + "/" + state.model_name);
-    return state;
+    s.provider_name = str_trim(str_slice(args, 0, colon));
+    s.model_name = str_trim(str_slice(args, colon + 1, chars_len(args)));
+    println("model: switched to " + s.provider_name + "/" + s.model_name);
+    return s;
 }
 
 fn cmd_plan(state: AppState, args: String) -> AppState {
+    let mut s: AppState = state;
     if args == "" {
-        println("plan: " + state.loop_state.plan);
-        return state;
+        println("plan: " + s.loop_state.plan);
+        return s;
     }
-    state.loop_state.plan = plan_set(state.loop_state.plan, args);
+    s.loop_state.plan = plan_set(s.loop_state.plan, args);
     println("plan: set");
-    return state;
+    return s;
 }
 
 fn cmd_goal(state: AppState, args: String) -> AppState {
+    let mut s: AppState = state;
     if args == "" {
-        println("goal: " + state.loop_state.goal);
-        return state;
+        println("goal: " + s.loop_state.goal);
+        return s;
     }
-    state.loop_state.goal = goal_set(state.loop_state.goal, args);
+    s.loop_state.goal = goal_set(s.loop_state.goal, args);
     println("goal: set");
-    return state;
+    return s;
 }
 
 fn cmd_clear(state: AppState) -> AppState {
-    let plan_save: String = state.loop_state.plan;
-    let goal_save: String = state.loop_state.goal;
-    state.loop_state = loop_state_new();
-    state.loop_state.plan = plan_save;
-    state.loop_state.goal = goal_save;
+    let mut s: AppState = state;
+    let plan_save: String = s.loop_state.plan;
+    let goal_save: String = s.loop_state.goal;
+    s.loop_state = loop_state_new();
+    s.loop_state.plan = plan_save;
+    s.loop_state.goal = goal_save;
     println("clear: context cleared, session preserved");
-    return state;
+    return s;
 }
 
 fn cmd_compact(state: AppState) -> AppState {
-    if compact_idempotent(state.loop_state) {
+    let mut s: AppState = state;
+    if compact_idempotent(s.loop_state) {
         println("compact: no-op (already compacted)");
-        return state;
+        return s;
     }
-    state.loop_state = compact_run(state.loop_state, "[summary placeholder]");
+    s.loop_state = compact_run(s.loop_state, "[summary placeholder]");
     println("compact: done");
-    return state;
+    return s;
 }
 
 fn bool_str(b: Bool) -> String {

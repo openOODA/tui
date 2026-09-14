@@ -40,7 +40,6 @@ fn extract_text(raw: String) -> String {
     let mut i: Int = 0;
     let mut out: String = "";
     let mut in_text: Bool = false;
-    let mut depth: Int = 0;
     while i < n {
         if !in_text && str_slice(raw, i, i + 7) == "\"text\":\"" {
             in_text = true;

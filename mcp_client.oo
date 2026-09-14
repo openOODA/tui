@@ -29,9 +29,30 @@ pub fn mcp_close(client: McpClient) -> Result[Int, String] {
     return Ok(0);
 }
 
+// Local int_to_str stub: openOODA std has int_to_str but it is not
+// auto-imported into tui/. Local-only Int range (0..999) is enough for
+// JSON-RPC message ids.
+fn int_to_str(n: Int) -> String {
+    if n < 0 { return "0"; }
+    if n == 0 { return "0"; }
+    let digits: String = "0123456789";
+    let mut v: Int = n;
+    let mut rev: String = "";
+    while v > 0 {
+        let d: Int = v - (v / 10) * 10;
+        rev = rev + char_at(digits, d);
+        v = v / 10;
+    }
+    let mut out: String = "";
+    let mut k: Int = chars_len(rev) - 1;
+    while k >= 0 { out = out + char_at(rev, k); k = k - 1; }
+    return out;
+}
+
 fn mcp_next_id(client: McpClient) -> Int {
-    let id: Int = client.request_counter + 1;
-    client.request_counter = id;
+    let mut c: McpClient = client;
+    let id: Int = c.request_counter + 1;
+    c.request_counter = id;
     return id;
 }
 
@@ -64,14 +85,14 @@ fn escape_json(s: String) -> String {
 
 fn mcp_call_file(client: McpClient, request: String, sys: &ProcessCap) -> Result[String, String] {
     let tmp: String = "/tmp/ooda-tui-mcp-" + int_to_str(mcp_next_id(client)) + ".json";
-    let wr: Result[Int, String] = file_writer_write_all_fs(sys, tmp, request);
+    let wr: Result[String, String] = file_writer_write_all_fs(sys, tmp, request);
     if wr.is_err() { return Err("write tmp: " + tmp); }
     let cmd: String = "OODACODEX=" + client.codex + " ooda-mcp --file " + tmp + " 2>/dev/null";
     let r: Result[String, String] = process_exec(sys, cmd);
     return r;
 }
 
-fn file_writer_write_all_fs(sys: &ProcessCap, path: String, content: String) -> Result[Int, String] {
+fn file_writer_write_all_fs(sys: &ProcessCap, path: String, content: String) -> Result[String, String] {
     let cmd: String = "mkdir -p $(dirname " + path + ") && cat > " + path + " << 'EOF_MCP_REQUEST'\n" + content + "\nEOF_MCP_REQUEST";
     let r: Result[String, String] = process_exec(sys, cmd);
     return r;

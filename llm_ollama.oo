@@ -39,7 +39,6 @@ fn extract_message(raw: String) -> String {
     let mut i: Int = 0;
     let mut out: String = "";
     let mut in_msg: Bool = false;
-    let mut depth: Int = 0;
     while i < n {
         if !in_msg && str_slice(raw, i, i + 10) == "\"content\":\"" {
             in_msg = true;

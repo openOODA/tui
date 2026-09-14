@@ -24,14 +24,14 @@ pub fn provider_anthropic(name: String, key: String, model: String) -> LlmProvid
     return LlmProvider { ptype: "anthropic", name: name, base_url: "https://api.anthropic.com/v1/messages", key: key, model: model };
 }
 
-pub fn provider_openai(name: String, key: String, model: String, base_url: String) -> LlmProvider {
-    let url: String = base_url;
-    if url == "" { url = "https://api.openai.com/v1/chat/completions"; }
-    return LlmProvider { ptype: "openai", name: name, base_url: url, key: key, model: model };
+pub fn provider_openai(name: String, key: String, model: String, url: String) -> LlmProvider {
+    let mut u: String = url;
+    if u == "" { u = "https://api.openai.com/v1/chat/completions"; }
+    return LlmProvider { ptype: "openai", name: name, base_url: u, key: key, model: model };
 }
 
 pub fn provider_ollama(name: String, url: String, model: String) -> LlmProvider {
-    let u: String = url;
+    let mut u: String = url;
     if u == "" { u = "http://localhost:11434/api/chat"; }
     return LlmProvider { ptype: "ollama", name: name, base_url: u, key: "", model: model };
 }
@@ -52,7 +52,7 @@ pub fn provider_key(p: LlmProvider) -> String { return p.key; }
 
 // Provider health check. Returns true if the provider base_url is reachable.
 pub fn provider_ping(http: &TcpCap, p: LlmProvider) -> Bool {
-    let r: Result[String, String] = http_get(http, p.base_url);
+    let r: Result[String, String] = http_client_get(http, p.base_url);
     if r.is_err() { return false; }
     return true;
 }
@@ -65,3 +65,17 @@ pub fn complete(http: &TcpCap, p: LlmProvider, prompt: String) -> Result[String,
     if p.ptype == "custom" { return llm_custom_complete(http, p, prompt); }
     return Err("unknown provider type: " + p.ptype);
 }
+
+// Forward stubs for the provider-complete functions. The real
+// implementations live in llm_anthropic.oo / llm_openai.oo / etc., but
+// importing them from here creates a cycle (those files import llm.oo).
+// openOODA does not yet support forward declarations across modules,
+// so we expose the same surface from llm.oo and the provider files
+// shadow these at link time. v0.1.x chrome does not exercise this path
+// (LLM completion is not wired in line mode), so the stubs returning
+// Err are safe for the current release.
+fn llm_anthropic_complete(http: &TcpCap, p: LlmProvider, prompt: String) -> Result[String, String] { return Err("llm_anthropic_complete: not wired in line mode"); }
+fn llm_openai_complete(http: &TcpCap, p: LlmProvider, prompt: String) -> Result[String, String] { return Err("llm_openai_complete: not wired in line mode"); }
+fn llm_ollama_complete(http: &TcpCap, p: LlmProvider, prompt: String) -> Result[String, String] { return Err("llm_ollama_complete: not wired in line mode"); }
+fn llm_google_complete(http: &TcpCap, p: LlmProvider, prompt: String) -> Result[String, String] { return Err("llm_google_complete: not wired in line mode"); }
+fn llm_custom_complete(http: &TcpCap, p: LlmProvider, prompt: String) -> Result[String, String] { return Err("llm_custom_complete: not wired in line mode"); }
