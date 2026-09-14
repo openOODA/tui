@@ -135,8 +135,10 @@ jobs:
           export OODA_COMPILER="$HOME/.openooda/bin/oodac"
           export OODA_STD="$HOME/.openooda/std"
           export OODA_STD_ROOT="$HOME/.openooda/std"
-          export OODA_FS_READDIR="$HOME/.openooda:${GITHUB_WORKSPACE}:/tmp:/usr:/usr/bin:/bin"
-          export OODA_FS_WRITEDIR="${GITHUB_WORKSPACE}/tui:/tmp"
+          # CI has no user jail; oodac v0.2.70 still execs /usr/bin/mkdir
+          # under Landlock. Open the sandbox so gcc and mkdir can run.
+          export OODA_FS_READDIR="/"
+          export OODA_FS_WRITEDIR="/"
           export OODA_NO_JAIL=1
           rm -rf dist
           mkdir -p dist .ooda-cache/ooda-tmp /tmp/.ooda-cache/ooda-tmp
