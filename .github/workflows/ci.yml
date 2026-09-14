@@ -120,12 +120,21 @@ jobs:
           unset OODA_FS_READDIR OODA_FS_WRITEDIR || true
           export OODA_NO_JAIL=1
           rm -rf dist
-          mkdir -p dist .ooda-cache/ooda-tmp "$HOME/.local/bin"
-          # oodac v0.2.66 links with gcc -O2; that SIGTERMs (~100s) on the
-          # 37k-line harness TU. Shadow gcc so the same argv is -O0.
-          printf '%s\n' '#!/bin/bash' 'args=()' 'for a in "$@"; do' '  if [ "$a" = "-O2" ]; then a="-O0"; fi' '  args+=("$a")' 'done' 'exec /usr/bin/gcc "${args[@]}"' > "$HOME/.local/bin/gcc"
-          chmod +x "$HOME/.local/bin/gcc"
-          export PATH="$HOME/.local/bin:$PATH"
+          mkdir -p dist .ooda-cache/ooda-tmp
+          # oodac sys_exec("gcc") uses a jail PATH (/usr/bin), so a user-PATH
+          # wrapper never runs. Rewrite /usr/bin/gcc to drop -O2: -O2 on the
+          # 37k-line TU SIGTERMs around 100s on ubuntu-latest.
+          sudo cp -a /usr/bin/gcc /usr/bin/gcc.real
+          sudo tee /usr/bin/gcc >/dev/null <<'EOF'
+#!/bin/bash
+args=()
+for a in "$@"; do
+  if [ "$a" = "-O2" ]; then a="-O0"; fi
+  args+=("$a")
+done
+exec /usr/bin/gcc.real "${args[@]}"
+EOF
+          sudo chmod +x /usr/bin/gcc
           "$OODA_COMPILER" build --backend c main.oo -o dist/ooda-tui
           chmod +x dist/ooda-tui
           cp dist/ooda-tui dist/ooda-tui-linux-x86_64
