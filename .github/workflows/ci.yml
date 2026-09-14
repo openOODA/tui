@@ -158,7 +158,7 @@ jobs:
           export OODA_NO_JAIL=1
           ./dist/ooda-tui --help > /tmp/tui-help.txt
           grep -q "ooda-tui" /tmp/tui-help.txt
-          ./dist/ooda-tui --version | grep -q "v0.2.0"
+          ./dist/ooda-tui --version | grep -q "v0.2.1"
           set +e
           ./dist/ooda-tui --unknown-flag >/dev/null 2>&1
           rc=$?

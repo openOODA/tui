@@ -1,4 +1,4 @@
-# ooda-tui v0.2.0 Makefile
+# ooda-tui v0.2.1 Makefile
 #
 # Agent loop: read/grep/glob/write/bash, ask/allow/yolo, AGENTS.md.
 #

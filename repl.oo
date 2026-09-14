@@ -10,6 +10,7 @@
 //   3. Else slash or agent_run (read/grep/glob/write/bash, 8 hops).
 
 import "std/fs/process/env.oo";
+import "std/fs/process/process.oo";
 import "chrome.oo";
 import "pane.oo";
 import "theme.oo";
@@ -74,7 +75,7 @@ pub fn run_tui_session(fs_r: &FsReadCap, fs_w: &FsWriteCap, sys: &ProcessCap, en
     while true {
         if paint {
             let frame: String = chrome_render(st.theme, pane, "", 0, in_buf(st), st.teamwork, st.yolo, think_of(st), ver, color, cols, 24, st.provider, st.model, st.cwd);
-            println(frame);
+            paint_frame(fs_w, sys, frame);
             paint = false;
         }
         if !live { break; }
@@ -160,6 +161,13 @@ fn pane_append_block(p: Pane, text: String) -> Pane {
     }
     if cur != "" { out = pane_append(out, cur); }
     return out;
+}
+
+fn paint_frame(fw: &FsWriteCap, sys: &ProcessCap, frame: String) {
+    let wr: Result[Void, String] = write_file(fw, "/tmp/.ooda-tui-frame", frame);
+    if wr.is_err() { print(frame); return; }
+    let r: Result[String, String] = process_exec(sys, "cat /tmp/.ooda-tui-frame >/dev/tty 2>/dev/null");
+    if r.is_err() { print(frame); }
 }
 
 fn mcp_hello(sys: &ProcessCap, env: &EnvCap, pane: Pane) -> Pane {

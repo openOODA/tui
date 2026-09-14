@@ -1,31 +1,64 @@
 // # input.oo - Compose box (line-mode)
 //
-// Logline: Draw a compose rule then a prompt with no trailing newline so cooked stdin types on that line.
+// Logline: Draw a three-line open box. Last line is "| > " with no newline so cooked typing sits inside the box.
 //
-// Setup: Last surface in the chrome. Tokens: accent, muted.
+// Setup: Last surface in the chrome. No bottom border: a closing rule would push the cursor out.
 //
 // Beats:
-//   1. A one-line rule labels the box (enter sends, slash commands).
-//   2. Prompt is "> " with no fake cursor and no newline.
+//   1. Top rule with a centered title (compose or APPROVE).
+//   2. Hint line with side walls, padded to cols.
+//   3. Prompt "| > " — cursor lives here.
 
 import "theme.oo";
+
+fn dashes(n: Int) -> String {
+    let mut s: String = "";
+    let mut i: Int = 0;
+    while i < n { s = s + "-"; i = i + 1; }
+    return s;
+}
+
+fn pad_r(s: String, w: Int) -> String {
+    let mut out: String = s;
+    while chars_len(out) < w { out = out + " "; }
+    if chars_len(out) > w { return str_slice(out, 0, w); }
+    return out;
+}
+
+fn top_rule(title: String, cols: Int) -> String {
+    let t: String = " " + title + " ";
+    let mut inner: Int = cols - 2;
+    if inner < chars_len(t) { inner = chars_len(t); }
+    let mut left: Int = (inner - chars_len(t)) / 2;
+    if left < 1 { left = 1; }
+    let mut right: Int = inner - chars_len(t) - left;
+    if right < 1 { right = 1; }
+    return "+" + dashes(left) + t + dashes(right) + "+";
+}
 
 pub fn input_render(theme: String, buf: String, color: Bool, cols: Int) -> String {
     let accent: String = theme_color(theme, "accent");
     let muted: String = theme_color(theme, "muted");
-    let mut label: String = "+ compose · enter sends · /help · /exit";
-    if buf == "ask" { label = "+ APPROVE · y yes · n no · a always · d deny"; }
-    let mut s: String = ansi_fg(color, muted) + label + ansi_reset(color);
-    let mut pad: Int = cols - chars_len(label);
-    if pad < 1 { pad = 1; }
-    let mut k: Int = 0;
-    while k < pad { s = s + " "; k = k + 1; }
-    s = s + "\n";
-    s = s + ansi_fg(color, accent) + "> " + ansi_reset(color);
-    let _: String = buf;
+    let err: String = theme_color(theme, "error");
+    let ask: Bool = buf == "ask";
+    let mut title: String = "compose";
+    let mut hint: String = " enter sends · /help · /exit";
+    let mut edge: String = accent;
+    if ask {
+        title = "APPROVE";
+        hint = " y yes · n no · a always · d deny";
+        edge = err;
+    }
+    let mut w: Int = cols;
+    if w < 24 { w = 24; }
+    let top: String = top_rule(title, w);
+    let mid: String = "|" + pad_r(hint, w - 2) + "|";
+    let mut s: String = ansi_fg(color, edge) + top + ansi_reset(color) + "\n";
+    s = s + ansi_fg(color, muted) + mid + ansi_reset(color) + "\n";
+    s = s + ansi_fg(color, edge) + "| > " + ansi_reset(color);
     return s;
 }
 
 pub fn input_height() -> Int {
-    return 2;
+    return 3;
 }
