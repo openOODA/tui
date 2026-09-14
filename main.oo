@@ -17,6 +17,7 @@ import "std/fs/file/file_reader.oo";
 import "std/fs/process/env.oo";
 import "token/cmd_token.oo";
 import "repl.oo";
+import "version.oo";
 
 fn run_token_one_shot(fs_r: &FsReadCap, sys: &ProcessCap, env: &EnvCap, time: &TimeCap, fs_w: &FsWriteCap, args: List[String]) -> Int {
     let mut rest: List[String] = list_new();
@@ -37,40 +38,50 @@ fn run_token_one_shot(fs_r: &FsReadCap, sys: &ProcessCap, env: &EnvCap, time: &T
     return 0;
 }
 
-fn print_help(fs_r: &FsReadCap, codex_dir: String) -> Result[Int, String] {
-    let help_path: String = path_join(codex_dir, "help.oot");
-    let openr: Result[FileReader, String] = file_reader_open(fs_r, help_path);
-    let reader: FileReader = match openr {
-        Ok(r) => r,
-        Err(_) => {
-            println("ooda-tui: short flags list");
-            println("  --teamwork         start with teamwork (multi-agent) mode on");
-            println("  --yolo             start with yolo (auto-approve all tool calls) on");
-            println("  --cwd <path>       run as if cwd were <path>");
-            println("  --no-color         disable ANSI codes");
-            println("  --provider <name>  override default provider for this run");
-            println("  --model <name>     override default model for this run");
-            println("  --theme <name>     override default theme for this run");
-            println("  --help             print this help text");
-            println("  --version          print ooda-tui version");
-            return Ok(0);
-        }
-    };
+fn print_fallback_help() {
+    println("ooda-tui " + ooda_tui_version());
+    println("Usage: ooda-tui [--teamwork] [--yolo] [--cwd PATH] [--no-color]");
+    println("                [--provider NAME] [--model NAME] [--theme NAME]");
+    println("                [--token <sub> ...] [--help] [--version]");
+    println("Flags:");
+    println("  --teamwork         start with teamwork (multi-agent) mode on");
+    println("  --yolo             start with yolo (auto-approve all tool calls) on");
+    println("  --cwd <path>       run as if cwd were <path>");
+    println("  --no-color         disable ANSI codes");
+    println("  --provider <name>  override default provider for this run");
+    println("  --model <name>     override default model for this run");
+    println("  --theme <name>     override default theme for this run");
+    println("  --token <sub>      headless token telemetry (status, report, ...)");
+    println("  --help             print this help text");
+    println("  --version          print ooda-tui version");
+    println("Slash (inside the TUI): /help /login /model /theme /status /exit");
+}
+
+fn try_help_file(fs_r: &FsReadCap, path: String) -> Bool {
+    if path == "" { return false; }
+    if !path_exists(fs_r, path) { return false; }
+    let openr: Result[FileReader, String] = file_reader_open(fs_r, path);
+    let reader: FileReader = match openr { Ok(r) => r, Err(_) => return false; };
     let readr: Result[String, String] = file_reader_read_all(fs_r, reader);
-    let content: String = match readr {
-        Ok(s) => s,
-        Err(_) => ""
-    };
+    let content: String = match readr { Ok(s) => s, Err(_) => "" };
+    if content == "" { return false; }
     println(content);
+    return true;
+}
+
+fn print_help(fs_r: &FsReadCap, env: &EnvCap, codex_dir: String) -> Result[Int, String] {
+    if try_help_file(fs_r, "help.oot") { return Ok(0); }
+    if try_help_file(fs_r, path_join(codex_dir, "help.oot")) { return Ok(0); }
+    let hr: Result[String, String] = env_get(env, "HOME");
+    let home: String = match hr { Ok(s) => s, Err(_) => "" };
+    if try_help_file(fs_r, path_join(home, ".openooda/tui/help.oot")) { return Ok(0); }
+    print_fallback_help();
     return Ok(0);
 }
 
 fn print_version(env: &EnvCap) -> Result[Int, String] {
     let vr: Result[String, String] = env_get(env, "OODA_TUI_VERSION");
-    let v: String = match vr {
-        Ok(s) => s,
-        Err(_) => ooda_tui_version()
-    };
+    let v: String = match vr { Ok(s) => s, Err(_) => ooda_tui_version() };
     println("ooda-tui " + v);
     return Ok(0);
 }
@@ -101,7 +112,7 @@ fn validate_argv(fs_r: &FsReadCap, env: &EnvCap, args: List[String]) -> Result[S
             let codex0: String = match cr0 { Ok(s) => s, Err(_) => "" };
             let mut codex_dir: String = path_parent(codex0);
             if codex_dir == "" { codex_dir = "."; }
-            let r: Result[Int, String] = print_help(fs_r, codex_dir);
+            let r: Result[Int, String] = print_help(fs_r, env, codex_dir);
             let rc: Int = match r { Ok(c) => c, Err(_) => 1 };
             process_exit(rc);
             return Ok("handled");
@@ -143,7 +154,7 @@ fn validate_argv(fs_r: &FsReadCap, env: &EnvCap, args: List[String]) -> Result[S
         } else if a == "--teamwork" || a == "--yolo" || a == "--no-color" {
             i = i + 1;
         } else if a == "--token" {
-            i = i + 2;
+            break;
         } else {
             println("ERR\tmain\tunknown flag: " + a);
             process_exit(2);
@@ -155,8 +166,17 @@ fn validate_argv(fs_r: &FsReadCap, env: &EnvCap, args: List[String]) -> Result[S
 
 pub fn main(bind: &BindCap, fs_r: &FsReadCap, fs_w: &FsWriteCap, sys: &ProcessCap, sys_cap: &SysCap, env: &EnvCap, time: &TimeCap, alloc: &AllocCap, thread: &ThreadCap, args: List[String]) -> Result[Int, String] {
     let _argv: Result[String, String] = validate_argv(fs_r, env, args);
-    let cr: Result[String, String] = require_codex(env, fs_r);
-    let _codex: String = match cr { Ok(s) => s, Err(_) => "" };
+    let _codex: Result[String, String] = require_codex(env, fs_r);
+
+    let n: Int = list_len(args);
+    let mut ti: Int = 0;
+    while ti < n {
+        if list_get(args, ti) == "--token" {
+            let rc: Int = run_token_one_shot(fs_r, sys, env, time, fs_w, args);
+            return Ok(rc);
+        }
+        ti = ti + 1;
+    }
 
     let mut teamwork: Bool = false;
     let mut yolo: Bool = false;
@@ -166,7 +186,6 @@ pub fn main(bind: &BindCap, fs_r: &FsReadCap, fs_w: &FsWriteCap, sys: &ProcessCa
     let mut model: String = "";
     let mut theme: String = "";
 
-    let n: Int = list_len(args);
     let mut i: Int = 0;
     while i < n {
         let a: String = list_get(args, i);
@@ -180,10 +199,6 @@ pub fn main(bind: &BindCap, fs_r: &FsReadCap, fs_w: &FsWriteCap, sys: &ProcessCa
         else { i = i + 1; }
     }
 
-    let _rc: Int = run_tui_session(fs_r, env, teamwork, yolo, cwd, provider, model, theme);
+    let _rc: Int = run_tui_session(fs_r, fs_w, sys, env, teamwork, yolo, cwd, provider, model, theme, no_color);
     return Ok(0);
-}
-
-fn ooda_tui_version() -> String {
-    return "v0.1.2";
 }

@@ -13,6 +13,7 @@
 import "std/fs/file/path.oo";
 import "std/fs/file/file_writer.oo";
 import "std/fs/process/process.oo";
+import "version.oo";
 
 type McpClient = struct {
     codex: String,
@@ -87,7 +88,7 @@ fn mcp_call_file(client: McpClient, request: String, sys: &ProcessCap) -> Result
     let tmp: String = "/tmp/ooda-tui-mcp-" + int_to_str(mcp_next_id(client)) + ".json";
     let wr: Result[String, String] = file_writer_write_all_fs(sys, tmp, request);
     if wr.is_err() { return Err("write tmp: " + tmp); }
-    let cmd: String = "OODACODEX=" + client.codex + " ooda-mcp --file " + tmp + " 2>/dev/null";
+    let cmd: String = "bin=$(command -v ooda-mcp || true); if [ -z \"$bin\" ]; then bin=$HOME/.openooda/bin/ooda-mcp; fi; if [ ! -x \"$bin\" ]; then bin=$HOME/.openooda/bin/mcp; fi; OODACODEX=" + client.codex + " \"$bin\" --file " + tmp + " 2>/dev/null";
     let r: Result[String, String] = process_exec(sys, cmd);
     return r;
 }
@@ -99,24 +100,36 @@ fn file_writer_write_all_fs(sys: &ProcessCap, path: String, content: String) -> 
 }
 
 pub fn mcp_init(client: McpClient, sys: &ProcessCap) -> Result[String, String] {
-    let req: String = build_init_request(mcp_next_id(client), "ooda-tui", "v0.1.0");
+    let req: String = build_init_request(mcp_next_id(client), "ooda-tui", ooda_tui_version());
     let r: Result[String, String] = mcp_call_file(client, req, sys);
-    if r.is_err() { return Err("mcp_init: " + match r { Ok(_) => "", Err(e) => e }); }
-    return Ok(match r { Ok(s) => s, Err(_) => "" });
+    if r.is_err() {
+        let e: String = match r { Ok(_) => "", Err(m) => m };
+        return Err("mcp_init: " + e);
+    }
+    let s: String = match r { Ok(v) => v, Err(_) => "" };
+    return Ok(s);
 }
 
 pub fn mcp_list_tools(client: McpClient, sys: &ProcessCap) -> Result[String, String] {
     let req: String = build_tools_list_request(mcp_next_id(client));
     let r: Result[String, String] = mcp_call_file(client, req, sys);
-    if r.is_err() { return Err("mcp_list_tools: " + match r { Ok(_) => "", Err(e) => e }); }
-    return Ok(match r { Ok(s) => s, Err(_) => "" });
+    if r.is_err() {
+        let e: String = match r { Ok(_) => "", Err(m) => m };
+        return Err("mcp_list_tools: " + e);
+    }
+    let s: String = match r { Ok(v) => v, Err(_) => "" };
+    return Ok(s);
 }
 
 pub fn mcp_call_tool(client: McpClient, sys: &ProcessCap, tool_name: String, args_json: String) -> Result[String, String] {
     let req: String = build_tool_call_request(mcp_next_id(client), tool_name, args_json);
     let r: Result[String, String] = mcp_call_file(client, req, sys);
-    if r.is_err() { return Err("mcp_call_tool: " + match r { Ok(_) => "", Err(e) => e }); }
-    return Ok(match r { Ok(s) => s, Err(_) => "" });
+    if r.is_err() {
+        let e: String = match r { Ok(_) => "", Err(m) => m };
+        return Err("mcp_call_tool: " + e);
+    }
+    let s: String = match r { Ok(v) => v, Err(_) => "" };
+    return Ok(s);
 }
 
 pub fn mcp_extract_tools(response: String) -> List[String] {

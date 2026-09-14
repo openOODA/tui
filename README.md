@@ -1,11 +1,10 @@
 # ooda-tui
 
-A generic coding harness with openOODA-aware defaults. Connects to
-`ooda-mcp` for tool surface, `ooda-lsp` for IDE features, and
-`blackbox` for crash recovery. Supports multiple LLM providers
-connected simultaneously with per-agent provider assignment in
-teamwork (multi-agent) mode. Renders the 1982 CRT amber/phosphor
-theme by default.
+A generic coding harness with openOODA-aware defaults. v0.1.3 is
+line-mode chrome with slash commands, config load, and a real LLM
+round-trip via curl. Connects to `ooda-mcp` when installed. Renders
+the 1982 CRT amber/phosphor theme by default (`minimax` also ships).
+Raw TTY / alt-screen is v0.2.0, blocked on the oodar tui_host shim.
 
 ## Install
 

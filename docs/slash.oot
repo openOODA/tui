@@ -24,6 +24,9 @@ is one word; arguments follow on the same line.
 | `/btw` | `<question>` | Side question; LLM answers briefly. |
 | `/team` | `<sub> [args]` | Teamwork control. Subs: agent-N, pin, auto, add, remove, stop, status. |
 | `/theme` | `[name]` | View/switch theme. |
+| `/cwd` | `[path]` | Show or set session cwd. |
+| `/version` | - | Print ooda-tui version. |
+| `/provider` | `[name]` | Alias for `/model` provider switch. |
 | `/help` | - | List slash commands. |
 | `/exit` | - | Leave TUI; saves session. |
 | `/quit` | - | Alias for `/exit`. |

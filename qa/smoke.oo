@@ -6,7 +6,7 @@
 //
 // Beats:
 //   1. --help prints help text.
-//   2. --version prints v0.1.0.
+//   2. --version prints v0.1.3.
 //   3. With OODACODEX set and --teamwork, prints the readiness banner.
 //   4. With an unknown flag, exits nonzero.
 

@@ -1,7 +1,7 @@
-# ooda-tui v0.1.2 Makefile
+# ooda-tui v0.1.3 Makefile
 #
-# Build and verify the harness. v0.1.2 adds NO_COLOR / TERM=dumb
-# plain-text fallback to the line-mode chrome.
+# Build and verify the harness. v0.1.3 wires --token, --no-color,
+# slash commands, config load, LLM complete, and MCP hello.
 #
 # Usage:
 #   make build       - compile main.oo to dist/ooda-tui
@@ -19,18 +19,21 @@
 #   make no-color    - smoke test NO_COLOR=1 ooda-tui emits zero SGR
 #   make dumb-term   - smoke test TERM=dumb ooda-tui emits zero SGR
 
-OODA_COMPILER ?= $(HOME)/.openooda/bin/oodac
+# LLVM emit of this graph currently fails (SSA + List[struct]). Prefer a
+# compiler that still has --backend c (oodac_bin.core, or oodac < v0.2.76).
+OODA_COMPILER ?= $(firstword $(wildcard $(HOME)/.openooda/bin/oodac_bin.core $(CURDIR)/../oodac/bin/oodac $(HOME)/.openooda/bin/oodac))
+OODACODEX ?= $(HOME)/.openooda/northstar.oot
 BIN := dist/ooda-tui
 
-.PHONY: all build test parity line-cap file-law academy check qa verify install clean no-color dumb-term
+.PHONY: all build test parity line-cap file-law academy check qa verify install clean no-color dumb-term token-help
 
 all: build verify test
 
 build: $(BIN)
 
-$(BIN): main.oo anchor.oo app.oo config.oo loop.oo mcp_client.oo lsp_client.oo llm.oo llm_anthropic.oo llm_openai.oo llm_ollama.oo llm_google.oo llm_custom.oo teamwork.oo slash.oo slash_extra.oo session.oo compact.oo plan.oo btw.oo keys.oo theme.oo themes/1982.oo themes/minimax.oo chrome.oo header.oo statusbar.oo pane.oo input.oo popover.oo markdown.oo tool_card.oo diff.oo
+$(BIN): main.oo version.oo anchor.oo app.oo config.oo config_io.oo loop.oo mcp_client.oo lsp_client.oo llm.oo llm_exec.oo llm_anthropic.oo llm_openai.oo llm_ollama.oo llm_google.oo llm_custom.oo teamwork.oo slash.oo slash_extra.oo session.oo compact.oo plan.oo btw.oo keys.oo theme.oo themes/1982.oo themes/minimax.oo chrome.oo header.oo statusbar.oo pane.oo input.oo popover.oo markdown.oo tool_card.oo diff.oo repl.oo
 	@mkdir -p dist
-	OO_LIST_AMBIENT_QUOTA=1073741824 OODACODEX=$(HOME)/.openooda/openOODA/northstar.oot OODA_COMPILER=$(OODA_COMPILER) ooda build main.oo -o $(BIN)
+	OO_LIST_AMBIENT_QUOTA=1073741824 OODACODEX=$(OODACODEX) OODA_COMPILER=$(OODA_COMPILER) OODA_NO_JAIL=1 $(OODA_COMPILER) build --backend c main.oo -o $(BIN)
 	@echo "built $(BIN)"
 
 test: $(BIN)
@@ -104,10 +107,10 @@ academy:
 	echo "PASS: academy headers hold (all 4 elements present in first 7 lines)"
 
 check:
-	@OO_LIST_AMBIENT_QUOTA=1073741824 OODACODEX=$(HOME)/.openooda/openOODA/northstar.oot OODA_COMPILER=$(OODA_COMPILER) \
+	@OO_LIST_AMBIENT_QUOTA=1073741824 OODACODEX=$(OODACODEX) OODA_COMPILER=$(OODA_COMPILER) \
 	failed=0; \
 	for f in $$(find . -name "*.oo" -not -path "./qa/*" -not -path "./.ooda-cache/*"); do \
-		if ! OODACODEX=$(HOME)/.openooda/openOODA/northstar.oot OODA_COMPILER=$(OODA_COMPILER) $$OODA_COMPILER check "$$f" > /dev/null 2>&1; then \
+		if ! OODACODEX=$(OODACODEX) OODA_COMPILER=$(OODA_COMPILER) $$OODA_COMPILER check "$$f" > /dev/null 2>&1; then \
 			echo "FAIL: oodac check $$f"; \
 			failed=$$((failed+1)); \
 		fi; \
@@ -116,37 +119,41 @@ check:
 	echo "PASS: oodac check holds"
 
 qa:
-	@OO_LIST_AMBIENT_QUOTA=1073741824 OODACODEX=$(HOME)/.openooda/openOODA/northstar.oot OODA_COMPILER=$(OODA_COMPILER) \
+	@OO_LIST_AMBIENT_QUOTA=1073741824 OODACODEX=$(OODACODEX) OODA_COMPILER=$(OODA_COMPILER) \
 	for f in $$(find qa -name "*.oo"); do \
 		echo "=== $$f ==="; \
-		OODACODEX=$(HOME)/.openooda/openOODA/northstar.oot OODA_COMPILER=$(OODA_COMPILER) $$OODA_COMPILER check "$$f" || exit 1; \
+		OODACODEX=$(OODACODEX) OODA_COMPILER=$(OODA_COMPILER) $$OODA_COMPILER check "$$f" || exit 1; \
 	done; \
 	echo "PASS: qa probes compile"
 
 verify: line-cap file-law academy check
 
 install: $(BIN)
-	@mkdir -p $(HOME)/.openooda/bin
+	@mkdir -p $(HOME)/.openooda/bin $(HOME)/.openooda/tui
 	@cp $(BIN) $(HOME)/.openooda/bin/ooda-tui
 	@cp $(BIN) $(HOME)/.openooda/bin/tui
+	@cp help.oot $(HOME)/.openooda/tui/help.oot
 	@chmod +x $(HOME)/.openooda/bin/ooda-tui $(HOME)/.openooda/bin/tui
 	@echo "installed $(HOME)/.openooda/bin/{ooda-tui,tui}"
 
 no-color: $(BIN)
-	@body_sgr=$$(echo '/exit' | NO_COLOR=1 ./$(BIN) 2>&1 | grep -v '^x1b\[2Jx1b\[H' | grep -c 'x1b\[' || true); \
-	if [ "$$body_sgr" -eq 0 ]; then \
-		echo "PASS: NO_COLOR=1 zero SGR bytes in body (clear-screen leader only)"; \
+	@sgr=$$(echo '/exit' | NO_COLOR=1 ./$(BIN) 2>&1 | grep -c 'x1b\[' || true); \
+	if [ "$$sgr" -eq 0 ]; then \
+		echo "PASS: NO_COLOR=1 zero SGR bytes"; \
 	else \
-		echo "FAIL: NO_COLOR=1 body emits $$body_sgr SGR occurrences"; exit 1; \
+		echo "FAIL: NO_COLOR=1 emits $$sgr SGR occurrences"; exit 1; \
 	fi
 
 dumb-term: $(BIN)
-	@body_sgr=$$(echo '/exit' | TERM=dumb ./$(BIN) 2>&1 | grep -v '^x1b\[2Jx1b\[H' | grep -c 'x1b\[' || true); \
-	if [ "$$body_sgr" -eq 0 ]; then \
-		echo "PASS: TERM=dumb zero SGR bytes in body (clear-screen leader only)"; \
+	@sgr=$$(echo '/exit' | TERM=dumb ./$(BIN) 2>&1 | grep -c 'x1b\[' || true); \
+	if [ "$$sgr" -eq 0 ]; then \
+		echo "PASS: TERM=dumb zero SGR bytes"; \
 	else \
-		echo "FAIL: TERM=dumb body emits $$body_sgr SGR occurrences"; exit 1; \
+		echo "FAIL: TERM=dumb emits $$sgr SGR occurrences"; exit 1; \
 	fi
+
+token-help: $(BIN)
+	@./$(BIN) --token 2>/dev/null | grep -q subcommands && echo "PASS: --token help" || { echo "FAIL: --token help"; exit 1; }
 
 clean:
 	@rm -rf dist .ooda-cache

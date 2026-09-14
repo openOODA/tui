@@ -20,9 +20,9 @@ pub fn qa_chrome_run() -> Int {
     let p1: Pane = pane_new();
     let p2: Pane = pane_append(pane_append(pane_new(), "alpha"), "beta");
 
-    let frame_80_24: String = chrome_render("1982", p1, "", 0, "", false, false, "off", "v0.1.2", true, 80, 24);
-    let frame_120_40: String = chrome_render("minimax", p2, "", 0, "", true, false, "medium", "v0.1.2", true, 120, 40);
-    let frame_80_24_plain: String = chrome_render("1982", p1, "", 0, "", false, false, "off", "v0.1.2", false, 80, 24);
+    let frame_80_24: String = chrome_render("1982", p1, "", 0, "", false, false, "off", "v0.1.3", true, 80, 24, "", "", "");
+    let frame_120_40: String = chrome_render("minimax", p2, "", 0, "", true, false, "medium", "v0.1.3", true, 120, 40, "anthropic", "claude", "/tmp");
+    let frame_80_24_plain: String = chrome_render("1982", p1, "", 0, "", false, false, "off", "v0.1.3", false, 80, 24, "", "", "");
 
     if frame_80_24 != "" && contains(frame_80_24, "\x1b[2J") && contains(frame_80_24, "ooda-tui") && contains(frame_80_24, "> ") && contains(frame_80_24, "theme=") { pass = pass + 1; }
     else { fail = fail + 1; println("FAIL: frame_80_24 missing required surface markers"); }
@@ -30,10 +30,10 @@ pub fn qa_chrome_run() -> Int {
     if frame_120_40 != "" && contains(frame_120_40, "\x1b[2J") && contains(frame_120_40, "ooda-tui") && contains(frame_120_40, "> ") && contains(frame_120_40, "theme=minimax") { pass = pass + 1; }
     else { fail = fail + 1; println("FAIL: frame_120_40 missing required surface markers"); }
 
-    if frame_80_24_plain != "" && contains(frame_80_24_plain, "ooda-tui") && contains(frame_80_24_plain, "theme=") && !contains(frame_80_24_plain, "\x1b[38;2;") && !contains(frame_80_24_plain, "\x1b[48;2;") { pass = pass + 1; }
-    else { fail = fail + 1; println("FAIL: frame_80_24_plain missing required markers or contains 24-bit SGR"); }
+    if frame_80_24_plain != "" && contains(frame_80_24_plain, "ooda-tui") && contains(frame_80_24_plain, "theme=") && !contains(frame_80_24_plain, "\x1b[") { pass = pass + 1; }
+    else { fail = fail + 1; println("FAIL: frame_80_24_plain missing required markers or contains ESC"); }
 
-    let frame_80_24_again: String = chrome_render("1982", p1, "", 0, "", false, false, "off", "v0.1.2", true, 80, 24);
+    let frame_80_24_again: String = chrome_render("1982", p1, "", 0, "", false, false, "off", "v0.1.3", true, 80, 24, "", "", "");
     if frame_80_24 == frame_80_24_again { pass = pass + 1; }
     else { fail = fail + 1; println("FAIL: double-run not byte-equal"); }
 

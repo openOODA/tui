@@ -1,0 +1,110 @@
+// # llm_exec.oo - One-shot LLM complete via curl
+//
+// Logline: POST a prompt to Anthropic / OpenAI / Ollama / Google / custom using curl. std http_client_post currently drops the body, so the harness shells out.
+//
+// Setup: ProcessCap runs curl; FsWriteCap writes a temp JSON body. Key is passed as a header.
+//
+// Beats:
+//   1. Build a provider-shaped JSON body from (ptype, model, prompt).
+//   2. Write /tmp/ooda-tui-llm.json and curl -sS --fail -d @file.
+//   3. Extract the assistant text from the JSON response.
+
+import "std/fs/process/process.oo";
+import "std/fs/file/file_writer.oo";
+
+fn json_escape(s: String) -> String {
+    let mut out: String = "";
+    let n: Int = chars_len(s);
+    let mut i: Int = 0;
+    while i < n {
+        let c: String = str_slice(s, i, i + 1);
+        if c == "\"" { out = out + "\\\""; }
+        else if c == "\\" { out = out + "\\\\"; }
+        else if c == "\n" { out = out + "\\n"; }
+        else if c == "\t" { out = out + "\\t"; }
+        else { out = out + c; }
+        i = i + 1;
+    }
+    return out;
+}
+
+fn build_body(ptype: String, model: String, prompt: String) -> String {
+    let p: String = json_escape(prompt);
+    let m: String = json_escape(model);
+    if ptype == "anthropic" {
+        return "{\"model\":\"" + m + "\",\"max_tokens\":2048,\"messages\":[{\"role\":\"user\",\"content\":\"" + p + "\"}]}";
+    }
+    if ptype == "ollama" {
+        return "{\"model\":\"" + m + "\",\"stream\":false,\"messages\":[{\"role\":\"user\",\"content\":\"" + p + "\"}]}";
+    }
+    if ptype == "google" {
+        return "{\"contents\":[{\"parts\":[{\"text\":\"" + p + "\"}]}]}";
+    }
+    return "{\"model\":\"" + m + "\",\"messages\":[{\"role\":\"user\",\"content\":\"" + p + "\"}]}";
+}
+
+fn curl_cmd(ptype: String, key: String, url: String, tmp: String) -> String {
+    let mut u: String = url;
+    if ptype == "anthropic" {
+        if u == "" { u = "https://api.anthropic.com/v1/messages"; }
+        return "curl -sS --fail -m 60 -X POST " + u + " -H 'content-type: application/json' -H 'anthropic-version: 2023-06-01' -H 'x-api-key: " + key + "' --data-binary @" + tmp;
+    }
+    if ptype == "ollama" {
+        if u == "" { u = "http://localhost:11434/api/chat"; }
+        return "curl -sS --fail -m 60 -X POST " + u + " -H 'content-type: application/json' --data-binary @" + tmp;
+    }
+    if ptype == "google" {
+        if u == "" { u = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" + key; }
+        return "curl -sS --fail -m 60 -X POST '" + u + "' -H 'content-type: application/json' --data-binary @" + tmp;
+    }
+    if u == "" { u = "https://api.openai.com/v1/chat/completions"; }
+    return "curl -sS --fail -m 60 -X POST " + u + " -H 'content-type: application/json' -H 'authorization: Bearer " + key + "' --data-binary @" + tmp;
+}
+
+fn extract_json_string(raw: String, key: String) -> String {
+    let needle: String = "\"" + key + "\":\"";
+    let n: Int = chars_len(raw);
+    let k: Int = chars_len(needle);
+    let mut i: Int = 0;
+    while i + k <= n {
+        if str_slice(raw, i, i + k) == needle {
+            i = i + k;
+            let mut out: String = "";
+            while i < n {
+                let c: String = str_slice(raw, i, i + 1);
+                if c == "\\" {
+                    if i + 1 < n {
+                        let n2: String = str_slice(raw, i + 1, i + 2);
+                        if n2 == "n" { out = out + "\n"; } else { out = out + n2; }
+                        i = i + 2;
+                    } else { i = i + 1; }
+                } else if c == "\"" { return out; }
+                else { out = out + c; i = i + 1; }
+            }
+            return out;
+        }
+        i = i + 1;
+    }
+    return "";
+}
+
+pub fn llm_complete_exec(sys: &ProcessCap, fw: &FsWriteCap, ptype: String, key: String, model: String, url: String, prompt: String) -> Result[String, String] {
+    if ptype != "ollama" && key == "" { return Err("no api key — /login or set the provider env var"); }
+    if model == "" { return Err("no model — /model <name>"); }
+    let body: String = build_body(ptype, model, prompt);
+    let tmp: String = "/tmp/ooda-tui-llm.json";
+    let w: FileWriter = file_writer_open(fw, tmp, false);
+    let wr: Result[FileWriter, String] = file_writer_write(fw, w, body);
+    if wr.is_err() { return Err("write llm body"); }
+    let cmd: String = curl_cmd(ptype, key, url, tmp);
+    let r: Result[String, String] = process_exec(sys, cmd);
+    if r.is_err() {
+        let e: String = match r { Ok(_) => "", Err(m) => m };
+        return Err("curl: " + e);
+    }
+    let raw: String = match r { Ok(s) => s, Err(_) => "" };
+    let mut text: String = extract_json_string(raw, "text");
+    if text == "" { text = extract_json_string(raw, "content"); }
+    if text == "" { return Err("empty model response"); }
+    return Ok(text);
+}

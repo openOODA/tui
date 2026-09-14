@@ -15,8 +15,25 @@ jobs:
 
       - name: Install toolchain
         run: |
-          curl -fsSL https://openooda.org/install.sh | bash
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq gcc
+          mkdir -p "$HOME/.openooda/bin" "$HOME/.openooda/lib" "$HOME/.openooda/oodar"
+          GH=https://github.com/openOODA
+          # oodac v0.2.70 still has the C backend. Later tags are LLVM-only
+          # and cannot yet emit this harness (SSA + List[struct] gaps).
+          curl -fsSL -o "$HOME/.openooda/bin/oodac" \
+            "$GH/oodac/releases/download/v0.2.70/oodac-linux-x86_64"
+          chmod +x "$HOME/.openooda/bin/oodac"
+          curl -fsSL -o "$HOME/.openooda/lib/liboodar.a" \
+            "$GH/oodar/releases/latest/download/liboodar.a-linux-x86_64"
+          git clone --depth 1 https://github.com/openOODA/oodar.git "$HOME/.openooda/oodar"
+          git clone --depth 1 https://github.com/openOODA/std.git "$HOME/.openooda/std"
+          curl -fsSL -o "$HOME/.openooda/northstar.oot" \
+            https://raw.githubusercontent.com/openOODA/openOODA/main/northstar.oot
           echo "$HOME/.openooda/bin" >> "$GITHUB_PATH"
+          test -x "$HOME/.openooda/bin/oodac"
+          gcc --version | head -1
 
       - name: 256-line cap check (rules.oot §1.8)
         run: |
@@ -54,28 +71,18 @@ jobs:
           set -e
           failures=0
           for f in $(find . -name "*.oo"); do
-            line1=$(sed -n '1p' "$f")
-            line2=$(sed -n '2p' "$f")
-            line3=$(sed -n '3p' "$f")
-            line4=$(sed -n '4p' "$f")
-            if [[ "$line1" != "// # "* ]]; then
-              echo "FAIL: $f line 1 is not '// # <Title>'"
-              failures=$((failures + 1))
-            fi
-            if [[ "$line2" != "// Logline:"* ]]; then
-              echo "FAIL: $f line 2 is not '// Logline: ...'"
-              failures=$((failures + 1))
-            fi
-            if [[ "$line3" != "// Setup:"* ]]; then
-              echo "FAIL: $f line 3 is not '// Setup: ...'"
-              failures=$((failures + 1))
-            fi
-            if [[ "$line4" != "// Beats:"* ]]; then
-              echo "FAIL: $f line 4 is not '// Beats:'"
+            header=$(head -7 "$f")
+            ok=1
+            echo "$header" | grep -q "^// # " || ok=0
+            echo "$header" | grep -q "^// Logline:" || ok=0
+            echo "$header" | grep -q "^// Setup:" || ok=0
+            echo "$header" | grep -q "^// Beats:" || ok=0
+            if [ "$ok" -eq 0 ]; then
+              echo "FAIL: $f missing Academy header in first 7 lines"
               failures=$((failures + 1))
             fi
           done
-          if [ "$failations" -gt 0 ]; then
+          if [ "$failures" -gt 0 ]; then
             echo "FAIL: $failures files missing Academy header"
             exit 1
           fi
@@ -85,8 +92,12 @@ jobs:
         run: |
           set -e
           export OO_LIST_AMBIENT_QUOTA=1073741824
-          export OODACODEX="$(pwd)/help.oot"
+          export OODACODEX="$HOME/.openooda/northstar.oot"
           export OODA_COMPILER="$HOME/.openooda/bin/oodac"
+          export OODA_STD_ROOT="$HOME/.openooda/std"
+          export OODA_FS_READDIR="$HOME/.openooda:${GITHUB_WORKSPACE}:/tmp"
+          export OODA_FS_WRITEDIR="${GITHUB_WORKSPACE}:/tmp"
+          export OODA_NO_JAIL=1
           for f in $(find . -name "*.oo" -not -path "./qa/*" -not -path "./.ooda-cache/*"); do
             echo "checking $f"
             "$OODA_COMPILER" check "$f" || exit 1
@@ -95,38 +106,53 @@ jobs:
 
       - name: Build
         run: |
-          set -e
+          set -euo pipefail
           export OO_LIST_AMBIENT_QUOTA=1073741824
-          export OODACODEX="$(pwd)/help.oot"
-          # Clean stale dist/ so the release ships only the binary we just built.
+          export OODACODEX="$HOME/.openooda/northstar.oot"
+          export OODA_COMPILER="$HOME/.openooda/bin/oodac"
+          export OODA_STD_ROOT="$HOME/.openooda/std"
+          export OODA_FS_READDIR="$HOME/.openooda:${GITHUB_WORKSPACE}:/tmp:/usr"
+          export OODA_FS_WRITEDIR="${GITHUB_WORKSPACE}:/tmp"
+          export OODA_NO_JAIL=1
           rm -rf dist
           mkdir -p dist
-          ooda build main.oo -o dist/ooda-tui
-          # Mirror to the historical asset name pattern (ooda install.sh looks up
-          # both `ooda-tui` and `tui-linux-x86_64`). Same binary, two names.
+          "$OODA_COMPILER" build --backend c main.oo -o dist/ooda-tui
+          chmod +x dist/ooda-tui
           cp dist/ooda-tui dist/ooda-tui-linux-x86_64
           cp dist/ooda-tui dist/tui-linux-x86_64
-          sha256sum dist/ooda-tui         | awk '{print $1}' > dist/ooda-tui.sha256
+          sha256sum dist/ooda-tui              | awk '{print $1}' > dist/ooda-tui.sha256
           sha256sum dist/ooda-tui-linux-x86_64 | awk '{print $1}' > dist/ooda-tui-linux-x86_64.sha256
-          sha256sum dist/tui-linux-x86_64  | awk '{print $1}' > dist/tui-linux-x86_64.sha256
+          sha256sum dist/tui-linux-x86_64      | awk '{print $1}' > dist/tui-linux-x86_64.sha256
           ls -la dist/
 
-      - name: Smoke test (--help, --version, --unknown-flag)
+      - name: Smoke test (--help, --version, --unknown-flag, --token, --no-color)
         run: |
           set -e
-          export OODACODEX="$(pwd)/help.oot"
-          ./dist/ooda-tui --help > /dev/null
-          ./dist/ooda-tui --version > /dev/null
-          ./dist/ooda-tui --unknown-flag 2>/dev/null
-          test $? -eq 2
+          export OODACODEX="$HOME/.openooda/northstar.oot"
+          export OODA_NO_JAIL=1
+          ./dist/ooda-tui --help > /tmp/tui-help.txt
+          grep -q "ooda-tui" /tmp/tui-help.txt
+          ./dist/ooda-tui --version | grep -q "v0.1.3"
+          set +e
+          ./dist/ooda-tui --unknown-flag >/dev/null 2>&1
+          rc=$?
+          set -e
+          test "$rc" -eq 2
+          ./dist/ooda-tui --token 2>/dev/null | grep -q subcommands
+          printf '/exit\n' | NO_COLOR=1 ./dist/ooda-tui > /tmp/tui-nc.txt 2>&1 || true
+          python3 -c "import pathlib; t=pathlib.Path('/tmp/tui-nc.txt').read_bytes(); assert t.count(b'\\x1b')==0, t.count(b'\\x1b')"
+          printf '/help\n/exit\n' | ./dist/ooda-tui --no-color > /tmp/tui-help-slash.txt 2>&1 || true
+          grep -q "commands:" /tmp/tui-help-slash.txt
           echo "PASS: smoke holds"
 
       - name: QA probes (compile only)
         run: |
           set -e
           export OO_LIST_AMBIENT_QUOTA=1073741824
-          export OODACODEX="$(pwd)/help.oot"
+          export OODACODEX="$HOME/.openooda/northstar.oot"
           export OODA_COMPILER="$HOME/.openooda/bin/oodac"
+          export OODA_STD_ROOT="$HOME/.openooda/std"
+          export OODA_NO_JAIL=1
           for f in $(find qa -name "*.oo"); do
             echo "checking $f"
             "$OODA_COMPILER" check "$f" || exit 1
@@ -136,7 +162,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ooda-tui
+          name: ooda-tui-linux
           path: |
             dist/ooda-tui
             dist/ooda-tui.sha256

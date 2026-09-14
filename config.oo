@@ -80,9 +80,7 @@ pub fn config_remove_provider(cfg: Config, name: String) -> Config {
 }
 
 fn skip_blank_or_comment(line: String) -> Bool {
-    if chars_len(line) == 0 { return true; }
-    if str_starts_with(line, "#") { return true; }
-    return false;
+    return chars_len(line) == 0 || str_starts_with(line, "#");
 }
 
 fn starts_with_word(line: String, word: String) -> Bool {
@@ -90,7 +88,9 @@ fn starts_with_word(line: String, word: String) -> Bool {
 }
 
 fn slice_after(line: String, after: Int) -> String {
-    return str_trim(str_slice(line, after, chars_len(line)));
+    let mut r: String = str_trim(str_slice(line, after, chars_len(line)));
+    if str_starts_with(r, "=") { r = str_trim(str_slice(r, 1, chars_len(r))); }
+    return r;
 }
 
 fn extract_quoted(s: String) -> String {

@@ -1,13 +1,8 @@
 // # tool_card.oo - Tool-Call Card Renderer
 //
-// Logline: Render a tool-call envelope (tool name + status pill + body) as a multi-line styled card. Honors the color: Bool flag from theme_color_session.
+// Logline: Render a tool-call envelope (name + status pill + body) as a styled card. Honors color: Bool.
 //
-// Setup: Pure renderer. The card shape is:
-//
-//   ┌─ <name> ──[<status>]──┐
-//   │ <body line 1>        │
-//   │ <body line 2>        │
-//   └──────────────────────┘
+// Setup: Pure renderer. Card shape: top rule with name/status, body lines, bottom rule.
 //
 // Beats:
 //   1. tool_card_render(theme, name, status, body, color) returns the SGR-styled card.

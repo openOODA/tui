@@ -23,6 +23,8 @@ import "qa/anchor.oo";
 import "audit/anchor.oo";
 import "examples/anchor.oo";
 
-pub fn ooda_tui_version() -> String {
-    return "v0.1.0";
+import "version.oo";
+
+pub fn ooda_tui_anchor_version() -> String {
+    return ooda_tui_version();
 }

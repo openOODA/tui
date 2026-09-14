@@ -6,7 +6,7 @@
 //
 // Beats:
 //   1. For each of the 47 tokens, call theme_color("minimax", token) and theme_color("1982", token).
-//   2. Assert the returned string contains "\x1b[" (a SGR prefix).
+//   2. Assert the returned string is a hex color starting with "#".
 //   3. Print pass/fail count.
 
 import "theme.oo";
@@ -21,8 +21,8 @@ pub fn qa_render_run() -> Int {
         let tok: String = get_token(tokens, i);
         let s_minimax: String = theme_color("minimax", tok);
         let s_1982: String = theme_color("1982", tok);
-        let ok_minimax: Bool = starts_with(s_minimax, "\x1b[");
-        let ok_1982: Bool = starts_with(s_1982, "\x1b[");
+        let ok_minimax: Bool = starts_with(s_minimax, "#");
+        let ok_1982: Bool = starts_with(s_1982, "#");
         if ok_minimax && ok_1982 { pass = pass + 1; }
         else {
             fail = fail + 1;

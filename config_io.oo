@@ -1,0 +1,114 @@
+// # config_io.oo - Flat config load (LLVM-safe)
+//
+// Logline: Read ~/.config/ooda-tui/config.oot and env keys into string fields. Avoids List[struct] so emit-llvm can build the harness.
+//
+// Setup: FsReadCap + EnvCap. Missing file is not an error.
+//
+// Beats:
+//   1. config_load_flat reads default_provider / default_model / theme / first provider key.
+//   2. Env ANTHROPIC_API_KEY / OPENAI_API_KEY / GOOGLE_API_KEY / OLLAMA_HOST fill empty slots.
+
+import "std/fs/file/path.oo";
+import "std/fs/file/file_reader.oo";
+import "std/fs/process/env.oo";
+
+type FlatCfg = struct {
+    provider: String,
+    ptype: String,
+    key: String,
+    url: String,
+    model: String,
+    theme: String
+};
+
+pub fn flat_cfg_new() -> FlatCfg {
+    return FlatCfg { provider: "", ptype: "cloud", key: "", url: "", model: "", theme: "1982" };
+}
+
+fn env_or_empty(env: &EnvCap, name: String) -> String {
+    let r: Result[String, String] = env_get(env, name);
+    return match r { Ok(s) => s, Err(_) => "" };
+}
+
+fn cfg_line_val(line: String, key: String) -> String {
+    if !str_starts_with(line, key) { return ""; }
+    let mut rest: String = str_trim(str_slice(line, chars_len(key), chars_len(line)));
+    if str_starts_with(rest, "=") { rest = str_trim(str_slice(rest, 1, chars_len(rest))); }
+    if str_starts_with(rest, "\"") && str_ends_with(rest, "\"") {
+        rest = str_slice(rest, 1, chars_len(rest) - 1);
+    }
+    return rest;
+}
+
+pub fn config_load_flat(fs_r: &FsReadCap, env: &EnvCap) -> FlatCfg {
+    let mut cfg: FlatCfg = flat_cfg_new();
+    let hr: Result[String, String] = env_get(env, "HOME");
+    let home: String = match hr { Ok(s) => s, Err(_) => "" };
+    let path: String = path_join(path_join(home, ".config/ooda-tui"), "config.oot");
+    if path_exists(fs_r, path) {
+        let openr: Result[FileReader, String] = file_reader_open(fs_r, path);
+        let reader: FileReader = match openr { Ok(r) => r, Err(_) => return config_hydrate_flat(cfg, env); };
+        let readr: Result[String, String] = file_reader_read_all(fs_r, reader);
+        let content: String = match readr { Ok(s) => s, Err(_) => "" };
+        cfg = parse_flat(cfg, content);
+    }
+    return config_hydrate_flat(cfg, env);
+}
+
+fn parse_flat(cfg: FlatCfg, content: String) -> FlatCfg {
+    let mut out: FlatCfg = cfg;
+    let mut cur: String = "";
+    let n: Int = chars_len(content);
+    let mut i: Int = 0;
+    while i < n {
+        let c: String = char_at(content, i);
+        if c == "\n" {
+            let line: String = str_trim(cur);
+            cur = "";
+            if str_starts_with(line, "provider ") && out.provider == "" {
+                out.provider = str_trim(str_slice(line, 9, chars_len(line)));
+            }
+            let v1: String = cfg_line_val(line, "default_provider");
+            if v1 != "" { out.provider = v1; }
+            let v2: String = cfg_line_val(line, "default_model");
+            if v2 != "" { out.model = v2; }
+            let v3: String = cfg_line_val(line, "theme");
+            if v3 != "" { out.theme = v3; }
+            let v4: String = cfg_line_val(line, "key");
+            if v4 != "" && out.key == "" { out.key = v4; }
+            let v5: String = cfg_line_val(line, "url");
+            if v5 != "" && out.url == "" { out.url = v5; }
+            let v6: String = cfg_line_val(line, "type");
+            if v6 != "" && out.ptype == "cloud" { out.ptype = v6; }
+        } else if c != "\r" { cur = cur + c; }
+        i = i + 1;
+    }
+    return out;
+}
+
+pub fn config_hydrate_flat(cfg: FlatCfg, env: &EnvCap) -> FlatCfg {
+    let mut out: FlatCfg = cfg;
+    let ant: String = env_or_empty(env, "ANTHROPIC_API_KEY");
+    let oai: String = env_or_empty(env, "OPENAI_API_KEY");
+    let goog: String = env_or_empty(env, "GOOGLE_API_KEY");
+    let ollama: String = env_or_empty(env, "OLLAMA_HOST");
+    if out.key == "" && ant != "" {
+        out.provider = "anthropic"; out.ptype = "anthropic"; out.key = ant;
+        if out.model == "" { out.model = "claude-sonnet-4.5"; }
+    }
+    if out.key == "" && oai != "" {
+        out.provider = "openai"; out.ptype = "openai"; out.key = oai;
+        if out.model == "" { out.model = "gpt-4.1"; }
+    }
+    if out.key == "" && goog != "" {
+        out.provider = "google"; out.ptype = "google"; out.key = goog;
+    }
+    if out.provider == "" && ollama != "" {
+        out.provider = "ollama"; out.ptype = "ollama"; out.url = ollama;
+        if out.model == "" { out.model = "llama3.1"; }
+    }
+    if out.ptype == "cloud" && out.provider == "anthropic" { out.ptype = "anthropic"; }
+    if out.ptype == "cloud" && out.provider == "openai" { out.ptype = "openai"; }
+    if out.ptype == "local" { out.ptype = "ollama"; }
+    return out;
+}

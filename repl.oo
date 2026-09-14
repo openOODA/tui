@@ -1,96 +1,198 @@
-// # Line-based TUI session (v0.1.2 NO_COLOR fallback)
+// # Line-based TUI session (v0.1.3 slash + LLM + MCP)
 //
-// Logline: Sit at a prompt, render the line-mode chrome (header + pane + input + status bar) each turn. Color is gated by theme_color_session(env); when false, all renderers emit plain text with the same layout. Slash commands are handled inline (/help, /theme, /login, /exit).
+// Logline: Chrome each turn. Slash commands mutate a flat ReplState (strings/bools only so emit-llvm can build). Free-form text goes to curl LLM. MCP init is best-effort.
 //
-// Setup: FsReadCap for stdin, EnvCap for theme_color_session probe and OODACODEX. Uses chrome.oo to compose the frame; pane.oo to keep the scrollback.
+// Setup: FsReadCap stdin; EnvCap color/config; ProcessCap curl/mcp; FsWriteCap llm body.
 //
 // Beats:
-//   1. Probe env once at entry; cache the color flag for the whole session.
-//   2. Render the chrome once on entry; clear-screen, header, pane, input, status bar.
-//   3. Loop: oo_read_stdin_chunk each turn.
-//   4. Inline slash dispatcher (just the v0.1.x commands).
-//   5. Otherwise append to the pane and re-render.
-//   6. /exit or EOF closes.
+//   1. Load flat config, apply argv, probe color.
+//   2. Optional ooda-mcp initialize.
+//   3. Loop: render, read, slash or LLM. /exit leaves.
 
 import "std/fs/process/env.oo";
 import "chrome.oo";
 import "pane.oo";
-import "popover.oo";
 import "theme.oo";
-import "keys.oo";
+import "config_io.oo";
+import "llm_exec.oo";
+import "mcp_client.oo";
+import "version.oo";
 
-pub fn run_tui_session(fs_r: &FsReadCap, env: &EnvCap, teamwork: Bool, yolo: Bool, cwd0: String, provider: String, model: String, theme: String) -> Int {
+type ReplState = struct {
+    theme: String,
+    provider: String,
+    ptype: String,
+    key: String,
+    url: String,
+    model: String,
+    cwd: String,
+    teamwork: Bool,
+    yolo: Bool,
+    plan: String,
+    goal: String,
+    output: String,
+    exiting: Bool
+};
+
+pub fn run_tui_session(fs_r: &FsReadCap, fs_w: &FsWriteCap, sys: &ProcessCap, env: &EnvCap, teamwork: Bool, yolo: Bool, cwd0: String, provider: String, model: String, theme0: String, no_color: Bool) -> Int {
     let mut cwd: String = cwd0;
     if cwd == "" {
         let pr: Result[String, String] = env_get(env, "PWD");
         cwd = match pr { Ok(s) => s, Err(_) => "." };
     }
-    let mut th: String = theme;
-    if th == "" { th = "1982"; }
-    if th != "1982" && th != "minimax" { th = "1982"; }
-
-    // Probe env once: honor NO_COLOR / TERM=dumb / empty TERM.
-    let color: Bool = theme_color_session(env);
-
+    let loaded: FlatCfg = config_load_flat(fs_r, env);
+    let mut st: ReplState = ReplState {
+        theme: loaded.theme, provider: loaded.provider, ptype: loaded.ptype,
+        key: loaded.key, url: loaded.url, model: loaded.model, cwd: cwd,
+        teamwork: teamwork, yolo: yolo, plan: "", goal: "", output: "", exiting: false
+    };
+    if theme0 != "" { st.theme = theme0; }
+    if st.theme != "1982" && st.theme != "minimax" { st.theme = "1982"; }
+    if provider != "" { st.provider = provider; }
+    if model != "" { st.model = model; }
+    let color: Bool = theme_color_forced(env, no_color);
+    let ver: String = ooda_tui_version();
     let mut pane: Pane = pane_new();
-    pane = pane_append(pane, colored(color, theme_color(th, "borderAccent"), "ooda-tui v0.1.2"));
-    pane = pane_append(pane, "  theme " + th);
-    pane = pane_append(pane, "  cwd " + cwd);
-    if provider != "" { pane = pane_append(pane, "  provider " + provider); }
-    if model != "" { pane = pane_append(pane, "  model " + model); }
-    if teamwork { pane = pane_append(pane, "  teamwork on"); }
-    if yolo { pane = pane_append(pane, "  yolo on"); }
+    pane = pane_append(pane, "ooda-tui " + ver);
+    pane = pane_append(pane, "  theme " + st.theme + "  cwd " + st.cwd);
+    if st.provider != "" { pane = pane_append(pane, "  provider " + st.provider + "/" + st.model); }
+    if st.teamwork { pane = pane_append(pane, "  teamwork on"); }
+    if st.yolo { pane = pane_append(pane, "  yolo on"); }
     pane = pane_append(pane, "  type /help for commands; /exit to leave");
-
+    pane = mcp_hello(sys, env, pane);
     let mut live: Bool = true;
     let cols: Int = chrome_term_cols();
-    while live {
-        let frame: String = chrome_render(th, pane, "", 0, "", teamwork, yolo, "off", "v0.1.2", color, cols, 24);
-        oo_print_str(frame);
-
+    while true {
+        let frame: String = chrome_render(st.theme, pane, "", 0, "", st.teamwork, st.yolo, "off", ver, color, cols, 24, st.provider, st.model, st.cwd);
+        println(frame);
+        if !live { break; }
         let cr: Result[String, String] = oo_read_stdin_chunk(fs_r, 60000);
         let chunk: String = match cr { Ok(s) => s, Err(_) => "" };
-        if chunk == "" && cr.is_err() {
-            live = false;
-        } else {
-            let line: String = str_trim(chunk);
-            if line == "/exit" || line == "/quit" {
-                live = false;
-            } else if line == "/help" {
-                pane = pane_append(pane, colored(color, theme_color(th, "accent"), "  /help               this list"));
-                pane = pane_append(pane, "  /theme 1982|minimax switch theme");
-                pane = pane_append(pane, "  /login              connect an LLM");
-                pane = pane_append(pane, "  /model <name>       set model");
-                pane = pane_append(pane, "  /provider <name>    set provider");
-                pane = pane_append(pane, "  /cwd <path>         change cwd");
-                pane = pane_append(pane, "  /version            print version");
-                pane = pane_append(pane, "  /exit /quit         leave");
-            } else if str_starts_with(line, "/theme ") {
-                let new_th: String = str_trim(str_slice(line, 7, chars_len(line)));
-                if new_th == "1982" || new_th == "minimax" {
-                    th = new_th;
-                    pane = pane_append(pane, colored(color, theme_color(th, "success"), "  theme switched to " + th));
-                } else {
-                    pane = pane_append(pane, colored(color, theme_color(th, "error"), "  unknown theme: " + new_th));
-                    pane = pane_append(pane, "  available: 1982 minimax");
-                }
-            } else if line == "/version" {
-                pane = pane_append(pane, "  ooda-tui v0.1.2");
-            } else if str_starts_with(line, "/") {
-                pane = pane_append(pane, colored(color, theme_color(th, "muted"), "  " + line));
-                pane = pane_append(pane, "  (slash dispatch not yet wired in line mode; see docs/slash.oot)");
-            } else if line != "" {
-                pane = pane_append(pane, colored(color, theme_color(th, "muted"), "> " + line));
-                pane = pane_append(pane, "  (no LLM connected yet — /login)");
+        if chunk == "" && cr.is_err() { live = false; }
+        else {
+            let mut cur: String = "";
+            let cn: Int = chars_len(chunk);
+            let mut ci: Int = 0;
+            while ci <= cn {
+                let at_end: Bool = ci == cn;
+                let ch: String = if at_end { "\n" } else { char_at(chunk, ci) };
+                if ch == "\n" || ch == "\r" {
+                    let line: String = str_trim(cur);
+                    cur = "";
+                    if line != "" && str_starts_with(line, "/") {
+                        st = slash_line(st, line, ver);
+                        pane = pane_append_block(pane, st.output);
+                        st.output = "";
+                        if st.exiting { live = false; }
+                    } else if line != "" {
+                        pane = pane_append(pane, "> " + line);
+                        pane = pane_append_block(pane, run_llm_turn(sys, fs_w, st, line));
+                    }
+                } else { cur = cur + ch; }
+                ci = ci + 1;
             }
         }
     }
     return 0;
 }
 
-// Inline helper for styled text. Returns plain text when color=false,
-// ansi_fg(hex) + text + ansi_reset() when color=true.
-fn colored(color: Bool, hex: String, text: String) -> String {
-    if !color { return text; }
-    return ansi_fg(color, hex) + text + ansi_reset(color);
+fn say(st: ReplState, msg: String) -> ReplState {
+    let mut s: ReplState = st;
+    if s.output == "" { s.output = msg; } else { s.output = s.output + "\n" + msg; }
+    return s;
+}
+
+fn cmd_of(line: String) -> String {
+    let n: Int = chars_len(line);
+    let mut i: Int = 0;
+    let mut out: String = "";
+    while i < n {
+        let c: String = str_slice(line, i, i + 1);
+        if c == " " || c == "\t" { return out; }
+        out = out + c;
+        i = i + 1;
+    }
+    return out;
+}
+
+fn args_of(line: String, cmd: String) -> String {
+    return str_trim(str_slice(line, chars_len(cmd), chars_len(line)));
+}
+
+fn slash_line(st: ReplState, line: String, ver: String) -> ReplState {
+    let cmd: String = cmd_of(line);
+    let args: String = args_of(line, cmd);
+    if cmd == "/exit" || cmd == "/quit" { let mut s: ReplState = st; s.exiting = true; return say(s, "exit"); }
+    if cmd == "/help" {
+        let mut s: ReplState = say(st, "commands: /help /theme /login /logout /model /provider /cwd /plan /goal /status /version /exit");
+        return say(s, "  /login <provider> [key]   /theme 1982|minimax");
+    }
+    if cmd == "/version" { return say(st, "ooda-tui " + ver); }
+    if cmd == "/theme" {
+        if args == "" { return say(st, "theme: " + st.theme); }
+        if args != "1982" && args != "minimax" { return say(st, "unknown theme: " + args); }
+        let mut s: ReplState = st; s.theme = args; return say(s, "theme: " + args);
+    }
+    if cmd == "/cwd" {
+        if args == "" { return say(st, "cwd: " + st.cwd); }
+        let mut s: ReplState = st; s.cwd = args; return say(s, "cwd: " + args);
+    }
+    if cmd == "/login" {
+        if args == "" { return say(st, "login: specify a provider (anthropic|openai|ollama|google)"); }
+        let mut s: ReplState = st;
+        s.provider = cmd_of(args);
+        s.key = args_of(args, s.provider);
+        if s.provider == "ollama" { s.ptype = "ollama"; } else { s.ptype = s.provider; }
+        return say(s, "login: " + s.provider);
+    }
+    if cmd == "/logout" { let mut s: ReplState = st; s.provider = ""; s.key = ""; return say(s, "logout"); }
+    if cmd == "/model" || cmd == "/provider" {
+        if args == "" { return say(st, "model: " + st.provider + "/" + st.model); }
+        let mut s: ReplState = st;
+        let c: Int = str_index_of(args, ":");
+        if c < 0 { s.provider = args; } else { s.provider = str_slice(args, 0, c); s.model = str_slice(args, c + 1, chars_len(args)); }
+        return say(s, "model: " + s.provider + "/" + s.model);
+    }
+    if cmd == "/plan" { if args == "" { return say(st, "plan: " + st.plan); } let mut s: ReplState = st; s.plan = args; return say(s, "plan: set"); }
+    if cmd == "/goal" { if args == "" { return say(st, "goal: " + st.goal); } let mut s: ReplState = st; s.goal = args; return say(s, "goal: set"); }
+    if cmd == "/status" {
+        return say(st, "status: " + st.provider + "/" + st.model + " theme=" + st.theme + " cwd=" + st.cwd);
+    }
+    if cmd == "/clear" { return say(st, "clear: context cleared"); }
+    return say(st, "unknown command: " + cmd + "  (type /help)");
+}
+
+fn pane_append_block(p: Pane, text: String) -> Pane {
+    let mut out: Pane = p;
+    let mut cur: String = "";
+    let n: Int = chars_len(text);
+    let mut i: Int = 0;
+    while i < n {
+        let c: String = char_at(text, i);
+        if c == "\n" { out = pane_append(out, cur); cur = ""; }
+        else { cur = cur + c; }
+        i = i + 1;
+    }
+    if cur != "" { out = pane_append(out, cur); }
+    return out;
+}
+
+fn mcp_hello(sys: &ProcessCap, env: &EnvCap, pane: Pane) -> Pane {
+    let cr: Result[String, String] = env_get(env, "OODACODEX");
+    let codex: String = match cr { Ok(s) => s, Err(_) => "" };
+    let mcp: McpClient = mcp_new(codex, ".", "");
+    let ir: Result[String, String] = mcp_init(mcp, sys);
+    if ir.is_err() { return pane_append(pane, "  mcp: not connected (optional)"); }
+    return pane_append(pane, "  mcp: connected");
+}
+
+fn run_llm_turn(sys: &ProcessCap, fw: &FsWriteCap, st: ReplState, line: String) -> String {
+    if st.provider == "" { return "  (no LLM connected yet — /login anthropic)"; }
+    let mut ptype: String = st.ptype;
+    if ptype == "cloud" && st.provider == "anthropic" { ptype = "anthropic"; }
+    if ptype == "cloud" && st.provider == "openai" { ptype = "openai"; }
+    if ptype == "local" || st.provider == "ollama" { ptype = "ollama"; }
+    let prompt: String = if st.plan != "" { "PLAN: " + st.plan + "\n" + line } else { line };
+    let r: Result[String, String] = llm_complete_exec(sys, fw, ptype, st.key, st.model, st.url, prompt);
+    return match r { Ok(s) => s, Err(e) => "  llm: " + e };
 }

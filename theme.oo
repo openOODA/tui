@@ -43,6 +43,12 @@ pub fn theme_color_session(env: &EnvCap) -> Bool {
     return true;
 }
 
+// Honor an explicit --no-color flag in addition to the env probe.
+pub fn theme_color_forced(env: &EnvCap, no_color: Bool) -> Bool {
+    if no_color { return false; }
+    return theme_color_session(env);
+}
+
 pub fn ansi_fg(color: Bool, hex: String) -> String {
     if !color { return ""; }
     let r: Int = hex_to_r(hex);

@@ -16,6 +16,7 @@ runtime control flows through slash commands and keybindings.
 | `--provider` | name | Override default provider for this run |
 | `--model` | name | Override default model for this run |
 | `--theme` | name | Override default theme for this run |
+| `--token` | sub [...] | Headless token telemetry; does not open the TUI |
 | `--help`, `-h` | - | Print reference, exit 0 |
 | `--version`, `-v` | - | Print version, exit 0 |
 
@@ -25,9 +26,11 @@ runtime control flows through slash commands and keybindings.
 - Unknown flags: print error to stderr, exit 2.
 - Missing required arg (`--cwd PATH`, `--provider NAME`, etc.):
   print error to stderr, exit 2.
-- Without `--help` or `--version`, the binary proceeds to TUI
-  dispatch. v0.1 prints a "ready" diagnostic and exits 0 (Phase 1
-  skeleton; Phase 9 will launch the real TUI session).
+- `--token <sub> [...]` is a one-shot headless path. Remaining
+  argv after `--token` is forwarded to the token cluster and the
+  process does not open the TUI.
+- Without `--help`, `--version`, or `--token`, the binary opens
+  the line-mode TUI session.
 
 ## Exit codes
 

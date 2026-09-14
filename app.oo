@@ -28,12 +28,27 @@ type AppState = struct {
     yolo: Bool,
     theme: String,
     provider_name: String,
-    model_name: String
+    model_name: String,
+    output: String,
+    exiting: Bool
 };
 
 pub fn app_state_new(cfg: Config, session: Session, teamwork: Bool, yolo: Bool) -> AppState {
     let ls: LoopState = loop_state_new();
-    return AppState { cfg: cfg, loop_state: ls, session: session, teamwork: teamwork, yolo: yolo, theme: cfg.theme, provider_name: cfg.default_provider, model_name: cfg.default_model };
+    return AppState { cfg: cfg, loop_state: ls, session: session, teamwork: teamwork, yolo: yolo, theme: cfg.theme, provider_name: cfg.default_provider, model_name: cfg.default_model, output: "", exiting: false };
+}
+
+pub fn app_say(state: AppState, msg: String) -> AppState {
+    let mut s: AppState = state;
+    if s.output == "" { s.output = msg; }
+    else { s.output = s.output + "\n" + msg; }
+    return s;
+}
+
+pub fn app_clear_output(state: AppState) -> AppState {
+    let mut s: AppState = state;
+    s.output = "";
+    return s;
 }
 
 pub fn render_status_line(state: AppState) -> String {

@@ -1,45 +1,53 @@
 // # qa/slash - Slash Command Probe
 //
-// Logline: Verify all 17 slash commands are recognized by the dispatcher.
+// Logline: Run slash_run on synthesized lines and assert /help and unknown commands produce output.
 //
-// Setup: Tests the dispatcher with synthesized lines; checks that the right branch fires.
+// Setup: In-process. Builds a default AppState and dispatches through slash.oo.
 //
 // Beats:
-//   1. Recognize all 17 commands.
-//   2. Verify cmd extraction handles args correctly.
+//   1. /help writes command text into AppState.output.
+//   2. /bogus is unknown and mentions /help.
+//   3. /theme minimax switches the theme.
+//   4. /exit sets exiting.
+
+import "slash.oo";
+import "app.oo";
+import "config.oo";
+import "session.oo";
 
 fn main(bind: &BindCap, fs_r: &FsReadCap, fs_w: &FsWriteCap, sys: &ProcessCap, sys_cap: &SysCap, env: &EnvCap, time: &TimeCap, alloc: &AllocCap, thread: &ThreadCap, args: List[String]) -> Result[Int, String] {
     println("qa/slash: starting slash command probe");
     let mut pass: Int = 0;
     let mut fail: Int = 0;
-    let cmds: List[String] = list_new();
-    let cmds: List[String] = list_push(cmds, "/login");
-    let cmds: List[String] = list_push(cmds, "/logout");
-    let cmds: List[String] = list_push(cmds, "/providers");
-    let cmds: List[String] = list_push(cmds, "/model");
-    let cmds: List[String] = list_push(cmds, "/plan");
-    let cmds: List[String] = list_push(cmds, "/goal");
-    let cmds: List[String] = list_push(cmds, "/clear");
-    let cmds: List[String] = list_push(cmds, "/compact");
-    let cmds: List[String] = list_push(cmds, "/resume");
-    let cmds: List[String] = list_push(cmds, "/rename");
-    let cmds: List[String] = list_push(cmds, "/settings");
-    let cmds: List[String] = list_push(cmds, "/status");
-    let cmds: List[String] = list_push(cmds, "/btw");
-    let cmds: List[String] = list_push(cmds, "/team");
-    let cmds: List[String] = list_push(cmds, "/theme");
-    let cmds: List[String] = list_push(cmds, "/help");
-    let cmds: List[String] = list_push(cmds, "/exit");
-    let cmds: List[String] = list_push(cmds, "/quit");
-    let n: Int = list_len(cmds);
-    let mut i: Int = 0;
-    while i < n {
-        let c: String = list_get(cmds, i);
-        if str_starts_with(c, "/") && chars_len(c) > 1 { pass = pass + 1; }
-        else { fail = fail + 1; println("FAIL: bad cmd: " + c); }
-        i = i + 1;
-    }
-    println("qa/slash: pass=" + int_to_str(pass) + " fail=" + int_to_str(fail) + " total=" + int_to_str(n));
+    let cfg: Config = config_default();
+    let sess: Session = session_create("qa", "", "", ".");
+    let st: AppState = app_state_new(cfg, sess, false, false);
+
+    let h: AppState = slash_run(st, "/help");
+    if chars_len(h.output) > 8 { pass = pass + 1; } else { fail = fail + 1; println("FAIL: /help empty"); }
+
+    let u: AppState = slash_run(h, "/bogus");
+    if str_starts_with(u.output, "unknown") { pass = pass + 1; } else { fail = fail + 1; println("FAIL: /bogus"); }
+
+    let t: AppState = slash_run(u, "/theme minimax");
+    if t.theme == "minimax" { pass = pass + 1; } else { fail = fail + 1; println("FAIL: /theme"); }
+
+    let e: AppState = slash_run(t, "/exit");
+    if e.exiting { pass = pass + 1; } else { fail = fail + 1; println("FAIL: /exit"); }
+
+    println("qa/slash: pass=" + int_to_str(pass) + " fail=" + int_to_str(fail));
     if fail > 0 { return Err("qa/slash: failures"); }
     return Ok(0);
+}
+
+fn int_to_str(n: Int) -> String {
+    if n <= 0 { return "0"; }
+    let digits: String = "0123456789";
+    let mut v: Int = n;
+    let mut rev: String = "";
+    while v > 0 { let d: Int = v - (v / 10) * 10; rev = rev + char_at(digits, d); v = v / 10; }
+    let mut out: String = "";
+    let mut k: Int = chars_len(rev) - 1;
+    while k >= 0 { out = out + char_at(rev, k); k = k - 1; }
+    return out;
 }

@@ -11,7 +11,7 @@ flows through startup flags, runtime slash commands, and keybindings.
 ```
 ooda-tui [--teamwork] [--yolo] [--cwd PATH]
          [--provider NAME] [--model NAME] [--theme NAME]
-         [--no-color] [--help] [--version]
+         [--no-color] [--token <sub> ...] [--help] [--version]
 ```
 
 ## Flags
@@ -25,15 +25,17 @@ ooda-tui [--teamwork] [--yolo] [--cwd PATH]
 | `--provider NAME` | Override default provider for this run |
 | `--model NAME` | Override default model for this run |
 | `--theme NAME` | Override default theme for this run |
+| `--token <sub>` | Headless token telemetry; remaining argv is the subcommand |
 | `--help` | Print this help text |
 | `--version` | Print ooda-tui version |
 
 ## Slash commands (inside the TUI)
 
-`/login [provider]`, `/logout [provider]`, `/providers`,
-`/model [provider:model]`, `/plan [text]`, `/goal [text]`,
+`/login [provider] [key]`, `/logout [provider]`, `/providers`,
+`/model [provider:model]`, `/provider [name]`, `/cwd [path]`,
+`/plan [text]`, `/goal [text]`,
 `/clear`, `/compact`, `/resume [id]`, `/rename <name>`,
-`/settings`, `/status`, `/btw <question>`,
+`/settings`, `/status`, `/version`, `/btw <question>`,
 `/team <sub> [args]`, `/theme [name]`, `/help`,
 `/exit`, `/quit`.
 
@@ -52,7 +54,8 @@ ooda-tui [--teamwork] [--yolo] [--cwd PATH]
 
 | Variable | Required | Purpose |
 |----------|----------|---------|
-| `OODACODEX` | yes | Path to a `.oot` file (e.g. `northstar.oot`) |
+| `OODACODEX` | no | Path to a `.oot` file (e.g. `northstar.oot`). Optional in v0.1.3. |
+| `ANTHROPIC_API_KEY` | no | Hydrates an `anthropic` provider when config has none |
 | `OODA_COMPILER` | optional | Path to `oodac` (for diagnostics) |
 | `OODA_FS_READDIR` | optional | Landlock read scope (forwarded to ooda-mcp) |
 | `OODA_FS_WRITEDIR` | optional | Landlock write scope (forwarded to ooda-mcp) |

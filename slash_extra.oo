@@ -1,6 +1,6 @@
 // # slash_extra.oo - Slash Commands (split 2 of 2)
 //
-// Logline: Holds the remaining 9 slash commands. Imported by slash.oo. Exposes one function per command: slash_extra_<cmd>.
+// Logline: Holds the remaining slash commands. Imported by slash.oo. Each function returns AppState with output captured via app_say.
 //
 // Setup: Imports app.oo for AppState. Pure functions; each takes the current state and returns a new state.
 //
@@ -11,113 +11,92 @@ import "app.oo";
 import "btw.oo";
 
 pub fn slash_extra_resume(state: AppState, args: String) -> AppState {
-    println("resume: specify a session id to load");
-    return state;
+    return app_say(state, "resume: specify a session id to load");
 }
 
 pub fn slash_extra_rename(state: AppState, args: String) -> AppState {
     let mut s: AppState = state;
-    if args == "" {
-        println("rename: specify a new name");
-        return s;
-    }
+    if args == "" { return app_say(s, "rename: specify a new name"); }
     s.session.name = str_trim(args);
-    println("rename: session renamed to " + s.session.name);
-    return s;
+    return app_say(s, "rename: session renamed to " + s.session.name);
 }
 
 pub fn slash_extra_settings(state: AppState) -> AppState {
-    println("settings:");
-    println("  default_provider = " + state.cfg.default_provider);
-    println("  default_model = " + state.cfg.default_model);
-    println("  permission_mode = " + state.cfg.permission_mode);
-    println("  compact_threshold = " + state.cfg.compact_threshold);
-    println("  theme = " + state.cfg.theme);
-    println("  teamwork_agents = " + int_to_str(state.cfg.teamwork_agents));
-    println("  yolo = " + bool_str(state.yolo));
-    println("  teamwork = " + bool_str(state.teamwork));
-    return state;
+    let mut s: AppState = app_say(state, "settings:");
+    s = app_say(s, "  default_provider = " + state.cfg.default_provider);
+    s = app_say(s, "  default_model = " + state.cfg.default_model);
+    s = app_say(s, "  permission_mode = " + state.cfg.permission_mode);
+    s = app_say(s, "  compact_threshold = " + state.cfg.compact_threshold);
+    s = app_say(s, "  theme = " + state.cfg.theme);
+    s = app_say(s, "  teamwork_agents = " + int_to_str(state.cfg.teamwork_agents));
+    s = app_say(s, "  yolo = " + bool_str(state.yolo));
+    s = app_say(s, "  teamwork = " + bool_str(state.teamwork));
+    return s;
 }
 
 pub fn slash_extra_status(state: AppState) -> AppState {
-    println("status:");
+    let mut s: AppState = app_say(state, "status:");
     let mode: String = if state.teamwork { "teamwork" } else { "code" };
-    println("  mode = " + mode);
-    println("  provider = " + state.provider_name);
-    println("  model = " + state.model_name);
-    println("  cwd = " + state.session.cwd);
-    println("  session = " + state.session.sid + " (" + state.session.name + ")");
-    println("  yolo = " + bool_str(state.yolo));
-    let turns: Int = loop_turn_count(state.loop_state);
-    println("  turns = " + int_to_str(turns));
-    return state;
+    s = app_say(s, "  mode = " + mode);
+    s = app_say(s, "  provider = " + state.provider_name);
+    s = app_say(s, "  model = " + state.model_name);
+    s = app_say(s, "  cwd = " + state.session.cwd);
+    s = app_say(s, "  session = " + state.session.sid + " (" + state.session.name + ")");
+    s = app_say(s, "  yolo = " + bool_str(state.yolo));
+    s = app_say(s, "  turns = " + int_to_str(loop_turn_count(state.loop_state)));
+    return s;
 }
 
 pub fn slash_extra_btw(state: AppState, args: String) -> AppState {
     let mut s: AppState = state;
-    if args == "" {
-        println("btw: specify a question");
-        return s;
-    }
-    let wrapped: String = btw_wrap(args);
-    s.loop_state = loop_append_side(s.loop_state, wrapped);
-    println("btw: queued side question");
-    return s;
+    if args == "" { return app_say(s, "btw: specify a question"); }
+    s.loop_state = loop_append_side(s.loop_state, btw_wrap(args));
+    return app_say(s, "btw: queued side question");
 }
 
 pub fn slash_extra_team(state: AppState, args: String) -> AppState {
     let mut s: AppState = state;
     if args == "" {
-        println("team: subcommands: agent-N <p>:<m>, pin, auto, add [N], remove <N>, stop, status");
-        return s;
+        return app_say(s, "team: subcommands: agent-N <p>:<m>, pin, auto, add [N], remove <N>, stop, status");
     }
     let sub: String = str_trim(args);
-    if sub == "stop" {
-        s.teamwork = false;
-        println("team: stopped");
-        return s;
-    }
-    if sub == "status" {
-        println("team: teamwork=" + bool_str(s.teamwork));
-        return s;
-    }
-    println("team: subcommand not yet implemented in v0.1: " + sub);
-    return s;
+    if sub == "stop" { s.teamwork = false; return app_say(s, "team: stopped"); }
+    if sub == "status" { return app_say(s, "team: teamwork=" + bool_str(s.teamwork)); }
+    return app_say(s, "team: subcommand not yet implemented: " + sub);
 }
 
 pub fn slash_extra_theme(state: AppState, args: String) -> AppState {
     let mut s: AppState = state;
-    if args == "" {
-        println("theme: active = " + s.theme);
-        return s;
+    if args == "" { return app_say(s, "theme: active = " + s.theme); }
+    let name: String = str_trim(args);
+    if name != "1982" && name != "minimax" {
+        return app_say(s, "unknown theme: " + name + " (available: 1982 minimax)");
     }
-    s.theme = str_trim(args);
-    println("theme: switched to " + s.theme);
-    return s;
+    s.theme = name;
+    return app_say(s, "theme: switched to " + s.theme);
 }
 
 pub fn slash_extra_help(state: AppState) -> AppState {
-    println("commands:");
-    println("  /login [provider]    /logout [provider]    /providers");
-    println("  /model [provider:model]");
-    println("  /plan [text]         /goal [text]");
-    println("  /clear               /compact");
-    println("  /resume [id]         /rename <name>");
-    println("  /settings            /status");
-    println("  /btw <question>");
-    println("  /team <sub>          /theme [name]");
-    println("  /help                /exit   /quit");
-    return state;
+    let mut s: AppState = app_say(state, "commands:");
+    s = app_say(s, "  /login [provider] [key]  /logout [provider]  /providers");
+    s = app_say(s, "  /model [provider:model]  /provider [name]    /cwd [path]");
+    s = app_say(s, "  /plan [text]             /goal [text]");
+    s = app_say(s, "  /clear                   /compact");
+    s = app_say(s, "  /resume [id]             /rename <name>");
+    s = app_say(s, "  /settings                /status             /version");
+    s = app_say(s, "  /btw <question>          /team <sub>         /theme [name]");
+    s = app_say(s, "  /help                    /exit  /quit");
+    return s;
 }
 
 pub fn slash_extra_exit(state: AppState) -> AppState {
-    println("exit: session " + state.session.sid + " saved");
-    return state;
+    let mut s: AppState = state;
+    s.exiting = true;
+    return app_say(s, "exit: session " + s.session.sid + " saved");
 }
 
 pub fn slash_extra_unknown(state: AppState, cmd: String) -> AppState {
-    println("unknown command: " + cmd);
-    return state;
+    return app_say(state, "unknown command: " + cmd + "  (type /help)");
 }
 
 fn bool_str(b: Bool) -> String {
