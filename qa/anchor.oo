@@ -6,13 +6,13 @@
 //
 // Beats:
 //   1. argv.oo - parse all 10 flags, error cases, env contract.
-//   2. slash.oo - invoke each of 17 slash commands, verify effects.
+//   2. probe_slash.oo - invoke each of 17 slash commands, verify effects.
 //   3. theme_probe.oo - render every token, snapshot match against expected ANSI.
 //   4. mcp_handshake.oo - spawn ooda-mcp, list tools.
 //   5. lsp_init.oo - spawn ooda-lsp, initialize, receive diagnostics.
 //   6. llm_mock.oo - provider client with mocked HTTP.
 //   7. multi_provider.oo - connect N providers, health check.
-//   8. teamwork.oo - spawn 4 mock agents, dashboard updates, proofs aggregate.
+//   8. probe_teamwork.oo - spawn 4 mock agents, dashboard updates, proofs aggregate.
 //   9. smoke.oo - end-to-end TUI launch, login, ask, exit.
 
 // residual: probes are spawned as separate ooda-tui builds via CI. They share no source with the main binary.
