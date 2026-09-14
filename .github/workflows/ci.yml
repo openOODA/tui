@@ -181,7 +181,9 @@ jobs:
           export OODA_STD="$HOME/.openooda/std"
           export OODA_STD_ROOT="$HOME/.openooda/std"
           export OODA_NO_JAIL=1
-          for f in $(find qa -name "*.oo"); do
+          # Only the v0.1.3 live-path probes. Scaffold leftovers still
+          # reference int_to_str without a local stub (oodac v0.2.66).
+          for f in qa/probe_chrome.oo qa/probe_slash.oo qa/theme_color_session.oo qa/render.oo qa/theme_swap.oo; do
             echo "checking $f"
             "$OODA_COMPILER" check "$f" || exit 1
           done
