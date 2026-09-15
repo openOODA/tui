@@ -106,3 +106,11 @@ ooda build main.oo -o dist/ooda-tui
 ## License
 
 Dual-licensed under your choice of MIT or Apache 2.0. See `LICENSE`.
+
+---
+
+<div align="center">
+
+[![Necrometer](necrometer.svg)](https://necrometer.dev/?u=openOODA)
+
+</div>
