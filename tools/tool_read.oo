@@ -1,0 +1,25 @@
+// # tools/tool_read.oo - Sandboxed File Read Tool
+//
+// Logline: Reads files under cwd using explicit FsReadCap with path containment and size clipping.
+//
+// Setup: Resolves relative path via tool_join, asserts path_exists, and reads up to 8000 characters.
+//
+// Beats:
+//   1. Validates and joins relative path within cwd boundary via tool_join.
+//   2. Asserts file exists on disk via path_exists under FsReadCap.
+//   3. Reads file contents via read_file.
+//   4. Returns clipped content up to 8000 characters.
+
+import "std/fs/file/path.oo";
+import "./path_guard.oo";
+
+pub fn tool_read(fs_r: &FsReadCap, cwd: String, rel: String) -> Result[String, String] {
+    let jp: Result[String, String] = path_guard_join(cwd, rel);
+    if jp.is_err() { return jp; }
+    let path: String = match jp { Ok(p) => p, Err(_) => "" };
+    if !path_exists(fs_r, path) { return Err("not found: " + rel); }
+    let r: Result[String, String] = read_file(fs_r, path);
+    if r.is_err() { return Err("read failed"); }
+    let body: String = match r { Ok(s) => s, Err(_) => "" };
+    return Ok(path_clip(body));
+}

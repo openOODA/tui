@@ -1,0 +1,27 @@
+// # tools/tool_bash.oo - Sandboxed Shell Execution Tool
+//
+// Logline: Executes commands under cwd within explicit ProcessCap with output clipping and error containment.
+//
+// Setup: Validates command string, changes into cwd, executes via process_exec, and clips output to 8000 characters.
+//
+// Beats:
+//   1. Rejects empty command string fail-closed.
+//   2. Constructs cd-prefixed command line scoped to cwd.
+//   3. Executes subprocess under ProcessCap via process_exec.
+//   4. Returns clipped stdout or clipped stderr on failure.
+
+import "std/fs/process/process.oo";
+import "./path_guard.oo";
+
+pub fn tool_bash(sys: &ProcessCap, cwd: String, cmd: String) -> Result[String, String] {
+    if cmd == "" { return Err("empty cmd"); }
+    let sh: String = "cd \"" + cwd + "\" && " + cmd;
+    let r: Result[String, String] = process_exec(sys, sh);
+    if r.is_err() {
+        let e: String = match r { Ok(_) => "", Err(m) => m };
+        return Err(path_clip(e));
+    }
+    let out: String = match r { Ok(s) => s, Err(_) => "" };
+    if out == "" { return Ok("(ok)"); }
+    return Ok(path_clip(out));
+}

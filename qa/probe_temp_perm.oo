@@ -1,0 +1,205 @@
+// # qa/probe_temp_perm - Temporary File Mode 0600 Permission Probe
+//
+// Logline: Verify temporary API header and credential files are created with strict mode 0600 permissions.
+//
+// Setup: Exercises temporary file creation under &ProcessCap and &FsWriteCap via llm_exec.oo and asserts octal permissions and cleanup.
+//
+// Beats:
+//   1. Directly invoke write_secure_temp_file from llm_exec.oo and verify mode 0600 on disk via stat and validate_octal_perm.
+//   2. Directly test validate_octal_perm against insecure permissions ("0644", "0666", "0777", "0000").
+//   3. Assert write_secure_temp_file detects symlink traps fail-closed without touching the decoy target.
+//   4. Assert deterministic cleanup of temporary files.
+
+import "std/fs/process/process.oo";
+import "llm_exec.oo";
+
+fn test_temp_perm_run(sys: &ProcessCap, fw: &FsWriteCap) -> Result[Int, String] {
+    let mut pass: Int = 0;
+    let mut fail: Int = 0;
+    let test_dir: String = "/tmp/ooda_qa_temp_perm";
+    let test_file: String = test_dir + "/test_credential.hdr";
+    let decoy_file: String = "/tmp/ooda_qa_decoy_target.tmp";
+    let symlink_file: String = test_dir + "/symlink_trap.hdr";
+
+    // Setup: Initialize private directory with mode 0700
+    let _d0: Result[String, String] = process_exec(sys, "rm -rf " + test_dir);
+    let _d1: Result[String, String] = process_exec(sys, "mkdir -p " + test_dir);
+    let _d2: Result[String, String] = process_exec(sys, "chmod 700 " + test_dir);
+    let _d3: Result[String, String] = process_exec(sys, "rm -f " + decoy_file);
+
+    // 1. Direct invocation of write_secure_temp_file from llm_exec.oo
+    let cred_content: String = "authorization: Bearer ooda-secret-token\n";
+    let r_write: Result[Int, String] = write_secure_temp_file(sys, fw, test_file, cred_content);
+    if r_write.is_ok() {
+        pass = pass + 1;
+        println("PASS: write_secure_temp_file created credential file");
+    } else {
+        fail = fail + 1;
+        let err_w: String = match r_write { Ok(_) => "", Err(m) => m };
+        println("FAIL: write_secure_temp_file failed: " + err_w);
+    }
+
+    // 2. Stat permissions and validate using llm_exec.oo:validate_octal_perm
+    let r_stat: Result[String, String] = process_exec(sys, "stat -c %a " + test_file);
+    if r_stat.is_ok() {
+        let stat_out: String = match r_stat { Ok(s) => s, Err(_) => "" };
+        let perm_check: Result[Int, String] = validate_octal_perm(stat_out);
+        if perm_check.is_ok() {
+            pass = pass + 1;
+            println("PASS: credential file has strict 0600 permissions");
+        } else {
+            fail = fail + 1;
+            let err_m: String = match perm_check { Ok(_) => "", Err(m) => m };
+            println("FAIL: credential file permissions rejected: " + err_m);
+        }
+    } else {
+        fail = fail + 1;
+        println("FAIL: stat on credential file failed");
+    }
+
+    // 3. Negative: Insecure permissions must be rejected fail-closed by validate_octal_perm
+    let r_bad_0644: Result[Int, String] = validate_octal_perm("0644");
+    if r_bad_0644.is_err() {
+        pass = pass + 1;
+        println("PASS: insecure permissions 0644 rejected fail-closed");
+    } else {
+        fail = fail + 1;
+        println("FAIL: insecure permissions 0644 accepted");
+    }
+
+    let r_bad_0666: Result[Int, String] = validate_octal_perm("0666");
+    if r_bad_0666.is_err() {
+        pass = pass + 1;
+        println("PASS: world-readable permissions 0666 rejected fail-closed");
+    } else {
+        fail = fail + 1;
+        println("FAIL: world-readable permissions 0666 accepted");
+    }
+
+    let r_bad_0777: Result[Int, String] = validate_octal_perm("0777");
+    if r_bad_0777.is_err() {
+        pass = pass + 1;
+        println("PASS: executable permissions 0777 rejected fail-closed");
+    } else {
+        fail = fail + 1;
+        println("FAIL: executable permissions 0777 accepted");
+    }
+
+    let r_bad_0000: Result[Int, String] = validate_octal_perm("0000");
+    if r_bad_0000.is_err() {
+        pass = pass + 1;
+        println("PASS: zero permissions 0000 rejected fail-closed");
+    } else {
+        fail = fail + 1;
+        println("FAIL: zero permissions 0000 accepted");
+    }
+
+    let r_bad_644: Result[Int, String] = validate_octal_perm("644");
+    if r_bad_644.is_err() {
+        pass = pass + 1;
+        println("PASS: insecure permissions 644 rejected fail-closed");
+    } else {
+        fail = fail + 1;
+        println("FAIL: insecure permissions 644 accepted");
+    }
+
+    let r_bad_666: Result[Int, String] = validate_octal_perm("666");
+    if r_bad_666.is_err() {
+        pass = pass + 1;
+        println("PASS: world-readable permissions 666 rejected fail-closed");
+    } else {
+        fail = fail + 1;
+        println("FAIL: world-readable permissions 666 accepted");
+    }
+
+    // 4. Positive: Valid secure permissions accepted by validate_octal_perm
+    let r_ok_600: Result[Int, String] = validate_octal_perm("600");
+    if r_ok_600.is_ok() {
+        pass = pass + 1;
+        println("PASS: valid permission 600 accepted");
+    } else {
+        fail = fail + 1;
+        println("FAIL: valid permission 600 rejected");
+    }
+
+    let r_ok_400: Result[Int, String] = validate_octal_perm("400");
+    if r_ok_400.is_ok() {
+        pass = pass + 1;
+        println("PASS: valid read-only permission 400 accepted");
+    } else {
+        fail = fail + 1;
+        println("FAIL: valid read-only permission 400 rejected");
+    }
+
+    // 5. Negative: Symlink hijacking trap defense via write_secure_temp_file
+    let decoy_initial: String = "CANARY_DECOY_CONTENT_UNTOUCHED";
+    let _s1: Result[String, String] = process_exec(sys, "echo -n '" + decoy_initial + "' > " + decoy_file);
+    let _s2: Result[String, String] = process_exec(sys, "ln -s " + decoy_file + " " + symlink_file);
+    let r_sym_write: Result[Int, String] = write_secure_temp_file(sys, fw, symlink_file, "MALICIOUS_OVERWRITE");
+    if r_sym_write.is_err() {
+        pass = pass + 1;
+        println("PASS: symlink trap at credential path detected fail-closed");
+    } else {
+        fail = fail + 1;
+        println("FAIL: write_secure_temp_file followed symlink");
+    }
+
+    // Verify symlink target remains completely untouched
+    let r_decoy_read: Result[String, String] = process_exec(sys, "cat " + decoy_file);
+    let decoy_now: String = match r_decoy_read { Ok(s) => s, Err(_) => "" };
+    if decoy_now == decoy_initial {
+        pass = pass + 1;
+        println("PASS: symlink target left untouched");
+    } else {
+        fail = fail + 1;
+        println("FAIL: symlink target was overwritten: " + decoy_now);
+    }
+
+    // 6. Cleanup and assert deterministic removal
+    let _c1: Result[String, String] = process_exec(sys, "rm -rf " + test_dir + " " + decoy_file);
+    let r_clean: Result[String, String] = process_exec(sys, "test ! -e " + test_file + " && test ! -e " + decoy_file + " && test ! -e " + symlink_file);
+    if r_clean.is_ok() {
+        pass = pass + 1;
+        println("PASS: temporary credential files cleaned deterministically");
+    } else {
+        fail = fail + 1;
+        println("FAIL: credential artifacts lingering on disk");
+    }
+
+    println("qa/probe_temp_perm: pass=" + int_to_str(pass) + " fail=" + int_to_str(fail));
+    if fail > 0 { return Err("qa/probe_temp_perm: failures detected"); }
+    return Ok(0);
+}
+
+pub fn main(bind: &BindCap, fs_r: &FsReadCap, fs_w: &FsWriteCap, sys: &ProcessCap, sys_cap: &SysCap, env: &EnvCap, time: &TimeCap, alloc: &AllocCap, thread: &ThreadCap, args: List[String]) -> Result[Int, String] {
+    println("qa/probe_temp_perm: starting temporary file mode 0600 probe");
+
+    // Double-run verification: Run_1 == Run_2
+    let run1: Result[Int, String] = test_temp_perm_run(sys, fs_w);
+    if run1.is_err() { return run1; }
+    let run2: Result[Int, String] = test_temp_perm_run(sys, fs_w);
+    if run2.is_err() { return run2; }
+
+    println("qa/probe_temp_perm: PASS (Double-Run verified)");
+    return Ok(0);
+}
+
+fn int_to_str(n: Int) -> String {
+    if n < 0 { return "0"; }
+    if n == 0 { return "0"; }
+    let digits: String = "0123456789";
+    let mut v: Int = n;
+    let mut rev: String = "";
+    while v > 0 {
+        let d: Int = v - (v / 10) * 10;
+        rev = rev + char_at(digits, d);
+        v = v / 10;
+    }
+    let mut out: String = "";
+    let mut k: Int = chars_len(rev) - 1;
+    while k >= 0 {
+        out = out + char_at(rev, k);
+        k = k - 1;
+    }
+    return out;
+}

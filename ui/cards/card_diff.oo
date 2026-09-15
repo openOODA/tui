@@ -1,0 +1,167 @@
+// # ui/cards/card_diff.oo - Unified and Side-by-Side Diff Card
+//
+// Logline: Syntax-highlighted diff card rendering unified and side-by-side code alterations.
+//
+// Setup: Imports theme.oo, core/types.oo, and plugins/registry.oo for event-driven diff display.
+//
+// Beats:
+//   1. Unified diff line highlighting (+ green, - red, context muted, @@ hunk headers).
+//   2. Side-by-side two-column diff layout formatting with old and new comparison panes.
+//   3. Framed card container rendering with header bar, diff body, and border styling.
+//   4. Micro-kernel event adapter rendering Event payloads containing diffs.
+//   5. CardPlugin descriptor constructor for registry integration.
+
+import "theme.oo";
+import "core/types.oo";
+import "plugins/registry.oo";
+
+pub fn card_diff_plugin() -> CardPlugin {
+    return CardPlugin {
+        name: "card_diff",
+        description: "Syntax-highlighted unified and side-by-side diff card",
+        style: "diff",
+        enabled: true
+    };
+}
+
+fn pad_right(s: String, w: Int) -> String {
+    let mut out: String = s;
+    while chars_len(out) < w { out = out + " "; }
+    if chars_len(out) > w { return str_slice(out, 0, w); }
+    return out;
+}
+
+fn repeat_str(s: String, count: Int) -> String {
+    let mut out: String = "";
+    let mut i: Int = 0;
+    while i < count {
+        out = out + s;
+        i = i + 1;
+    }
+    return out;
+}
+
+fn split_lines(s: String) -> List[String] {
+    let mut out: List[String] = list_new();
+    let mut cur: String = "";
+    let len: Int = chars_len(s);
+    let mut i: Int = 0;
+    while i < len {
+        let c: String = char_at(s, i);
+        if c == "\n" {
+            out = list_push(out, cur);
+            cur = "";
+        } else if c == "\r" {
+            // ignore carriage return
+        } else {
+            cur = cur + c;
+        }
+        i = i + 1;
+    }
+    if cur != "" || len == 0 { out = list_push(out, cur); }
+    return out;
+}
+
+pub fn card_diff_line(theme: String, line: String, color: Bool) -> String {
+    if line == "" { return ""; }
+    let first: String = char_at(line, 0);
+    if str_starts_with(line, "@@") {
+        return ansi_fg(color, theme_color(theme, "borderAccent")) + line + ansi_reset(color);
+    }
+    if first == "+" {
+        let rest: String = str_slice(line, 1, chars_len(line));
+        return ansi_fg(color, theme_color(theme, "toolDiffAdded")) + "+" + ansi_reset(color) + ansi_fg(color, theme_color(theme, "text")) + rest + ansi_reset(color);
+    }
+    if first == "-" {
+        let rest: String = str_slice(line, 1, chars_len(line));
+        return ansi_fg(color, theme_color(theme, "toolDiffRemoved")) + "-" + ansi_reset(color) + ansi_fg(color, theme_color(theme, "text")) + rest + ansi_reset(color);
+    }
+    if first == " " {
+        let rest: String = str_slice(line, 1, chars_len(line));
+        return ansi_fg(color, theme_color(theme, "toolDiffContext")) + " " + ansi_reset(color) + ansi_fg(color, theme_color(theme, "muted")) + rest + ansi_reset(color);
+    }
+    return ansi_fg(color, theme_color(theme, "text")) + line + ansi_reset(color);
+}
+
+pub fn card_diff_unified(theme: String, body: String, color: Bool) -> String {
+    let mut out: String = "";
+    let lines: List[String] = split_lines(body);
+    let n: Int = list_len(lines);
+    let mut i: Int = 0;
+    while i < n {
+        let line: String = list_get(lines, i);
+        out = out + card_diff_line(theme, line, color) + "\n";
+        i = i + 1;
+    }
+    return out;
+}
+
+pub fn card_diff_card(theme: String, title: String, body: String, color: Bool) -> String {
+    let border: String = theme_color(theme, "borderMuted");
+    let acc: String = theme_color(theme, "borderAccent");
+    let mut s: String = "";
+    let head_label: String = if title != "" { title } else { "diff" };
+    let top_bar: String = "┌─ " + head_label + " " + repeat_str("─", 40) + "┐\n";
+    s = s + ansi_fg(color, acc) + top_bar + ansi_reset(color);
+
+    let lines: List[String] = split_lines(body);
+    let n: Int = list_len(lines);
+    let mut i: Int = 0;
+    while i < n {
+        let line: String = list_get(lines, i);
+        let rendered: String = card_diff_line(theme, line, color);
+        s = s + ansi_fg(color, border) + "│ " + ansi_reset(color) + rendered + "\n";
+        i = i + 1;
+    }
+    let bottom_bar: String = "└" + repeat_str("─", 45 + chars_len(head_label)) + "┘\n";
+    s = s + ansi_fg(color, border) + bottom_bar + ansi_reset(color);
+    return s;
+}
+
+pub fn card_diff_side_by_side(theme: String, left_body: String, right_body: String, width: Int, color: Bool) -> String {
+    let border: String = theme_color(theme, "borderMuted");
+    let acc: String = theme_color(theme, "borderAccent");
+    let half_w: Int = (width - 5) / 2;
+    let col_w: Int = if half_w > 10 { half_w } else { 38 };
+
+    let left_lines: List[String] = split_lines(left_body);
+    let right_lines: List[String] = split_lines(right_body);
+    let n_l: Int = list_len(left_lines);
+    let n_r: Int = list_len(right_lines);
+    let max_rows: Int = if n_l > n_r { n_l } else { n_r };
+
+    let mut s: String = "";
+    let h_left: String = pad_right("OLD (Original)", col_w);
+    let h_right: String = pad_right("NEW (Modified)", col_w);
+    s = s + ansi_fg(color, acc) + "┌─ " + h_left + " ┬─ " + h_right + " ┐\n" + ansi_reset(color);
+
+    let mut i: Int = 0;
+    while i < max_rows {
+        let raw_l: String = if i < n_l { list_get(left_lines, i) } else { "" };
+        let raw_r: String = if i < n_r { list_get(right_lines, i) } else { "" };
+
+        let pad_l: String = pad_right(raw_l, col_w);
+        let pad_r: String = pad_right(raw_r, col_w);
+
+        let rend_l: String = card_diff_line(theme, pad_l, color);
+        let rend_r: String = card_diff_line(theme, pad_r, color);
+
+        s = s + ansi_fg(color, border) + "│ " + ansi_reset(color) + rend_l + ansi_fg(color, border) + " │ " + ansi_reset(color) + rend_r + ansi_fg(color, border) + " │\n" + ansi_reset(color);
+        i = i + 1;
+    }
+    s = s + ansi_fg(color, border) + "└─" + repeat_str("─", col_w) + "─┴─" + repeat_str("─", col_w) + "─┘\n" + ansi_reset(color);
+    return s;
+}
+
+pub fn card_diff_from_event(theme: String, ev: Event, color: Bool) -> String {
+    let title: String = if ev.metadata != "" { ev.metadata } else { ev.source };
+    return card_diff_card(theme, title, ev.payload, color);
+}
+
+pub fn types_card_diff(ev: Event) -> Bool {
+    return event_is_kind(ev, "tool_result") || ev.kind == "diff";
+}
+
+pub fn registry_card_diff() -> CardPlugin {
+    return card_diff_plugin();
+}

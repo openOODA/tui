@@ -1,0 +1,14 @@
+// # slash/cmd_providers.oo - Providers Slash Command
+//
+// Logline: Enumerate all configured and available LLM backend providers.
+//
+// Setup: Queries provider names from config_io and reports to ReplState.
+//
+// Beats:
+//   1. Query supported provider registry names.
+//   2. Format and append provider listing to ReplState output.
+
+
+pub fn cmd_providers_run(st: ReplState) -> ReplState {
+    return slash_say(st, "providers: " + provider_names());
+}

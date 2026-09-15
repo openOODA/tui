@@ -13,6 +13,26 @@
 
 import "llm.oo";
 
+fn int_to_str(n: Int) -> String {
+    if n < 0 { return "0"; }
+    if n == 0 { return "0"; }
+    let digits: String = "0123456789";
+    let mut v: Int = n;
+    let mut rev: String = "";
+    while v > 0 {
+        let d: Int = v - (v / 10) * 10;
+        rev = rev + char_at(digits, d);
+        v = v / 10;
+    }
+    let mut out: String = "";
+    let mut k: Int = chars_len(rev) - 1;
+    while k >= 0 {
+        out = out + char_at(rev, k);
+        k = k - 1;
+    }
+    return out;
+}
+
 fn main(bind: &BindCap, fs_r: &FsReadCap, fs_w: &FsWriteCap, sys: &ProcessCap, sys_cap: &SysCap, env: &EnvCap, time: &TimeCap, alloc: &AllocCap, thread: &ThreadCap, args: List[String]) -> Result[Int, String] {
     println("qa/llm_mock: starting LLM provider probe");
     let mut pass: Int = 0;

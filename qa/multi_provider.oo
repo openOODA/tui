@@ -1,39 +1,66 @@
 // # qa/multi_provider - Multi-Provider Health Check
 //
-// Logline: Build a Config with N providers, verify the count and per-provider fields.
+// Logline: Build multiple LlmProvider records, verify count, names, models, and flat config hydration.
 //
-// Setup: Uses config.oo.
+// Setup: Uses llm.oo and config_io.oo for multi-provider record verification.
 //
 // Beats:
-//   1. config_add_provider adds N providers.
-//   2. config_provider_count returns N.
-//   3. config_provider_by_name finds each one.
-//   4. config_remove_provider removes correctly.
+//   1. Build multiple LlmProvider records (anthropic, openai, ollama).
+//   2. Verify provider count, names, models, and base URLs.
+//   3. Hydrate flat configuration with environment fallback slots.
+//   4. Validate provider fields and configurations.
 
-import "config.oo";
+import "llm.oo";
+import "config_io.oo";
+
+fn int_to_str(n: Int) -> String {
+    if n < 0 { return "0"; }
+    if n == 0 { return "0"; }
+    let digits: String = "0123456789";
+    let mut v: Int = n;
+    let mut rev: String = "";
+    while v > 0 {
+        let d: Int = v - (v / 10) * 10;
+        rev = rev + char_at(digits, d);
+        v = v / 10;
+    }
+    let mut out: String = "";
+    let mut k: Int = chars_len(rev) - 1;
+    while k >= 0 {
+        out = out + char_at(rev, k);
+        k = k - 1;
+    }
+    return out;
+}
 
 fn main(bind: &BindCap, fs_r: &FsReadCap, fs_w: &FsWriteCap, sys: &ProcessCap, sys_cap: &SysCap, env: &EnvCap, time: &TimeCap, alloc: &AllocCap, thread: &ThreadCap, args: List[String]) -> Result[Int, String] {
     println("qa/multi_provider: starting multi-provider probe");
     let mut pass: Int = 0;
     let mut fail: Int = 0;
-    let mut cfg: Config = config_default();
-    let models_a: List[String] = list_new();
-    let models_a: List[String] = list_push(models_a, "claude-sonnet-4.5");
-    cfg = config_add_provider(cfg, "anthropic", "cloud", "sk-test", "", models_a);
-    let models_o: List[String] = list_new();
-    let models_o: List[String] = list_push(models_o, "gpt-5");
-    cfg = config_add_provider(cfg, "openai", "cloud", "sk-test", "", models_o);
-    let models_ol: List[String] = list_new();
-    let models_ol: List[String] = list_push(models_ol, "llama3");
-    cfg = config_add_provider(cfg, "ollama-1", "local", "", "http://localhost:11434", models_ol);
-    if config_provider_count(cfg) == 3 { pass = pass + 1; println("PASS: count=3"); }
-    else { fail = fail + 1; println("FAIL: count=" + int_to_str(config_provider_count(cfg))); }
-    if config_has_provider(cfg, "anthropic") && config_has_provider(cfg, "openai") && config_has_provider(cfg, "ollama-1") { pass = pass + 1; println("PASS: all providers found"); }
-    else { fail = fail + 1; println("FAIL: missing provider"); }
-    let _ = config_provider_by_name(cfg, "anthropic");
-    cfg = config_remove_provider(cfg, "openai");
-    if config_provider_count(cfg) == 2 { pass = pass + 1; println("PASS: remove reduces count to 2"); }
-    else { fail = fail + 1; println("FAIL: count after remove=" + int_to_str(config_provider_count(cfg))); }
+
+    let p_a: LlmProvider = provider_anthropic("anthropic", "sk-test", "claude-sonnet-4.5");
+    let p_o: LlmProvider = provider_openai("openai", "sk-test", "gpt-5", "");
+    let p_ol: LlmProvider = provider_ollama("ollama-1", "http://localhost:11434", "llama3");
+
+    if provider_name(p_a) == "anthropic" { pass = pass + 1; println("PASS: anthropic name"); }
+    else { fail = fail + 1; println("FAIL: anthropic name"); }
+
+    if provider_name(p_o) == "openai" { pass = pass + 1; println("PASS: openai name"); }
+    else { fail = fail + 1; println("FAIL: openai name"); }
+
+    if provider_name(p_ol) == "ollama-1" { pass = pass + 1; println("PASS: ollama name"); }
+    else { fail = fail + 1; println("FAIL: ollama name"); }
+
+    if provider_model(p_a) == "claude-sonnet-4.5" && provider_model(p_o) == "gpt-5" && provider_model(p_ol) == "llama3" {
+        pass = pass + 1; println("PASS: all provider models verified");
+    } else { fail = fail + 1; println("FAIL: provider models mismatch"); }
+
+    let flat: FlatCfg = flat_cfg_new();
+    let hydrated: FlatCfg = config_hydrate_flat(flat, env);
+    if hydrated.theme != "" {
+        pass = pass + 1; println("PASS: flat config hydrated with default theme " + hydrated.theme);
+    } else { fail = fail + 1; println("FAIL: flat config missing theme"); }
+
     println("qa/multi_provider: pass=" + int_to_str(pass) + " fail=" + int_to_str(fail));
     if fail > 0 { return Err("qa/multi_provider: failures"); }
     return Ok(0);

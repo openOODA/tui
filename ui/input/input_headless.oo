@@ -1,0 +1,117 @@
+// # ui/input/input_headless.oo - Headless Non-Interactive Streaming Input Plugin
+//
+// Logline: Headless and non-interactive streaming input handler for pipe, FIFO, batch scripts, and automated subagent runs.
+//
+// Setup: Non-visual input component. Emits zero terminal SGR escapes (height: 0). Conforms to micro-kernel event model.
+//
+// Beats:
+//   1. HeadlessInputState record: input queue, head index, EOF flag, ingested count, last line.
+//   2. Queue ingestion: enqueue single line and enqueue batch list.
+//   3. Queue polling and consumption: poll next line, pop line, EOF detection.
+//   4. Headless submission lifecycle: mark submitted, mark EOF, drain verification.
+//   5. Non-visual rendering interface: renders empty string with zero terminal height.
+
+pub type HeadlessInputState = struct {
+    queue: List[String],
+    head: Int,
+    is_eof: Bool,
+    total_ingested: Int,
+    last_line: String,
+    submitted: Bool
+};
+
+pub fn headless_new() -> HeadlessInputState {
+    let q: List[String] = list_new();
+    return HeadlessInputState {
+        queue: q,
+        head: 0,
+        is_eof: false,
+        total_ingested: 0,
+        last_line: "",
+        submitted: false
+    };
+}
+
+pub fn headless_enqueue(st: HeadlessInputState, line: String) -> HeadlessInputState {
+    let mut s: HeadlessInputState = st;
+    s.queue = list_push(s.queue, line);
+    s.total_ingested = s.total_ingested + 1;
+    return s;
+}
+
+pub fn headless_enqueue_batch(st: HeadlessInputState, lines: List[String]) -> HeadlessInputState {
+    let mut s: HeadlessInputState = st;
+    let n: Int = list_len(lines);
+    let mut i: Int = 0;
+    while i < n {
+        s = headless_enqueue(s, list_get(lines, i));
+        i = i + 1;
+    }
+    return s;
+}
+
+pub fn headless_has_input(st: HeadlessInputState) -> Bool {
+    let total: Int = list_len(st.queue);
+    return st.head < total;
+}
+
+pub fn headless_poll(st: HeadlessInputState) -> Result[String, String] {
+    let total: Int = list_len(st.queue);
+    if st.head >= total {
+        if st.is_eof {
+            return Err("eof");
+        }
+        return Err("empty");
+    }
+    let line: String = list_get(st.queue, st.head);
+    return Ok(line);
+}
+
+pub fn headless_pop(st: HeadlessInputState) -> HeadlessInputState {
+    let mut s: HeadlessInputState = st;
+    let total: Int = list_len(s.queue);
+    if s.head >= total {
+        return s;
+    }
+    s.last_line = list_get(s.queue, s.head);
+    s.head = s.head + 1;
+    s.submitted = true;
+    if s.head >= total {
+        s.queue = list_new();
+        s.head = 0;
+    }
+    return s;
+}
+
+pub fn headless_set_eof(st: HeadlessInputState) -> HeadlessInputState {
+    let mut s: HeadlessInputState = st;
+    s.is_eof = true;
+    return s;
+}
+
+pub fn headless_is_eof(st: HeadlessInputState) -> Bool {
+    return st.is_eof && !headless_has_input(st);
+}
+
+pub fn headless_render(st: HeadlessInputState, theme: String, color: Bool, cols: Int) -> String {
+    return "";
+}
+
+pub fn headless_height() -> Int {
+    return 0;
+}
+
+pub fn headless_get_submission(st: HeadlessInputState) -> String {
+    return st.last_line;
+}
+
+pub fn headless_total_ingested(st: HeadlessInputState) -> Int {
+    return st.total_ingested;
+}
+
+pub fn headless_remaining_count(st: HeadlessInputState) -> Int {
+    let total: Int = list_len(st.queue);
+    let rem: Int = total - st.head;
+    if rem < 0 { return 0; }
+    return rem;
+}

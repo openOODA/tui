@@ -1,0 +1,48 @@
+// # ui/presets/preset_kernel.oo - Minimalist Headless Kernel Preset
+//
+// Logline: Minimalist headless micro-kernel mode with high-density diff cards and telemetry indicators.
+//
+// Setup: Standalone preset definition configuring headless/simple input, telemetry, diff cards, and 1982 theme.
+//
+// Beats:
+//   1. Define PresetConfig record with exact 8 fields.
+//   2. Configure active input plugin (input_simple / input_headless).
+//   3. Configure indicator plugin (indicator_telemetry).
+//   4. Configure card renderer (card_diff) and theme (1982).
+
+pub type PresetConfig = struct {
+    name: String,
+    description: String,
+    input_plugin: String,
+    indicator_plugin: String,
+    card_style: String,
+    default_mode: String,
+    default_perm: String,
+    theme: String
+};
+
+pub fn preset_kernel_config() -> PresetConfig {
+    return PresetConfig {
+        name: "kernel",
+        description: "Minimalist headless micro-kernel mode with high-density diffs and telemetry",
+        input_plugin: "input_simple",
+        indicator_plugin: "indicator_telemetry",
+        card_style: "card_diff",
+        default_mode: "build",
+        default_perm: "ask",
+        theme: "1982"
+    };
+}
+
+pub fn preset_kernel_headless_config() -> PresetConfig {
+    return PresetConfig {
+        name: "kernel",
+        description: "Minimalist headless non-interactive micro-kernel mode",
+        input_plugin: "input_headless",
+        indicator_plugin: "indicator_telemetry",
+        card_style: "card_diff",
+        default_mode: "build",
+        default_perm: "ask",
+        theme: "1982"
+    };
+}

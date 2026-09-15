@@ -1,0 +1,221 @@
+// # core/state.oo - Micro-Kernel Flat State Machine
+//
+// Logline: Central micro-kernel state record, session context, active preset binding, and deterministic transitions.
+//
+// Setup: Imports ./types.oo. Pure flat record with primitive fields and CoreCaps for zero GC contention.
+//
+// Beats:
+//   1. CoreState record: session metadata, active preset, theme, permission mode, LLM binding, flags.
+//   2. State constructors: core_state_init(cwd, preset, theme) with sane fallbacks.
+//   3. Preset binding: binds preset name (kernel, frontend, audit, zen) and sets active plugin slots.
+//   4. Pending tool confirmation intercept: tool, args, body fields for y/n/a/d gates.
+//   5. State mutation helpers: output, plan, goal, brief, perm, and monotonic tick counter.
+
+import "./types.oo";
+
+pub type CoreState = struct {
+    session_id: String,
+    cwd: String,
+    preset: String,
+    theme: String,
+    input_plugin: String,
+    indicator_plugin: String,
+    card_plugin: String,
+    provider: String,
+    ptype: String,
+    model: String,
+    key: String,
+    url: String,
+    perm: String,
+    mode: String,
+    teamwork: Bool,
+    yolo: Bool,
+    no_color: Bool,
+    exiting: Bool,
+    plan: String,
+    goal: String,
+    brief: String,
+    output: String,
+    pending_tool: String,
+    pending_args: String,
+    pending_body: String,
+    tick_count: Int,
+    history_count: Int,
+    caps: CoreCaps
+};
+
+// Apply preset configuration to state
+pub fn core_state_apply_preset(st: CoreState, preset_name: String) -> CoreState {
+    let mut s: CoreState = st;
+    if preset_name == "kernel" {
+        s.preset = "kernel";
+        s.input_plugin = "input_simple";
+        s.indicator_plugin = "indicator_telemetry";
+        s.card_plugin = "card_diff";
+        s.mode = "build";
+        s.caps = core_caps_default();
+    } else if preset_name == "frontend" {
+        s.preset = "frontend";
+        s.input_plugin = "input_compose";
+        s.indicator_plugin = "indicator_stream";
+        s.card_plugin = "card_say";
+        s.mode = "build";
+        s.caps = core_caps_default();
+    } else if preset_name == "audit" {
+        s.preset = "audit";
+        s.input_plugin = "input_simple";
+        s.indicator_plugin = "indicator_bar";
+        s.card_plugin = "card_tool";
+        s.perm = "plan";
+        s.mode = "plan";
+        s.caps = core_caps_plan();
+    } else if preset_name == "zen" {
+        s.preset = "zen";
+        s.input_plugin = "input_simple";
+        s.indicator_plugin = "indicator_dots";
+        s.card_plugin = "card_say";
+        s.perm = "zen";
+        s.mode = "zen";
+        s.caps = core_caps_zen();
+    } else {
+        // Fallback default: kernel preset
+        s.preset = "kernel";
+        s.input_plugin = "input_simple";
+        s.indicator_plugin = "indicator_telemetry";
+        s.card_plugin = "card_diff";
+        s.mode = "build";
+        s.caps = core_caps_default();
+    }
+    return s;
+}
+
+// Initialize CoreState with defaults
+pub fn core_state_init(cwd: String, preset_name: String, theme_name: String) -> CoreState {
+    let base_theme: String = if theme_name != "" { theme_name } else { "1982" };
+    let initial: CoreState = CoreState {
+        session_id: "main",
+        cwd: cwd,
+        preset: "kernel",
+        theme: base_theme,
+        input_plugin: "input_simple",
+        indicator_plugin: "indicator_telemetry",
+        card_plugin: "card_diff",
+        provider: "",
+        ptype: "cloud",
+        model: "",
+        key: "",
+        url: "",
+        perm: "ask",
+        mode: "build",
+        teamwork: false,
+        yolo: false,
+        no_color: false,
+        exiting: false,
+        plan: "",
+        goal: "",
+        brief: "",
+        output: "",
+        pending_tool: "",
+        pending_args: "",
+        pending_body: "",
+        tick_count: 0,
+        history_count: 0,
+        caps: core_caps_default()
+    };
+    return core_state_apply_preset(initial, preset_name);
+}
+
+// Mutate LLM provider connection fields
+pub fn core_state_set_llm(st: CoreState, provider: String, ptype: String, model: String, key: String, url: String) -> CoreState {
+    let mut s: CoreState = st;
+    s.provider = provider;
+    s.ptype = ptype;
+    s.model = model;
+    s.key = key;
+    s.url = url;
+    return s;
+}
+
+// Mutate permission level and update capability record
+pub fn core_state_set_perm(st: CoreState, perm: String) -> CoreState {
+    let mut s: CoreState = st;
+    s.perm = perm;
+    if perm == "yolo" { s.yolo = true; }
+    s.caps = core_caps_from_perm(perm);
+    return s;
+}
+
+// Pending tool confirmation interceptors
+pub fn core_state_set_pending(st: CoreState, tool: String, args: String, body: String) -> CoreState {
+    let mut s: CoreState = st;
+    s.pending_tool = tool;
+    s.pending_args = args;
+    s.pending_body = body;
+    return s;
+}
+
+pub fn core_state_clear_pending(st: CoreState) -> CoreState {
+    let mut s: CoreState = st;
+    s.pending_tool = "";
+    s.pending_args = "";
+    s.pending_body = "";
+    return s;
+}
+
+pub fn core_state_has_pending(st: CoreState) -> Bool {
+    return st.pending_tool != "";
+}
+
+// Output accumulation
+pub fn core_state_append_output(st: CoreState, text: String) -> CoreState {
+    let mut s: CoreState = st;
+    if s.output == "" {
+        s.output = text;
+    } else {
+        s.output = s.output + "\n" + text;
+    }
+    return s;
+}
+
+pub fn core_state_clear_output(st: CoreState) -> CoreState {
+    let mut s: CoreState = st;
+    s.output = "";
+    return s;
+}
+
+// Context setters
+pub fn core_state_set_plan(st: CoreState, plan: String) -> CoreState {
+    let mut s: CoreState = st;
+    s.plan = plan;
+    return s;
+}
+
+pub fn core_state_set_goal(st: CoreState, goal: String) -> CoreState {
+    let mut s: CoreState = st;
+    s.goal = goal;
+    return s;
+}
+
+pub fn core_state_set_brief(st: CoreState, brief: String) -> CoreState {
+    let mut s: CoreState = st;
+    s.brief = brief;
+    return s;
+}
+
+// Lifecycle control
+pub fn core_state_request_exit(st: CoreState) -> CoreState {
+    let mut s: CoreState = st;
+    s.exiting = true;
+    return s;
+}
+
+pub fn core_state_is_exiting(st: CoreState) -> Bool {
+    return st.exiting;
+}
+
+// Monotonic clock tick
+pub fn core_state_tick(st: CoreState) -> CoreState {
+    let mut s: CoreState = st;
+    s.tick_count = s.tick_count + 1;
+    return s;
+}

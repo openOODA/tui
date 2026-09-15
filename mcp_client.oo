@@ -2,7 +2,7 @@
 //
 // Logline: Talks to ooda-mcp via JSON-RPC using the --file batch mode. Each call spawns ooda-mcp as a subprocess and reads the response.
 //
-// Setup: Uses process_exec (the only real spawn API per rules.oot 1.5 and std/fs/process/process.oo). Writes request to a temp file, runs ooda-mcp --file, reads response.
+// Setup: FsWriteCap writes request payloads to /tmp; ProcessCap executes ooda-mcp --file. Pure .oo.
 //
 // Beats:
 //   1. JSON-RPC framing: Content-Length: N\r\n\r\n<body>. ooda-mcp --file does the framing internally.
@@ -84,24 +84,22 @@ fn escape_json(s: String) -> String {
     return out;
 }
 
-fn mcp_call_file(client: McpClient, request: String, sys: &ProcessCap) -> Result[String, String] {
+fn mcp_call_file(client: McpClient, request: String, fs_w: &FsWriteCap, sys: &ProcessCap) -> Result[String, String] {
     let tmp: String = "/tmp/ooda-tui-mcp-" + int_to_str(mcp_next_id(client)) + ".json";
-    let wr: Result[String, String] = file_writer_write_all_fs(sys, tmp, request);
-    if wr.is_err() { return Err("write tmp: " + tmp); }
-    let cmd: String = "bin=$(command -v ooda-mcp || true); if [ -z \"$bin\" ]; then bin=$HOME/.openooda/bin/ooda-mcp; fi; if [ ! -x \"$bin\" ]; then bin=$HOME/.openooda/bin/mcp; fi; OODACODEX=" + client.codex + " \"$bin\" --file " + tmp + " 2>/dev/null";
+    let wr: Result[Void, String] = write_file(fs_w, tmp, request);
+    if wr.is_err() {
+        let e: String = match wr { Ok(_) => "", Err(msg) => msg };
+        return Err("write tmp " + tmp + ": " + e);
+    }
+    let cmd: String = "bin=$(command -v ooda-mcp || true); if [ -z \"$bin\" -o ! -x \"$bin\" ]; then dir=$(dirname \"" + client.codex + "\" 2>/dev/null || true); if [ -n \"$dir\" -a -x \"$dir/bin/ooda-mcp\" ]; then bin=\"$dir/bin/ooda-mcp\"; elif [ -x \"$HOME/.openooda/bin/ooda-mcp\" ]; then bin=\"$HOME/.openooda/bin/ooda-mcp\"; elif [ -x \"/home/jeryd/.openooda/bin/ooda-mcp\" ]; then bin=\"/home/jeryd/.openooda/bin/ooda-mcp\"; elif [ -x \"$HOME/.openooda/bin/mcp\" ]; then bin=\"$HOME/.openooda/bin/mcp\"; else bin=\"/home/jeryd/.openooda/bin/mcp\"; fi; fi; OODACODEX=" + client.codex + " \"$bin\" --file " + tmp;
     let r: Result[String, String] = process_exec(sys, cmd);
+    let _ = process_exec(sys, "rm -f " + tmp);
     return r;
 }
 
-fn file_writer_write_all_fs(sys: &ProcessCap, path: String, content: String) -> Result[String, String] {
-    let cmd: String = "mkdir -p $(dirname " + path + ") && cat > " + path + " << 'EOF_MCP_REQUEST'\n" + content + "\nEOF_MCP_REQUEST";
-    let r: Result[String, String] = process_exec(sys, cmd);
-    return r;
-}
-
-pub fn mcp_init(client: McpClient, sys: &ProcessCap) -> Result[String, String] {
+pub fn mcp_init(client: McpClient, fs_w: &FsWriteCap, sys: &ProcessCap) -> Result[String, String] {
     let req: String = build_init_request(mcp_next_id(client), "ooda-tui", ooda_tui_version());
-    let r: Result[String, String] = mcp_call_file(client, req, sys);
+    let r: Result[String, String] = mcp_call_file(client, req, fs_w, sys);
     if r.is_err() {
         let e: String = match r { Ok(_) => "", Err(m) => m };
         return Err("mcp_init: " + e);
@@ -110,9 +108,9 @@ pub fn mcp_init(client: McpClient, sys: &ProcessCap) -> Result[String, String] {
     return Ok(s);
 }
 
-pub fn mcp_list_tools(client: McpClient, sys: &ProcessCap) -> Result[String, String] {
+pub fn mcp_list_tools(client: McpClient, fs_w: &FsWriteCap, sys: &ProcessCap) -> Result[String, String] {
     let req: String = build_tools_list_request(mcp_next_id(client));
-    let r: Result[String, String] = mcp_call_file(client, req, sys);
+    let r: Result[String, String] = mcp_call_file(client, req, fs_w, sys);
     if r.is_err() {
         let e: String = match r { Ok(_) => "", Err(m) => m };
         return Err("mcp_list_tools: " + e);
@@ -121,9 +119,9 @@ pub fn mcp_list_tools(client: McpClient, sys: &ProcessCap) -> Result[String, Str
     return Ok(s);
 }
 
-pub fn mcp_call_tool(client: McpClient, sys: &ProcessCap, tool_name: String, args_json: String) -> Result[String, String] {
+pub fn mcp_call_tool(client: McpClient, fs_w: &FsWriteCap, sys: &ProcessCap, tool_name: String, args_json: String) -> Result[String, String] {
     let req: String = build_tool_call_request(mcp_next_id(client), tool_name, args_json);
-    let r: Result[String, String] = mcp_call_file(client, req, sys);
+    let r: Result[String, String] = mcp_call_file(client, req, fs_w, sys);
     if r.is_err() {
         let e: String = match r { Ok(_) => "", Err(m) => m };
         return Err("mcp_call_tool: " + e);

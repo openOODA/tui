@@ -1,0 +1,142 @@
+// # ui/indicators/indicator_stream.oo - Live Token Throughput Stream Indicator
+//
+// Logline: Live token throughput and streaming pulse indicator displaying tok/sec, accumulated tokens, and elapsed time.
+//
+// Setup: Pure UI indicator component. Conforms to plugins/registry.oo IndicatorPlugin specification and micro-kernel ticks.
+//
+// Beats:
+//   1. StreamState record: token count, start ms, elapsed ms, tok/sec, pulse frame, active flag.
+//   2. Stream lifecycle transitions: start streaming, push token deltas, tick pulse, finish.
+//   3. Throughput calculation deriving tokens-per-second from token count and elapsed time.
+//   4. Multi-frame sinusoidal pulse animation sequence cycling on clock ticks.
+//   5. Single-line SGR ANSI render output with 1-line constant height.
+
+import "theme.oo";
+
+pub type StreamState = struct {
+    token_count: Int,
+    start_ms: Int,
+    elapsed_ms: Int,
+    tok_per_sec: Int,
+    pulse_frame: Int,
+    is_active: Bool
+};
+
+pub fn stream_new() -> StreamState {
+    return StreamState {
+        token_count: 0,
+        start_ms: 0,
+        elapsed_ms: 0,
+        tok_per_sec: 0,
+        pulse_frame: 0,
+        is_active: false
+    };
+}
+
+pub fn stream_start(st: StreamState, start_ms: Int) -> StreamState {
+    let mut s: StreamState = st;
+    s.token_count = 0;
+    s.start_ms = start_ms;
+    s.elapsed_ms = 0;
+    s.tok_per_sec = 0;
+    s.pulse_frame = 0;
+    s.is_active = true;
+    return s;
+}
+
+pub fn stream_push_tokens(st: StreamState, delta: Int, now_ms: Int) -> StreamState {
+    let mut s: StreamState = st;
+    s.token_count = s.token_count + delta;
+    if s.start_ms > 0 && now_ms >= s.start_ms {
+        s.elapsed_ms = now_ms - s.start_ms;
+        if s.elapsed_ms > 200 {
+            s.tok_per_sec = (s.token_count * 1000) / s.elapsed_ms;
+        }
+    }
+    s.pulse_frame = (s.pulse_frame + 1) - ((s.pulse_frame + 1) / 4) * 4;
+    return s;
+}
+
+pub fn stream_tick(st: StreamState, now_ms: Int) -> StreamState {
+    let mut s: StreamState = st;
+    if s.start_ms > 0 && now_ms >= s.start_ms {
+        s.elapsed_ms = now_ms - s.start_ms;
+        if s.elapsed_ms > 200 {
+            s.tok_per_sec = (s.token_count * 1000) / s.elapsed_ms;
+        }
+    }
+    s.pulse_frame = (s.pulse_frame + 1) - ((s.pulse_frame + 1) / 4) * 4;
+    return s;
+}
+
+pub fn stream_finish(st: StreamState) -> StreamState {
+    let mut s: StreamState = st;
+    s.is_active = false;
+    return s;
+}
+
+fn stream_pulse_symbol(frame: Int) -> String {
+    if frame == 0 { return "~.~"; }
+    if frame == 1 { return ".~."; }
+    if frame == 2 { return "~~."; }
+    return ".~~";
+}
+
+fn stream_int_to_str(n: Int) -> String {
+    if n <= 0 { return "0"; }
+    let digits: String = "0123456789";
+    let mut v: Int = n;
+    let mut rev: String = "";
+    while v > 0 {
+        let d: Int = v - (v / 10) * 10;
+        rev = rev + char_at(digits, d);
+        v = v / 10;
+    }
+    let mut out: String = "";
+    let mut k: Int = chars_len(rev) - 1;
+    while k >= 0 {
+        out = out + char_at(rev, k);
+        k = k - 1;
+    }
+    return out;
+}
+
+fn stream_format_duration(ms: Int) -> String {
+    let sec: Int = ms / 1000;
+    let tenth: Int = (ms - sec * 1000) / 100;
+    return stream_int_to_str(sec) + "." + stream_int_to_str(tenth) + "s";
+}
+
+pub fn stream_render(st: StreamState, theme: String, color: Bool, cols: Int) -> String {
+    if !st.is_active && st.token_count == 0 { return ""; }
+    let accent: String = theme_color(theme, "accent");
+    let success: String = theme_color(theme, "success");
+    let muted: String = theme_color(theme, "muted");
+    let dim: String = theme_color(theme, "dim");
+
+    let glyph: String = stream_pulse_symbol(st.pulse_frame);
+    let tag_status: String = if st.is_active { "STREAMING" } else { "DONE" };
+    let tag_color: String = if st.is_active { accent } else { success };
+
+    let mut s: String = ansi_fg(color, dim) + "[ " + ansi_reset(color);
+    s = s + ansi_fg(color, tag_color) + glyph + " " + tag_status + ansi_reset(color);
+    s = s + ansi_fg(color, dim) + " ] " + ansi_reset(color);
+
+    // Speed: 45 tok/s
+    s = s + ansi_fg(color, success) + stream_int_to_str(st.tok_per_sec) + " tok/s" + ansi_reset(color);
+    s = s + ansi_fg(color, dim) + " . " + ansi_reset(color);
+
+    // Total tokens: 1420 tok
+    s = s + ansi_fg(color, muted) + stream_int_to_str(st.token_count) + " tokens" + ansi_reset(color);
+    s = s + ansi_fg(color, dim) + " (" + ansi_reset(color);
+
+    // Duration: 3.1s
+    s = s + ansi_fg(color, dim) + stream_format_duration(st.elapsed_ms) + ansi_reset(color);
+    s = s + ansi_fg(color, dim) + ")" + ansi_reset(color);
+
+    return s;
+}
+
+pub fn stream_height() -> Int {
+    return 1;
+}

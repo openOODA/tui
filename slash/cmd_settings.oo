@@ -1,0 +1,15 @@
+// # slash/cmd_settings.oo - Settings Slash Command
+//
+// Logline: Emit active configuration settings and parameters summary.
+//
+// Setup: Formats provider, model, mode, perm, cwd, and session into settings line.
+//
+// Beats:
+//   1. Extract configuration parameters from ReplState.
+//   2. Format unified settings summary line.
+//   3. Append formatted report to session output.
+
+
+pub fn cmd_settings_run(st: ReplState) -> ReplState {
+    return slash_say(st, "status: " + st.provider + "/" + st.model + " " + st.mode + "/" + st.perm + " cwd=" + st.cwd + " session=" + st.session + " theme=" + st.theme + " team=" + slash_onoff(st.teamwork));
+}

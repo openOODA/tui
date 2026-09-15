@@ -1,0 +1,184 @@
+// # core/event_bus.oo - Micro-Kernel Decoupled Event Bus
+//
+// Logline: Pure publish-subscribe event bus decoupling event producers from consumers via topic routing.
+//
+// Setup: Imports ./types.oo. Pure bounded queue and subscription table with zero ambient authority.
+//
+// Beats:
+//   1. Subscription record: topic, subscriber_id, active flag.
+//   2. EventBus record: subscriptions, FIFO queue, amortized head index, monotonic sequence.
+//   3. Subscription management: event_bus_subscribe, event_bus_unsubscribe, wildcard topic matching.
+//   4. Event publishing: event_bus_publish constructs monotonic events and enqueues to subscribers.
+//   5. Queue drain and polling: event_bus_poll, event_bus_pop, and queue depth inspection.
+
+import "./types.oo";
+
+pub type Subscription = struct {
+    topic: String,
+    subscriber_id: String,
+    active: Bool
+};
+
+pub type EventBus = struct {
+    subscriptions: List[Subscription],
+    queue: List[Event],
+    head_idx: Int,
+    seq_counter: Int,
+    max_depth: Int
+};
+
+// Construct a new empty EventBus
+pub fn event_bus_new() -> EventBus {
+    let subs: List[Subscription] = list_new();
+    let q: List[Event] = list_new();
+    return EventBus {
+        subscriptions: subs,
+        queue: q,
+        head_idx: 0,
+        seq_counter: 0,
+        max_depth: 256
+    };
+}
+
+// Topic matching logic with support for wildcard '*'
+pub fn event_bus_topic_matches(sub_topic: String, target_topic: String) -> Bool {
+    if sub_topic == "*" { return true; }
+    if sub_topic == target_topic { return true; }
+    return false;
+}
+
+// Subscribe a named subscriber to a topic
+pub fn event_bus_subscribe(bus: EventBus, topic: String, sub_id: String) -> EventBus {
+    let mut b: EventBus = bus;
+    let n: Int = list_len(b.subscriptions);
+    let mut i: Int = 0;
+    let mut found: Bool = false;
+    let mut next_subs: List[Subscription] = list_new();
+    while i < n {
+        let s: Subscription = list_get(b.subscriptions, i);
+        if s.topic == topic && s.subscriber_id == sub_id {
+            next_subs = list_push(next_subs, Subscription { topic: topic, subscriber_id: sub_id, active: true });
+            found = true;
+        } else {
+            next_subs = list_push(next_subs, s);
+        }
+        i = i + 1;
+    }
+    if !found {
+        let new_sub: Subscription = Subscription {
+            topic: topic,
+            subscriber_id: sub_id,
+            active: true
+        };
+        next_subs = list_push(next_subs, new_sub);
+    }
+    b.subscriptions = next_subs;
+    return b;
+}
+
+// Deactivate a subscription
+pub fn event_bus_unsubscribe(bus: EventBus, topic: String, sub_id: String) -> EventBus {
+    let mut b: EventBus = bus;
+    let n: Int = list_len(b.subscriptions);
+    let mut i: Int = 0;
+    let mut next_subs: List[Subscription] = list_new();
+    while i < n {
+        let s: Subscription = list_get(b.subscriptions, i);
+        if s.topic == topic && s.subscriber_id == sub_id {
+            next_subs = list_push(next_subs, Subscription { topic: topic, subscriber_id: sub_id, active: false });
+        } else {
+            next_subs = list_push(next_subs, s);
+        }
+        i = i + 1;
+    }
+    b.subscriptions = next_subs;
+    return b;
+}
+
+// Check if any active subscriber exists for a topic
+pub fn event_bus_has_subscriber(bus: EventBus, topic: String) -> Bool {
+    let n: Int = list_len(bus.subscriptions);
+    let mut i: Int = 0;
+    while i < n {
+        let s: Subscription = list_get(bus.subscriptions, i);
+        if s.active && event_bus_topic_matches(s.topic, topic) {
+            return true;
+        }
+        i = i + 1;
+    }
+    return false;
+}
+
+// Publish an event onto the bus
+pub fn event_bus_publish(bus: EventBus, kind: String, source: String, payload: String, meta: String, ts: Int) -> EventBus {
+    let mut b: EventBus = bus;
+    b.seq_counter = b.seq_counter + 1;
+    let ev: Event = event_with_meta(b.seq_counter, kind, source, payload, meta, ts);
+    return event_bus_enqueue(b, ev);
+}
+
+// Enqueue raw Event into FIFO queue
+pub fn event_bus_enqueue(bus: EventBus, ev: Event) -> EventBus {
+    let mut b: EventBus = bus;
+    let active_count: Int = list_len(b.queue) - b.head_idx;
+    if active_count >= b.max_depth {
+        // Drop oldest to preserve bounded memory guarantee
+        b = event_bus_pop(b);
+    }
+    b.queue = list_push(b.queue, ev);
+    return b;
+}
+
+// Inspect the next event in the queue without consuming
+pub fn event_bus_poll(bus: EventBus) -> Result[Event, String] {
+    let total: Int = list_len(bus.queue);
+    if bus.head_idx >= total {
+        return Err("empty");
+    }
+    let ev: Event = list_get(bus.queue, bus.head_idx);
+    return Ok(ev);
+}
+
+// Advance the FIFO queue head, resetting list when fully drained
+pub fn event_bus_pop(bus: EventBus) -> EventBus {
+    let mut b: EventBus = bus;
+    let total: Int = list_len(b.queue);
+    if b.head_idx >= total {
+        return b;
+    }
+    b.head_idx = b.head_idx + 1;
+    if b.head_idx >= total {
+        b.queue = list_new();
+        b.head_idx = 0;
+    }
+    return b;
+}
+
+// Return count of currently pending events
+pub fn event_bus_len(bus: EventBus) -> Int {
+    let total: Int = list_len(bus.queue);
+    let rem: Int = total - bus.head_idx;
+    if rem < 0 { return 0; }
+    return rem;
+}
+
+// Return count of active subscriptions
+pub fn event_bus_sub_count(bus: EventBus) -> Int {
+    let n: Int = list_len(bus.subscriptions);
+    let mut count: Int = 0;
+    let mut i: Int = 0;
+    while i < n {
+        let s: Subscription = list_get(bus.subscriptions, i);
+        if s.active { count = count + 1; }
+        i = i + 1;
+    }
+    return count;
+}
+
+// Clear all queued events
+pub fn event_bus_clear(bus: EventBus) -> EventBus {
+    let mut b: EventBus = bus;
+    b.queue = list_new();
+    b.head_idx = 0;
+    return b;
+}

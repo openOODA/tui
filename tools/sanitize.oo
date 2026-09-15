@@ -1,0 +1,56 @@
+// # tools/sanitize.oo - Shell Argument Sanitizer & Security Guard
+//
+// Logline: Enforces fail-closed validation on shell arguments for grep and glob against prompt injection and metacharacter breakout.
+//
+// Setup: Inspects input strings byte-by-byte and character-by-character; rejects shell metacharacters and injected leading flags.
+//
+// Beats:
+//   1. Checks argument length boundary (rejects empty and > 256 characters).
+//   2. Rejects injected flags starting with leading dash ('-').
+//   3. Rejects shell metacharacters: ; & | $ ` ( ) < > \n \r \0 " ' \.
+//   4. Validates and returns clean string or fail-closed error Err("SECURITY: ...").
+//   5. Exposes both validate_shell_arg and sanitize_shell_arg for interoperability.
+
+pub fn is_shell_metachar(c: String) -> Bool {
+    if c == ";" { return true; }
+    if c == "&" { return true; }
+    if c == "|" { return true; }
+    if c == "$" { return true; }
+    if c == "`" { return true; }
+    if c == "(" { return true; }
+    if c == ")" { return true; }
+    if c == "<" { return true; }
+    if c == ">" { return true; }
+    if c == "\n" { return true; }
+    if c == "\r" { return true; }
+    if c == "\0" { return true; }
+    if c == "\"" { return true; }
+    if c == "'" { return true; }
+    if c == "\\" { return true; }
+    return false;
+}
+
+pub fn validate_shell_arg(arg: String) -> Result[String, String] {
+    let len: Int = chars_len(arg);
+    if len == 0 { return Err("SECURITY: empty argument rejected"); }
+    if len > 256 { return Err("SECURITY: argument exceeds 256 characters"); }
+    // Leading dash flag injection check
+    if char_at(arg, 0) == "-" { return Err("SECURITY: leading dash flag rejected"); }
+    let mut i: Int = 0;
+    while i < len {
+        let ch: String = char_at(arg, i);
+        if is_shell_metachar(ch) {
+            return Err("SECURITY: shell metacharacter rejected in argument: " + ch);
+        }
+        let b: Int = byte_at(arg, i);
+        if b == 0 {
+            return Err("SECURITY: shell metacharacter rejected in argument: \\0");
+        }
+        i = i + 1;
+    }
+    return Ok(arg);
+}
+
+pub fn sanitize_shell_arg(arg: String) -> Result[String, String] {
+    return validate_shell_arg(arg);
+}

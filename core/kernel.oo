@@ -1,0 +1,241 @@
+// # core/kernel.oo - Micro-Kernel Event Loop & Dispatch Engine
+//
+// Logline: Micro-kernel execution engine driving event intake, state transitions, action intents, and rendering ticks.
+//
+// Setup: Imports ./types.oo, ./state.oo, ./event_bus.oo. Pure decoupled orchestration with zero hardcoded commands.
+//
+// Beats:
+//   1. Kernel record: state, event bus, FIFO pending action intents, running lifecycle flag.
+//   2. Kernel bootstrap: kernel_init(cwd, preset, theme) with wired bus and initial state.
+//   3. Event posting: kernel_post_line, kernel_post_key, kernel_post_tool_result, kernel_tick.
+//   4. Single-step execution: kernel_step consumes from bus, updates state, and generates typed ActionIntent.
+//   5. Action consumption: kernel_poll_action and kernel_pop_action deliver decoupled intents to plugins.
+
+import "./types.oo";
+import "./state.oo";
+import "./event_bus.oo";
+
+pub type Kernel = struct {
+    state: CoreState,
+    bus: EventBus,
+    pending_actions: List[ActionIntent],
+    action_head: Int,
+    action_counter: Int,
+    running: Bool
+};
+
+// Helper: extract command token from slash input (omitting leading '/')
+fn parse_slash_cmd(line: String) -> String {
+    let n: Int = chars_len(line);
+    let mut i: Int = 1;
+    while i < n {
+        let c: String = char_at(line, i);
+        if c == " " || c == "\t" || c == "\n" {
+            return str_slice(line, 1, i);
+        }
+        i = i + 1;
+    }
+    return str_slice(line, 1, n);
+}
+
+// Helper: extract arguments following the command token
+fn parse_slash_args(line: String) -> String {
+    let n: Int = chars_len(line);
+    let mut i: Int = 1;
+    while i < n {
+        let c: String = char_at(line, i);
+        if c == " " || c == "\t" {
+            let rest: String = str_slice(line, i + 1, n);
+            return str_trim(rest);
+        }
+        i = i + 1;
+    }
+    return "";
+}
+
+// Construct and bootstrap the Kernel
+pub fn kernel_init(cwd: String, preset_name: String, theme_name: String) -> Kernel {
+    let st: CoreState = core_state_init(cwd, preset_name, theme_name);
+    let b: EventBus = event_bus_new();
+    let actions: List[ActionIntent] = list_new();
+    return Kernel {
+        state: st,
+        bus: b,
+        pending_actions: actions,
+        action_head: 0,
+        action_counter: 0,
+        running: true
+    };
+}
+
+// Post user text line event into the kernel
+pub fn kernel_post_line(k: Kernel, line: String, ts: Int) -> Kernel {
+    let mut krn: Kernel = k;
+    krn.bus = event_bus_publish(krn.bus, event_kind_line(), "input", line, "", ts);
+    return krn;
+}
+
+// Post keyboard event into the kernel
+pub fn kernel_post_key(k: Kernel, key_name: String, ts: Int) -> Kernel {
+    let mut krn: Kernel = k;
+    krn.bus = event_bus_publish(krn.bus, event_kind_key(), "keyboard", key_name, "", ts);
+    return krn;
+}
+
+// Post tool result event into the kernel
+pub fn kernel_post_tool_result(k: Kernel, tool_name: String, result: String, is_err: Bool, ts: Int) -> Kernel {
+    let mut krn: Kernel = k;
+    let meta: String = if is_err { "error" } else { "ok" };
+    krn.bus = event_bus_publish(krn.bus, event_kind_tool_result(), tool_name, result, meta, ts);
+    return krn;
+}
+
+// Post streaming delta event from LLM
+pub fn kernel_post_stream_delta(k: Kernel, delta: String, ts: Int) -> Kernel {
+    let mut krn: Kernel = k;
+    krn.bus = event_bus_publish(krn.bus, event_kind_stream_delta(), "llm", delta, "", ts);
+    return krn;
+}
+
+// Enqueue action intent to pending list
+fn kernel_enqueue_action(k: Kernel, target: String, verb: String, arg: String, payload: String) -> Kernel {
+    let mut krn: Kernel = k;
+    krn.action_counter = krn.action_counter + 1;
+    let act: ActionIntent = action_intent_new(krn.action_counter, target, verb, arg, payload);
+    krn.pending_actions = list_push(krn.pending_actions, act);
+    return krn;
+}
+
+// Advance kernel clock tick
+pub fn kernel_tick(k: Kernel, ts: Int) -> Kernel {
+    let mut krn: Kernel = k;
+    krn.state = core_state_tick(krn.state);
+    krn.bus = event_bus_publish(krn.bus, event_kind_tick(), "timer", "", "", ts);
+    return krn;
+}
+
+// Step the kernel: consume one event, transition state, emit actions
+pub fn kernel_step(k: Kernel) -> Kernel {
+    let pr: Result[Event, String] = event_bus_poll(k.bus);
+    if pr.is_err() {
+        return k;
+    }
+    let ev: Event = match pr { Ok(e) => e, Err(_) => return k; };
+    let mut krn: Kernel = k;
+    krn.bus = event_bus_pop(krn.bus);
+
+    let knd: String = ev.kind;
+    if knd == event_kind_line() {
+        let trimmed: String = str_trim(ev.payload);
+        if trimmed == "" {
+            return krn;
+        }
+        // Case 1: Pending tool approval gate
+        if core_state_has_pending(krn.state) {
+            krn = kernel_enqueue_action(krn, "tool_gate", "respond", trimmed, krn.state.pending_tool);
+            return krn;
+        }
+        // Case 2: Slash command
+        if str_starts_with(trimmed, "/") {
+            let cmd: String = parse_slash_cmd(trimmed);
+            let args: String = parse_slash_args(trimmed);
+            if cmd == "exit" || cmd == "quit" {
+                krn.state = core_state_request_exit(krn.state);
+                krn.running = false;
+            } else if cmd == "preset" && args != "" {
+                krn.state = core_state_apply_preset(krn.state, args);
+            }
+            krn = kernel_enqueue_action(krn, "slash", "dispatch", cmd, args);
+            return krn;
+        }
+        // Case 3: Free-form user prompt to conversational agent loop
+        krn = kernel_enqueue_action(krn, "agent", "prompt", krn.state.mode, trimmed);
+        return krn;
+    }
+
+    if knd == event_kind_key() {
+        let key: String = ev.payload;
+        if key == "<ctrl:c>" || key == "esc" {
+            if core_state_has_pending(krn.state) {
+                krn.state = core_state_clear_pending(krn.state);
+                krn = kernel_enqueue_action(krn, "tool_gate", "cancel", "", "");
+            }
+        }
+        krn = kernel_enqueue_action(krn, "key", "press", key, "");
+        return krn;
+    }
+
+    if knd == event_kind_tool_result() {
+        if krn.state.pending_tool == ev.source {
+            krn.state = core_state_clear_pending(krn.state);
+        }
+        krn = kernel_enqueue_action(krn, "agent", "tool_result", ev.source, ev.payload);
+        return krn;
+    }
+
+    if knd == event_kind_stream_delta() {
+        krn = kernel_enqueue_action(krn, "ui", "render_stream", "", ev.payload);
+        return krn;
+    }
+
+    if knd == event_kind_tick() {
+        krn = kernel_enqueue_action(krn, "ui", "render_tick", "", "");
+        return krn;
+    }
+
+    return krn;
+}
+
+// Check if there are pending actions
+pub fn kernel_has_actions(k: Kernel) -> Bool {
+    let total: Int = list_len(k.pending_actions);
+    return k.action_head < total;
+}
+
+// Poll the next pending action intent without consuming
+pub fn kernel_poll_action(k: Kernel) -> Result[ActionIntent, String] {
+    let total: Int = list_len(k.pending_actions);
+    if k.action_head >= total {
+        return Err("empty");
+    }
+    let act: ActionIntent = list_get(k.pending_actions, k.action_head);
+    return Ok(act);
+}
+
+// Consume the current pending action intent
+pub fn kernel_pop_action(k: Kernel) -> Kernel {
+    let mut krn: Kernel = k;
+    let total: Int = list_len(krn.pending_actions);
+    if krn.action_head >= total {
+        return krn;
+    }
+    krn.action_head = krn.action_head + 1;
+    if krn.action_head >= total {
+        krn.pending_actions = list_new();
+        krn.action_head = 0;
+    }
+    return krn;
+}
+
+// Kernel running state query
+pub fn kernel_is_running(k: Kernel) -> Bool {
+    if !k.running { return false; }
+    if core_state_is_exiting(k.state) { return false; }
+    return true;
+}
+
+// Kernel stop signal
+pub fn kernel_stop(k: Kernel) -> Kernel {
+    let mut krn: Kernel = k;
+    krn.running = false;
+    krn.state = core_state_request_exit(krn.state);
+    return krn;
+}
+
+// State accessors
+pub fn kernel_get_state(k: Kernel) -> CoreState { return k.state; }
+pub fn kernel_set_state(k: Kernel, st: CoreState) -> Kernel {
+    let mut krn: Kernel = k;
+    krn.state = st;
+    return krn;
+}

@@ -1,0 +1,19 @@
+// # slash/cmd_logout.oo - Logout Slash Command
+//
+// Logline: Clear active provider credentials, reset endpoint, and persist.
+//
+// Setup: Resets provider, key, and url in ReplState and updates config.oot.
+//
+// Beats:
+//   1. Clear provider credentials in ReplState.
+//   2. Persist cleared configuration to disk.
+//   3. Emit logout confirmation to session output.
+
+
+pub fn cmd_logout_run(st: ReplState, fw: &FsWriteCap, env: &EnvCap) -> ReplState {
+    let mut s: ReplState = st;
+    s.provider = "";
+    s.key = "";
+    s.url = "";
+    return slash_persist(slash_say(s, "logout"), fw, env);
+}

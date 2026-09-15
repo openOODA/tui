@@ -1,0 +1,44 @@
+// # core/anchor.oo - Micro-Kernel Core Re-Export Anchor
+//
+// Logline: Unified front-door hub re-exporting all micro-kernel types, state machine, event bus, and kernel loop.
+//
+// Setup: Re-exports ./types.oo, ./state.oo, ./event_bus.oo, ./kernel.oo for external consumers and plugins.
+//
+// Beats:
+//   1. Re-export child micro-kernel modules.
+//   2. Expose micro-kernel core version token.
+//   3. Bootstrap entrypoint: core_boot(cwd, preset, theme) initializing a ready Kernel.
+//   4. Self-test validation: core_self_check() validating event bus and kernel transitions.
+
+import "./types.oo";
+import "./state.oo";
+import "./event_bus.oo";
+import "./kernel.oo";
+
+// Version identifier for the micro-kernel subsystem
+pub fn core_version() -> String {
+    return "0.2.0";
+}
+
+// Bootstrap a ready micro-kernel instance
+pub fn core_boot(cwd: String, preset: String, theme: String) -> Kernel {
+    return kernel_init(cwd, preset, theme);
+}
+
+// In-process verification probe testing bus and kernel cycle
+pub fn core_self_check() -> Bool {
+    let mut krn: Kernel = kernel_init(".", "kernel", "1982");
+    if !kernel_is_running(krn) { return false; }
+    krn = kernel_post_line(krn, "/preset frontend", 100);
+    krn = kernel_step(krn);
+    let st: CoreState = kernel_get_state(krn);
+    if st.preset != "frontend" { return false; }
+    if !kernel_has_actions(krn) { return false; }
+    let ar: Result[ActionIntent, String] = kernel_poll_action(krn);
+    if ar.is_err() { return false; }
+    let act: ActionIntent = match ar { Ok(a) => a, Err(_) => return false; };
+    if act.target != "slash" || act.arg != "preset" { return false; }
+    krn = kernel_pop_action(krn);
+    if kernel_has_actions(krn) { return false; }
+    return true;
+}

@@ -1,0 +1,15 @@
+// # slash/cmd_tools.oo - Tools Slash Command
+//
+// Logline: Output table of available native sandboxed tools and active execution gate policy.
+//
+// Setup: Standalone slash command module reporting available tool catalog to ReplState.
+//
+// Beats:
+//   1. Enumerate available native sandboxed tools (read, write, bash, grep, glob, mcp).
+//   2. Output active permission gate policy (ask, allow, yolo) and configuration guidance.
+
+
+pub fn cmd_tools_run(s0: ReplState) -> ReplState {
+    let mut s: ReplState = slash_say(s0, "tools: read grep glob write bash mcp");
+    return slash_say(s, "  perm: " + s0.perm + "  mode: " + s0.mode + "  (/perm ask|allow|yolo  /mode build|plan)");
+}

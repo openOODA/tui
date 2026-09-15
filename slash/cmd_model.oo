@@ -1,0 +1,25 @@
+// # slash/cmd_model.oo - Model Slash Command
+//
+// Logline: Query or set LLM model identifier and optional provider prefix.
+//
+// Setup: Parses model arguments, switches provider if specified, and persists.
+//
+// Beats:
+//   1. Query active provider/model if args empty.
+//   2. Parse optional provider prefix delimited by colon (:).
+//   3. Apply provider and model settings to ReplState.
+//   4. Persist updated configuration to disk.
+
+
+pub fn cmd_model_run(st: ReplState, args: String, fw: &FsWriteCap, env: &EnvCap) -> ReplState {
+    if args == "" { return slash_say(st, "model: " + st.provider + "/" + st.model); }
+    let mut s: ReplState = st;
+    let c: Int = str_index_of(args, ":");
+    if c < 0 {
+        s.model = args;
+    } else {
+        s = slash_apply_provider(s, str_slice(args, 0, c));
+        s.model = str_slice(args, c + 1, chars_len(args));
+    }
+    return slash_persist(slash_say(s, "model: " + s.provider + "/" + s.model), fw, env);
+}

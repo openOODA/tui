@@ -1,0 +1,136 @@
+// # plugins/anchor.oo - Plugins Subsystem Re-Export Anchor
+//
+// Logline: Unified front-door hub re-exporting master plugin registry, types, and dispatchers.
+//
+// Setup: Re-exports ./registry.oo and exposes plugin subsystem version and self-test.
+//
+// Beats:
+//   1. Re-export child registry module.
+//   2. Expose plugin subsystem version token.
+//   3. Bootstrap helper initializing an empty or default-seeded Registry.
+//   4. Self-test validation verifying registration, query, and capability-gated dispatch.
+
+import "./registry.oo";
+
+pub fn plugins_version() -> String {
+    return "0.2.0";
+}
+
+pub fn plugins_boot() -> Registry {
+    return registry_init();
+}
+
+pub fn plugins_self_check() -> Bool {
+    let mut reg: Registry = registry_init();
+
+    // 1. Input plugin test
+    let inp: InputPlugin = InputPlugin {
+        name: "input_simple",
+        description: "Single-line readline prompt",
+        kind: "readline",
+        height: 1,
+        enabled: true
+    };
+    reg = registry_register_input(reg, inp);
+    if !registry_has_input(reg, "input_simple") { return false; }
+    if registry_has_input(reg, "non_existent") { return false; }
+
+    // 2. Indicator plugin test
+    let ind: IndicatorPlugin = IndicatorPlugin {
+        name: "indicator_dots",
+        description: "Minimal thinking dot",
+        style: "dot",
+        enabled: true
+    };
+    reg = registry_register_indicator(reg, ind);
+    if !registry_has_indicator(reg, "indicator_dots") { return false; }
+
+    // 3. Card plugin test
+    let crd: CardPlugin = CardPlugin {
+        name: "card_say",
+        description: "Markdown prose response card",
+        style: "prose",
+        enabled: true
+    };
+    reg = registry_register_card(reg, crd);
+    if !registry_has_card(reg, "card_say") { return false; }
+
+    // 4. Slash command test
+    let slh: SlashPlugin = SlashPlugin {
+        name: "help",
+        description: "Show available commands",
+        usage: "/help",
+        is_external: false,
+        script_path: "",
+        enabled: true
+    };
+    reg = registry_register_slash(reg, slh);
+    if !registry_has_slash(reg, "help") { return false; }
+    let dr_ok: Result[String, String] = registry_dispatch_slash(reg, "help", "");
+    if dr_ok.is_err() { return false; }
+    let dr_err: Result[String, String] = registry_dispatch_slash(reg, "unknown_cmd", "");
+    if dr_err.is_ok() { return false; }
+
+    // 5. Tool plugin test with capability gating
+    let tool_r: ToolPlugin = ToolPlugin {
+        name: "read",
+        description: "Safe file read tool",
+        needs_ask: false,
+        required_cap: "read",
+        is_external: false,
+        enabled: true
+    };
+    let tool_w: ToolPlugin = ToolPlugin {
+        name: "write",
+        description: "Safe file write tool",
+        needs_ask: true,
+        required_cap: "write",
+        is_external: false,
+        enabled: true
+    };
+    reg = registry_register_tool(reg, tool_r);
+    reg = registry_register_tool(reg, tool_w);
+
+    let caps_ro: ToolCaps = tool_caps_default(); // read only, write false
+    let r_read: Result[String, String] = registry_dispatch_tool(reg, "read", "foo.txt", caps_ro);
+    if r_read.is_err() { return false; }
+
+    // Writing under read-only caps MUST fail closed
+    let r_write_denied: Result[String, String] = registry_dispatch_tool(reg, "write", "foo.txt", caps_ro);
+    if r_write_denied.is_ok() { return false; }
+
+    // Writing under YOLO caps MUST pass
+    let caps_rw: ToolCaps = tool_caps_yolo();
+    let r_write_ok: Result[String, String] = registry_dispatch_tool(reg, "write", "foo.txt", caps_rw);
+    if r_write_ok.is_err() { return false; }
+
+    // 6. Net capability gate test
+    let tool_net: ToolPlugin = ToolPlugin {
+        name: "fetch",
+        description: "Network fetch tool",
+        needs_ask: false,
+        required_cap: "net",
+        is_external: false,
+        enabled: true
+    };
+    reg = registry_register_tool(reg, tool_net);
+    let r_net_denied: Result[String, String] = registry_dispatch_tool(reg, "fetch", "https://example.com", caps_ro);
+    if r_net_denied.is_ok() { return false; }
+    let r_net_ok: Result[String, String] = registry_dispatch_tool(reg, "fetch", "https://example.com", caps_rw);
+    if r_net_ok.is_err() { return false; }
+
+    // 7. Unknown capability fail-closed test
+    let tool_unknown: ToolPlugin = ToolPlugin {
+        name: "super_admin",
+        description: "Tool with invalid capability",
+        needs_ask: false,
+        required_cap: "admin_override",
+        is_external: false,
+        enabled: true
+    };
+    reg = registry_register_tool(reg, tool_unknown);
+    let r_unknown_denied: Result[String, String] = registry_dispatch_tool(reg, "super_admin", "", caps_rw);
+    if r_unknown_denied.is_ok() { return false; }
+
+    return true;
+}

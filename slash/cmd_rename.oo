@@ -1,0 +1,18 @@
+// # slash/cmd_rename.oo - Rename Slash Command
+//
+// Logline: Update the session identifier label for active TUI conversation.
+//
+// Setup: Inspects or sets ReplState.session name string.
+//
+// Beats:
+//   1. Prompt syntax if argument is empty.
+//   2. Mutate session identifier in ReplState.
+//   3. Emit confirmation to session output.
+
+
+pub fn cmd_rename_run(st: ReplState, args: String) -> ReplState {
+    if args == "" { return slash_say(st, "rename: /rename <name>"); }
+    let mut s: ReplState = st;
+    s.session = args;
+    return slash_say(s, "session: " + args);
+}

@@ -1,0 +1,29 @@
+// # tools/tool_glob.oo - Sanitized File Pattern Glob Tool
+//
+// Logline: Finds files by glob pattern under cwd with strict shell argument sanitization against breakout.
+//
+// Setup: Validates search pattern via sanitize_shell_arg before passing to find subprocess under ProcessCap.
+//
+// Beats:
+//   1. Sanitizes glob pattern via sanitize_shell_arg (rejects metacharacters, leading flags, empty).
+//   2. Fails closed immediately if pattern validation fails.
+//   3. Spawns find matching filenames within cwd boundary.
+//   4. Returns file paths clipped to 80 entries and 8000 characters.
+
+import "std/fs/process/process.oo";
+import "./path_guard.oo";
+import "./sanitize.oo";
+
+pub fn tool_glob(sys: &ProcessCap, cwd: String, pat: String) -> Result[String, String] {
+    let clean_res: Result[String, String] = sanitize_shell_arg(pat);
+    if clean_res.is_err() {
+        let err: String = match clean_res { Ok(_) => "", Err(e) => e };
+        return Err(err);
+    }
+    let clean: String = match clean_res { Ok(s) => s, Err(_) => "" };
+    let sh: String = "cd \"" + cwd + "\" && find . -name \"" + clean + "\" 2>/dev/null | head -n 80";
+    let r: Result[String, String] = process_exec(sys, sh);
+    let out: String = match r { Ok(s) => s, Err(m) => m };
+    if str_trim(out) == "" { return Ok("(none)"); }
+    return Ok(path_clip(out));
+}

@@ -1,0 +1,177 @@
+// # qa/probe_sanitize - Shell Injection Sanitization Negative Falsification Probe
+//
+// Logline: Verify hostile shell metacharacters in grep and glob arguments fail closed without execution.
+//
+// Setup: Imports tools/sanitize.oo and spawns canary commands under &ProcessCap to prove injection cannot execute.
+//
+// Beats:
+//   1. Assert canary file does not exist before probe.
+//   2. Probe semicolon, pipe, ampersand, dollar, backtick, redirection, newline, quotes, backslash, and flags.
+//   3. Assert canary file was never created across all hostile injections.
+//   4. Assert benign alphanumeric arguments pass sanitization.
+//   5. Enforce fail-closed double-run determinism (Run_1 == Run_2).
+
+import "std/fs/process/process.oo";
+import "tools/sanitize.oo";
+
+fn test_sanitize_run(sys: &ProcessCap) -> Result[Int, String] {
+    let mut pass: Int = 0;
+    let mut fail: Int = 0;
+    let canary: String = "/tmp/ooda_qa_sanitize_canary.tmp";
+
+    // Setup: Ensure canary does not exist
+    let _ = process_exec(sys, "rm -f " + canary);
+    let r_init: Result[String, String] = process_exec(sys, "test ! -f " + canary);
+    if r_init.is_err() {
+        return Err("qa/probe_sanitize: failed to initialize clean canary state");
+    }
+
+    // 1. Hostile Semicolon payload
+    let p1: String = "test ; touch " + canary + " ; #";
+    let r1: Result[String, String] = sanitize_shell_arg(p1);
+    if r1.is_err() { pass = pass + 1; println("PASS: semicolon payload rejected"); }
+    else { fail = fail + 1; println("FAIL: semicolon payload accepted"); let _ = process_exec(sys, "sh -c '" + p1 + "'"); }
+
+    // 2. Hostile Pipe payload
+    let p2: String = "test | touch " + canary;
+    let r2: Result[String, String] = sanitize_shell_arg(p2);
+    if r2.is_err() { pass = pass + 1; println("PASS: pipe payload rejected"); }
+    else { fail = fail + 1; println("FAIL: pipe payload accepted"); let _ = process_exec(sys, "sh -c '" + p2 + "'"); }
+
+    // 3. Hostile Ampersand payload
+    let p3: String = "test & touch " + canary + " &";
+    let r3: Result[String, String] = sanitize_shell_arg(p3);
+    if r3.is_err() { pass = pass + 1; println("PASS: ampersand payload rejected"); }
+    else { fail = fail + 1; println("FAIL: ampersand payload accepted"); let _ = process_exec(sys, "sh -c '" + p3 + "'"); }
+
+    // 4. Hostile Command Substitution $(cmd)
+    let p4: String = "test $(touch " + canary + ")";
+    let r4: Result[String, String] = sanitize_shell_arg(p4);
+    if r4.is_err() { pass = pass + 1; println("PASS: command substitution $() rejected"); }
+    else { fail = fail + 1; println("FAIL: command substitution $() accepted"); let _ = process_exec(sys, "sh -c '" + p4 + "'"); }
+
+    // 5. Hostile Backtick Command Substitution
+    let p5: String = "test `touch " + canary + "`";
+    let r5: Result[String, String] = sanitize_shell_arg(p5);
+    if r5.is_err() { pass = pass + 1; println("PASS: backtick substitution rejected"); }
+    else { fail = fail + 1; println("FAIL: backtick substitution accepted"); let _ = process_exec(sys, "sh -c '" + p5 + "'"); }
+
+    // 6. Hostile Redirection >
+    let p6: String = "test > " + canary;
+    let r6: Result[String, String] = sanitize_shell_arg(p6);
+    if r6.is_err() { pass = pass + 1; println("PASS: output redirection > rejected"); }
+    else { fail = fail + 1; println("FAIL: output redirection > accepted"); let _ = process_exec(sys, "sh -c '" + p6 + "'"); }
+
+    // 7. Hostile Redirection <
+    let p7: String = "test < " + canary;
+    let r7: Result[String, String] = sanitize_shell_arg(p7);
+    if r7.is_err() { pass = pass + 1; println("PASS: input redirection < rejected"); }
+    else { fail = fail + 1; println("FAIL: input redirection < accepted"); let _ = process_exec(sys, "sh -c '" + p7 + "'"); }
+
+    // 8. Hostile Newline payload
+    let p8: String = "test\ntouch " + canary;
+    let r8: Result[String, String] = sanitize_shell_arg(p8);
+    if r8.is_err() { pass = pass + 1; println("PASS: newline payload rejected"); }
+    else { fail = fail + 1; println("FAIL: newline payload accepted"); let _ = process_exec(sys, "sh -c '" + p8 + "'"); }
+
+    // 9. Hostile Carriage Return payload
+    let p9: String = "test\rtouch " + canary;
+    let r9: Result[String, String] = sanitize_shell_arg(p9);
+    if r9.is_err() { pass = pass + 1; println("PASS: carriage return payload rejected"); }
+    else { fail = fail + 1; println("FAIL: carriage return payload accepted"); let _ = process_exec(sys, "sh -c '" + p9 + "'"); }
+
+    // 10. Hostile Null Byte payload
+    let p10: String = "\0";
+    let r10: Result[String, String] = sanitize_shell_arg(p10);
+    if r10.is_err() { pass = pass + 1; println("PASS: null byte payload rejected"); }
+    else { fail = fail + 1; println("FAIL: null byte payload accepted"); }
+
+    // 11. Hostile Double Quote breakout
+    let p11: String = "test\" ; touch " + canary + " ; #";
+    let r11: Result[String, String] = sanitize_shell_arg(p11);
+    if r11.is_err() { pass = pass + 1; println("PASS: double quote breakout rejected"); }
+    else { fail = fail + 1; println("FAIL: double quote breakout accepted"); let _ = process_exec(sys, "sh -c '" + p11 + "'"); }
+
+    // 12. Hostile Single Quote breakout
+    let p12: String = "test' ; touch " + canary + " ; #";
+    let r12: Result[String, String] = sanitize_shell_arg(p12);
+    if r12.is_err() { pass = pass + 1; println("PASS: single quote breakout rejected"); }
+    else { fail = fail + 1; println("FAIL: single quote breakout accepted"); let _ = process_exec(sys, "sh -c '" + p12 + "'"); }
+
+    // 13. Hostile Backslash escape
+    let p13: String = "test\\; touch " + canary;
+    let r13: Result[String, String] = sanitize_shell_arg(p13);
+    if r13.is_err() { pass = pass + 1; println("PASS: backslash escape rejected"); }
+    else { fail = fail + 1; println("FAIL: backslash escape accepted"); let _ = process_exec(sys, "sh -c '" + p13 + "'"); }
+
+    // 14. Hostile Leading Dash flag injection
+    let p14: String = "--exclude-from=/etc/shadow";
+    let r14: Result[String, String] = sanitize_shell_arg(p14);
+    if r14.is_err() { pass = pass + 1; println("PASS: leading dash flag rejected"); }
+    else { fail = fail + 1; println("FAIL: leading dash flag accepted"); }
+
+    // 15. Hostile Single Dash short flag injection
+    let p15: String = "-exec touch " + canary + " ;";
+    let r15: Result[String, String] = sanitize_shell_arg(p15);
+    if r15.is_err() { pass = pass + 1; println("PASS: leading single dash flag rejected"); }
+    else { fail = fail + 1; println("FAIL: leading single dash flag accepted"); }
+
+    // 16. Negative Falsification Invariant: Canary must NOT exist on disk
+    let r_canary: Result[String, String] = process_exec(sys, "test -f " + canary);
+    if r_canary.is_ok() {
+        fail = fail + 1;
+        println("FAIL: CRITICAL: canary was created on disk! Shell injection succeeded!");
+        let _ = process_exec(sys, "rm -f " + canary);
+    } else {
+        pass = pass + 1;
+        println("PASS: canary file strictly absent on disk (zero injection execution)");
+    }
+
+    // 17. Anti-Vacuity Positive Validation: Benign alphanumeric identifier
+    let p_ident: String = "struct_CoreState_event_bus";
+    let r_good: Result[String, String] = sanitize_shell_arg(p_ident);
+    if r_good.is_ok() { pass = pass + 1; println("PASS: benign alphanumeric identifier accepted"); }
+    else { fail = fail + 1; println("FAIL: benign identifier rejected falsely"); }
+
+    // 18. Anti-Vacuity Positive Validation: Benign alphanumeric with digits
+    let p_ident2: String = "valid_tool_arg_123";
+    let r_good2: Result[String, String] = sanitize_shell_arg(p_ident2);
+    if r_good2.is_ok() { pass = pass + 1; println("PASS: benign alphanumeric with digits accepted"); }
+    else { fail = fail + 1; println("FAIL: benign alphanumeric with digits rejected"); }
+
+    println("qa/probe_sanitize: pass=" + int_to_str(pass) + " fail=" + int_to_str(fail));
+    if fail > 0 { return Err("qa/probe_sanitize: failures detected"); }
+    return Ok(0);
+}
+
+pub fn main(bind: &BindCap, fs_r: &FsReadCap, fs_w: &FsWriteCap, sys: &ProcessCap, sys_cap: &SysCap, env: &EnvCap, time: &TimeCap, alloc: &AllocCap, thread: &ThreadCap, args: List[String]) -> Result[Int, String] {
+    println("qa/probe_sanitize: starting security sanitization negative probe");
+
+    // Double-run verification: Run_1 == Run_2
+    let run1: Result[Int, String] = test_sanitize_run(sys);
+    if run1.is_err() { return run1; }
+    let run2: Result[Int, String] = test_sanitize_run(sys);
+    if run2.is_err() { return run2; }
+
+    println("qa/probe_sanitize: PASS (Double-Run verified)");
+    return Ok(0);
+}
+
+fn int_to_str(n: Int) -> String {
+    if n <= 0 { return "0"; }
+    let digits: String = "0123456789";
+    let mut v: Int = n;
+    let mut rev: String = "";
+    while v > 0 {
+        let d: Int = v - (v / 10) * 10;
+        rev = rev + char_at(digits, d);
+        v = v / 10;
+    }
+    let mut out: String = "";
+    let mut k: Int = chars_len(rev) - 1;
+    while k >= 0 {
+        out = out + char_at(rev, k);
+        k = k - 1;
+    }
+    return out;
+}

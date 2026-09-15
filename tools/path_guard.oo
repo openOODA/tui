@@ -1,0 +1,57 @@
+// # tools/path_guard.oo - Filesystem Path Sandboxing & Output Clipping
+//
+// Logline: Enforces cwd containment, prevents directory traversal attacks, and clips tool output to 8000 characters.
+//
+// Setup: Pure path validation logic under cwd boundary; rejects parent directory references and absolute paths.
+//
+// Beats:
+//   1. has_dotdot(rel) detects any parent traversal "../", "/..", "/../", or "..".
+//   2. tool_join(cwd, rel) and path_guard_join normalize and lock paths under cwd.
+//   3. clip(s) and path_clip bound output string length to 8000 characters.
+//   4. count_nl(s) counts newline occurrences for line accounting.
+
+pub fn has_dotdot(rel: String) -> Bool {
+    if rel == ".." { return true; }
+    if str_starts_with(rel, "../") { return true; }
+    let n: Int = chars_len(rel);
+    let mut i: Int = 0;
+    while i + 3 < n {
+        if str_slice(rel, i, i + 4) == "/../" { return true; }
+        i = i + 1;
+    }
+    if n >= 3 && str_slice(rel, n - 3, n) == "/.." { return true; }
+    return false;
+}
+
+pub fn tool_join(cwd: String, rel0: String) -> Result[String, String] {
+    let rel: String = str_trim(rel0);
+    if rel == "" { return Err("empty path"); }
+    if str_starts_with(rel, "/") { return Err("absolute path denied"); }
+    if has_dotdot(rel) { return Err(".. denied"); }
+    if cwd == "" || cwd == "." { return Ok(rel); }
+    return Ok(cwd + "/" + rel);
+}
+
+pub fn path_guard_join(cwd: String, rel0: String) -> Result[String, String] {
+    return tool_join(cwd, rel0);
+}
+
+pub fn clip(s: String) -> String {
+    if chars_len(s) <= 8000 { return s; }
+    return str_slice(s, 0, 8000) + "\n... truncated";
+}
+
+pub fn path_clip(s: String) -> String {
+    return clip(s);
+}
+
+pub fn count_nl(s: String) -> Int {
+    let n: Int = chars_len(s);
+    let mut c: Int = 1;
+    let mut i: Int = 0;
+    while i < n {
+        if char_at(s, i) == "\n" { c = c + 1; }
+        i = i + 1;
+    }
+    return c;
+}

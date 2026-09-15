@@ -1,0 +1,240 @@
+// # ui/input/input_compose.oo - Multi-Line Compose Box Input Plugin
+//
+// Logline: Multi-line prompt compose editor with line wrap, history navigation, submit/cancel bindings, and boxed chrome.
+//
+// Setup: Pure UI input component. Conforms to micro-kernel event model and plugins/registry.oo InputPlugin specification.
+//
+// Beats:
+//   1. ComposeState record: buffer, history, draft, ask mode, submitted/cancelled status.
+//   2. Line wrapping algorithm wrapping lines at column boundaries with boundary padding.
+//   3. History navigation (prev/next) with draft preservation.
+//   4. Key and action dispatching (Enter submits, Esc cancels, Alt+Enter/newline breaks, Backspace deletes).
+//   5. Boxed SGR ANSI frame rendering: top rule, hint row, text rows, cursor row, and dynamic height calculation.
+
+import "theme.oo";
+
+pub type ComposeState = struct {
+    buffer: String,
+    history: List[String],
+    history_idx: Int,
+    draft: String,
+    is_ask: Bool,
+    submitted: Bool,
+    cancelled: Bool
+};
+
+pub fn compose_new() -> ComposeState {
+    let hist: List[String] = list_new();
+    return ComposeState { buffer: "", history: hist, history_idx: -1, draft: "", is_ask: false, submitted: false, cancelled: false };
+}
+
+pub fn compose_set_ask(st: ComposeState, ask: Bool) -> ComposeState {
+    let mut s: ComposeState = st;
+    s.is_ask = ask;
+    return s;
+}
+
+pub fn compose_push_char(st: ComposeState, ch: String) -> ComposeState {
+    let mut s: ComposeState = st;
+    s.buffer = s.buffer + ch;
+    s.submitted = false;
+    s.cancelled = false;
+    return s;
+}
+
+pub fn compose_push_newline(st: ComposeState) -> ComposeState {
+    let mut s: ComposeState = st;
+    s.buffer = s.buffer + "\n";
+    s.submitted = false;
+    return s;
+}
+
+pub fn compose_backspace(st: ComposeState) -> ComposeState {
+    let mut s: ComposeState = st;
+    let n: Int = chars_len(s.buffer);
+    if n > 0 { s.buffer = str_slice(s.buffer, 0, n - 1); }
+    return s;
+}
+
+pub fn compose_clear(st: ComposeState) -> ComposeState {
+    let mut s: ComposeState = st;
+    s.buffer = "";
+    s.submitted = false;
+    s.cancelled = false;
+    return s;
+}
+
+pub fn compose_submit(st: ComposeState) -> ComposeState {
+    let mut s: ComposeState = st;
+    s.submitted = true;
+    s.cancelled = false;
+    return s;
+}
+
+pub fn compose_cancel(st: ComposeState) -> ComposeState {
+    let mut s: ComposeState = st;
+    s.buffer = "";
+    s.submitted = false;
+    s.cancelled = true;
+    return s;
+}
+
+pub fn compose_history_add(st: ComposeState, item: String) -> ComposeState {
+    let mut s: ComposeState = st;
+    if item != "" { s.history = list_push(s.history, item); }
+    s.history_idx = -1;
+    s.draft = "";
+    return s;
+}
+
+pub fn compose_history_prev(st: ComposeState) -> ComposeState {
+    let mut s: ComposeState = st;
+    let total: Int = list_len(s.history);
+    if total == 0 { return s; }
+    if s.history_idx == -1 {
+        s.draft = s.buffer;
+        s.history_idx = total - 1;
+        s.buffer = list_get(s.history, s.history_idx);
+    } else if s.history_idx > 0 {
+        s.history_idx = s.history_idx - 1;
+        s.buffer = list_get(s.history, s.history_idx);
+    }
+    return s;
+}
+
+pub fn compose_history_next(st: ComposeState) -> ComposeState {
+    let mut s: ComposeState = st;
+    let total: Int = list_len(s.history);
+    if total == 0 || s.history_idx == -1 { return s; }
+    if s.history_idx < total - 1 {
+        s.history_idx = s.history_idx + 1;
+        s.buffer = list_get(s.history, s.history_idx);
+    } else {
+        s.history_idx = -1;
+        s.buffer = s.draft;
+        s.draft = "";
+    }
+    return s;
+}
+
+pub fn compose_handle_key(st: ComposeState, key: String) -> ComposeState {
+    if key == "enter" || key == "<enter>" { return compose_submit(st); }
+    if key == "esc" || key == "<esc>" || key == "ctrl_c" { return compose_cancel(st); }
+    if key == "up" || key == "<up>" { return compose_history_prev(st); }
+    if key == "down" || key == "<down>" { return compose_history_next(st); }
+    if key == "backspace" || key == "<backspace>" { return compose_backspace(st); }
+    if key == "newline" || key == "alt_enter" { return compose_push_newline(st); }
+    return st;
+}
+
+fn compose_dashes(n: Int) -> String {
+    let mut s: String = "";
+    let mut i: Int = 0;
+    while i < n { s = s + "-"; i = i + 1; }
+    return s;
+}
+
+fn compose_pad_r(s: String, w: Int) -> String {
+    let mut out: String = s;
+    while chars_len(out) < w { out = out + " "; }
+    if chars_len(out) > w { return str_slice(out, 0, w); }
+    return out;
+}
+
+pub fn compose_wrap(text: String, max_w: Int) -> List[String] {
+    let mut out: List[String] = list_new();
+    let mut w: Int = max_w;
+    if w < 10 { w = 10; }
+    let n: Int = chars_len(text);
+    if n == 0 { return list_push(out, ""); }
+    let mut cur: String = "";
+    let mut i: Int = 0;
+    while i < n {
+        let c: String = char_at(text, i);
+        if c == "\n" {
+            out = list_push(out, cur);
+            cur = "";
+        } else if c != "\r" {
+            if chars_len(cur) >= w {
+                out = list_push(out, cur);
+                cur = c;
+            } else {
+                cur = cur + c;
+            }
+        }
+        i = i + 1;
+    }
+    out = list_push(out, cur);
+    return out;
+}
+
+pub fn compose_render(st: ComposeState, theme: String, color: Bool, cols: Int) -> String {
+    let accent: String = theme_color(theme, "accent");
+    let muted: String = theme_color(theme, "muted");
+    let err: String = theme_color(theme, "error");
+    let text_col: String = theme_color(theme, "text");
+
+    let mut title: String = "compose";
+    let mut hint: String = " enter sends · alt+enter newline · /help · /exit";
+    let mut edge: String = accent;
+    if st.is_ask {
+        title = "APPROVE";
+        hint = " y yes · n no · a always · d deny";
+        edge = err;
+    }
+
+    let mut w: Int = cols;
+    if w < 28 { w = 28; }
+    let inner_w: Int = w - 4;
+
+    // Top rule
+    let t_str: String = " " + title + " ";
+    let mut dash_total: Int = w - 2 - chars_len(t_str);
+    if dash_total < 2 { dash_total = 2; }
+    let left_dash: Int = dash_total / 2;
+    let right_dash: Int = dash_total - left_dash;
+    let top: String = "+" + compose_dashes(left_dash) + t_str + compose_dashes(right_dash) + "+";
+    let hint_line: String = "| " + compose_pad_r(hint, inner_w) + " |";
+
+    let mut s: String = ansi_fg(color, edge) + top + ansi_reset(color) + "\n";
+    s = s + ansi_fg(color, muted) + hint_line + ansi_reset(color) + "\n";
+
+    // Wrap buffer lines
+    let lines: List[String] = compose_wrap(st.buffer, inner_w);
+    let n_lines: Int = list_len(lines);
+    let mut i: Int = 0;
+    while i < n_lines - 1 {
+        let l: String = list_get(lines, i);
+        let row: String = "| " + compose_pad_r(l, inner_w) + " |";
+        s = s + ansi_fg(color, text_col) + row + ansi_reset(color) + "\n";
+        i = i + 1;
+    }
+
+    let last_l: String = if n_lines > 0 { list_get(lines, n_lines - 1) } else { "" };
+    s = s + ansi_fg(color, edge) + "| > " + ansi_reset(color) + ansi_fg(color, text_col) + last_l + ansi_reset(color);
+    return s;
+}
+
+pub fn compose_height(st: ComposeState, cols: Int) -> Int {
+    let mut w: Int = cols;
+    if w < 28 { w = 28; }
+    let inner_w: Int = w - 4;
+    let lines: List[String] = compose_wrap(st.buffer, inner_w);
+    let n: Int = list_len(lines);
+    let h: Int = 2 + n;
+    if h > 8 { return 8; }
+    return h;
+}
+
+pub fn compose_get_submission(st: ComposeState) -> String {
+    return st.buffer;
+}
+
+pub fn compose_consume(st: ComposeState) -> ComposeState {
+    let mut s: ComposeState = st;
+    s = compose_history_add(s, s.buffer);
+    s.buffer = "";
+    s.submitted = false;
+    s.cancelled = false;
+    return s;
+}

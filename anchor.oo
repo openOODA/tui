@@ -5,7 +5,7 @@
 // Setup: Pure structural file. api_surface=2 (root + token subdir).
 //
 // Beats:
-//   1. The 17 in-process .oo modules at the repo root (main.oo, app.oo, mcp_client.oo, lsp_client.oo, llm.oo, llm_anthropic.oo, llm_openai.oo, llm_ollama.oo, llm_google.oo, llm_custom.oo, loop.oo, teamwork.oo, slash.oo, slash_extra.oo, config.oo, session.oo, compact.oo, plan.oo, theme.oo, btw.oo, keys.oo).
+//   1. Decoupled micro-kernel core/ and master plugins/ subsystems alongside root modules (main.oo, repl.oo, llm_exec.oo, config_io.oo).
 //   2. token/ holds the 13 cmd_*.oo files moved from ooda/token/ per rules.oot 1.14 split (Phase 5).
 //   3. themes/ holds the default theme (1982.oo) and any future themes.
 //   4. qa/ has the hostile probes and double-run tests.
@@ -22,6 +22,9 @@ import "docs/anchor.oo";
 import "qa/anchor.oo";
 import "audit/anchor.oo";
 import "examples/anchor.oo";
+import "core/anchor.oo";
+import "plugins/anchor.oo";
+import "tools/anchor.oo";
 
 import "version.oo";
 

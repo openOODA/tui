@@ -1,0 +1,147 @@
+// # ui/cards/card_say.oo - Assistant Markdown Message Card
+//
+// Logline: Formatted assistant message card rendering markdown headings, lists, blockquotes, and code blocks.
+//
+// Setup: Imports theme.oo, core/types.oo, and plugins/registry.oo with rich container and bubble layouts.
+//
+// Beats:
+//   1. Markdown block parsing for headings (#, ##, ###), blockquotes (>), and bullet lists (-, *).
+//   2. Fenced code block renderer with border framing and syntax keyword coloring.
+//   3. Assistant message card framing with role pill badge and conversational bubble indentation.
+//   4. MessageEnvelope and Event adapters for conversational history and stream delta rendering.
+//   5. CardPlugin descriptor constructor for registry integration.
+
+import "theme.oo";
+import "core/types.oo";
+import "plugins/registry.oo";
+
+pub fn card_say_plugin() -> CardPlugin {
+    return CardPlugin {
+        name: "card_say",
+        description: "Assistant markdown message card with code blocks",
+        style: "prose",
+        enabled: true
+    };
+}
+
+pub fn card_say_line(line: String) -> String {
+    return "     " + line;
+}
+
+pub fn card_you_line(line: String) -> String {
+    return "  >  " + line;
+}
+
+fn split_lines(s: String) -> List[String] {
+    let mut out: List[String] = list_new();
+    let mut cur: String = "";
+    let len: Int = chars_len(s);
+    let mut i: Int = 0;
+    while i < len {
+        let c: String = char_at(s, i);
+        if c == "\n" {
+            out = list_push(out, cur);
+            cur = "";
+        } else if c == "\r" {
+            // skip carriage return
+        } else {
+            cur = cur + c;
+        }
+        i = i + 1;
+    }
+    if cur != "" || len == 0 { out = list_push(out, cur); }
+    return out;
+}
+
+pub fn card_say_markdown(theme: String, text: String, color: Bool) -> String {
+    let head_t: String = theme_color(theme, "mdHeading");
+    let codeblock_t: String = theme_color(theme, "mdCodeBlock");
+    let codeborder_t: String = theme_color(theme, "mdCodeBlockBorder");
+    let list_t: String = theme_color(theme, "mdListBullet");
+    let muted_t: String = theme_color(theme, "muted");
+    let text_t: String = theme_color(theme, "text");
+    let dim_t: String = theme_color(theme, "dim");
+
+    let mut out: String = "";
+    let mut in_code: Bool = false;
+    let lines: List[String] = split_lines(text);
+    let n: Int = list_len(lines);
+    let mut i: Int = 0;
+    while i < n {
+        let line: String = list_get(lines, i);
+        let mut rendered: String = "";
+
+        if str_starts_with(line, "```") {
+            if in_code {
+                rendered = ansi_fg(color, codeborder_t) + "└─ end ───────────────────────┘" + ansi_reset(color);
+                in_code = false;
+            } else {
+                rendered = ansi_fg(color, codeborder_t) + "┌─ code ──────────────────────┐" + ansi_reset(color);
+                in_code = true;
+            }
+        } else if in_code {
+            rendered = ansi_fg(color, codeborder_t) + "│ " + ansi_reset(color) + ansi_fg(color, codeblock_t) + line + ansi_reset(color);
+        } else if str_starts_with(line, "### ") {
+            let rest: String = str_slice(line, 4, chars_len(line));
+            rendered = ansi_fg(color, head_t) + "### " + ansi_reset(color) + ansi_fg(color, text_t) + rest + ansi_reset(color);
+        } else if str_starts_with(line, "## ") {
+            let rest: String = str_slice(line, 3, chars_len(line));
+            rendered = ansi_fg(color, head_t) + "## " + ansi_reset(color) + ansi_bold(color) + ansi_fg(color, text_t) + rest + ansi_reset(color);
+        } else if str_starts_with(line, "# ") {
+            let rest: String = str_slice(line, 2, chars_len(line));
+            rendered = ansi_fg(color, head_t) + "# " + ansi_reset(color) + ansi_bold(color) + ansi_fg(color, text_t) + rest + ansi_reset(color);
+        } else if str_starts_with(line, "> ") {
+            let rest: String = str_slice(line, 2, chars_len(line));
+            rendered = ansi_fg(color, dim_t) + "│ " + ansi_reset(color) + ansi_fg(color, muted_t) + rest + ansi_reset(color);
+        } else if str_starts_with(line, "- ") || str_starts_with(line, "* ") {
+            let rest: String = str_slice(line, 2, chars_len(line));
+            rendered = ansi_fg(color, list_t) + "• " + ansi_reset(color) + ansi_fg(color, text_t) + rest + ansi_reset(color);
+        } else if line == "" {
+            rendered = "";
+        } else {
+            rendered = ansi_fg(color, text_t) + line + ansi_reset(color);
+        }
+
+        out = out + "     " + rendered + "\n";
+        i = i + 1;
+    }
+    if in_code {
+        out = out + "     " + ansi_fg(color, codeborder_t) + "└─ end ───────────────────────┘" + ansi_reset(color) + "\n";
+    }
+    return out;
+}
+
+pub fn card_say_card(theme: String, role: String, text: String, color: Bool) -> String {
+    let acc: String = theme_color(theme, "accent");
+    let border: String = theme_color(theme, "borderMuted");
+    let mut s: String = "";
+    let header_line: String = "┌─ [ " + role + " ] ─────────────────────────┐\n";
+    s = s + ansi_fg(color, acc) + header_line + ansi_reset(color);
+    s = s + card_say_markdown(theme, text, color);
+    s = s + ansi_fg(color, border) + "└──────────────────────────────────────┘\n" + ansi_reset(color);
+    return s;
+}
+
+pub fn card_say_envelope(theme: String, msg: MessageEnvelope, color: Bool) -> String {
+    if msg.role == "user" {
+        return card_you_line(msg.content) + "\n";
+    }
+    if msg.role == "assistant" {
+        return card_say_markdown(theme, msg.content, color);
+    }
+    let muted: String = theme_color(theme, "muted");
+    return "  " + ansi_fg(color, muted) + "[" + msg.role + "] " + msg.content + ansi_reset(color) + "\n";
+}
+
+pub fn card_say_from_event(theme: String, ev: Event, color: Bool) -> String {
+    let role: String = if ev.source != "" { ev.source } else { "Assistant" };
+    return card_say_markdown(theme, ev.payload, color);
+}
+
+pub fn types_card_say(msg: MessageEnvelope) -> Bool {
+    return msg.role != "";
+}
+
+pub fn registry_card_say() -> CardPlugin {
+    return card_say_plugin();
+}

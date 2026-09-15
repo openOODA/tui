@@ -15,17 +15,32 @@ fn main(bind: &BindCap, fs_r: &FsReadCap, fs_w: &FsWriteCap, sys: &ProcessCap, s
     println("qa/mcp_handshake: starting MCP probe");
     let mut pass: Int = 0;
     let mut fail: Int = 0;
-    let codex: String = "/tmp/openOODA/northstar.oot";
+    let cr: Result[String, String] = env_get(env, "OODACODEX");
+    let mut codex: String = match cr { Ok(s) => s, Err(_) => "" };
+    if codex == "" {
+        let hr: Result[String, String] = env_get(env, "HOME");
+        let home: String = match hr { Ok(s) => s, Err(_) => "" };
+        if home != "" { codex = home + "/.openooda/northstar.oot"; }
+    }
+    if codex == "" { codex = "/home/jeryd/.openooda/northstar.oot"; }
     let cwd: String = "/tmp";
-    let compiler: String = "/usr/local/bin/oodac";
+    let compiler_res: Result[String, String] = env_get(env, "OODA_COMPILER");
+    let mut compiler: String = match compiler_res { Ok(s) => s, Err(_) => "" };
+    if compiler == "" { compiler = "/usr/local/bin/oodac"; }
     let mcp: McpClient = mcp_new(codex, cwd, compiler);
-    let r1: Result[String, String] = mcp_init(mcp, sys);
-    if r1.is_ok() { pass = pass + 1; println("PASS: mcp_init envelope built"); }
-    else { fail = fail + 1; println("FAIL: mcp_init: " + match r1 { Ok(_) => "", Err(e) => e }); }
-    let r2: Result<String, String> = mcp_list_tools(mcp, sys);
+    let r1: Result[String, String] = mcp_init(mcp, fs_w, sys);
+    if r1.is_ok() {
+        pass = pass + 1;
+        println("PASS: mcp_init envelope built");
+    } else {
+        fail = fail + 1;
+        let e1: String = match r1 { Ok(_) => "", Err(e) => e };
+        println("FAIL: mcp_init: " + e1);
+    }
+    let r2: Result[String, String] = mcp_list_tools(mcp, fs_w, sys);
     if r2.is_ok() { pass = pass + 1; println("PASS: mcp_list_tools envelope built"); }
     else { fail = fail + 1; println("FAIL: mcp_list_tools"); }
-    let r3: Result<String, String] = mcp_call_tool(mcp, sys, "test_tool", "{\"arg\":\"value\"}");
+    let r3: Result[String, String] = mcp_call_tool(mcp, fs_w, sys, "test_tool", "{\"arg\":\"value\"}");
     if r3.is_ok() { pass = pass + 1; println("PASS: mcp_call_tool envelope built"); }
     else { fail = fail + 1; println("FAIL: mcp_call_tool"); }
     let _ = mcp_close(mcp);

@@ -14,5 +14,9 @@
 //   7. multi_provider.oo - connect N providers, health check.
 //   8. probe_teamwork.oo - spawn 4 mock agents, dashboard updates, proofs aggregate.
 //   9. smoke.oo - end-to-end TUI launch, login, ask, exit.
+//   10. probe_preset.oo - workflow presets (kernel, frontend, audit, zen) and fail-closed flags.
+//   11. probe_sanitize.oo - shell metacharacters injection negative falsification.
+//   12. probe_slash_dynamic.oo - dynamic external slash script fallback in plugins dir.
+//   13. probe_temp_perm.oo - temporary file mode 0600 validation on credential headers.
 
 // residual: probes are spawned as separate ooda-tui builds via CI. They share no source with the main binary.

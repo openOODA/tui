@@ -6,8 +6,8 @@
 //
 // Beats:
 //   1. Normalize muse/minimax/mistral (OpenAI-shape) vs anthropic/ollama/google.
-//   2. Write body + header files; curl -H @hdr --data-binary @body.
-//   3. Pull assistant text from "text" then "content".
+//   2. Write body + header files with mode 0600; curl -H @hdr --data-binary @body.
+//   3. Pull assistant text from "text" then "content" and deterministic cleanup.
 
 import "std/fs/process/process.oo";
 import "std/fs/file/file_writer.oo";
@@ -109,6 +109,54 @@ fn extract_json_string(raw: String, key: String) -> String {
     return "";
 }
 
+pub fn validate_octal_perm(perm: String) -> Result[Int, String] {
+    let len: Int = chars_len(perm);
+    let mut clean: String = "";
+    let mut i: Int = 0;
+    while i < len {
+        let c: String = char_at(perm, i);
+        if c != "\n" {
+            if c != "\r" {
+                if c != " " {
+                    clean = clean + c;
+                }
+            }
+        }
+        i = i + 1;
+    }
+    if clean == "600" { return Ok(0); }
+    if clean == "400" { return Ok(0); }
+    return Err("SECURITY: temporary credential file has unsafe permissions: " + clean);
+}
+
+pub fn write_secure_temp_file(sys: &ProcessCap, fw: &FsWriteCap, path: String, content: String) -> Result[Int, String] {
+    let r_sym: Result[String, String] = process_exec(sys, "test -L " + path);
+    if r_sym.is_ok() {
+        return Err("SECURITY: symlink trap detected at " + path);
+    }
+    let _r_rm: Result[String, String] = process_exec(sys, "rm -f " + path);
+    let r_touch: Result[String, String] = process_exec(sys, "(umask 077 && touch " + path + ") && chmod 600 " + path);
+    if r_touch.is_err() {
+        return Err("SECURITY: failed to create 0600 file: " + path);
+    }
+    let r_stat: Result[String, String] = process_exec(sys, "stat -c %a " + path);
+    let stat_out: String = match r_stat { Ok(s) => s, Err(_) => "" };
+    let perm_chk: Result[Int, String] = validate_octal_perm(stat_out);
+    if perm_chk.is_err() {
+        let _r_del: Result[String, String] = process_exec(sys, "rm -f " + path);
+        let err_msg: String = match perm_chk { Ok(_) => "", Err(m) => m };
+        return Err(err_msg);
+    }
+    let w: FileWriter = file_writer_open(fw, path, false);
+    let wr: Result[FileWriter, String] = file_writer_write(fw, w, content);
+    if wr.is_err() {
+        let _r_del2: Result[String, String] = process_exec(sys, "rm -f " + path);
+        return Err("write failed: " + path);
+    }
+    let _r_ch: Result[String, String] = process_exec(sys, "chmod 600 " + path);
+    return Ok(0);
+}
+
 pub fn llm_complete_exec(sys: &ProcessCap, fw: &FsWriteCap, ptype0: String, key: String, model0: String, url0: String, prompt: String) -> Result[String, String] {
     let ptype: String = provider_norm(ptype0);
     if ptype != "ollama" && key == "" { return Err("no api key — /login " + ptype + " <key>"); }
@@ -124,14 +172,26 @@ pub fn llm_complete_exec(sys: &ProcessCap, fw: &FsWriteCap, ptype0: String, key:
     let body: String = build_body(ptype, model, prompt);
     let tmp: String = "/tmp/ooda-tui-llm.json";
     let hdr: String = "/tmp/ooda-tui-llm.hdr";
-    let w: FileWriter = file_writer_open(fw, tmp, false);
-    let wr: Result[FileWriter, String] = file_writer_write(fw, w, body);
-    if wr.is_err() { return Err("write llm body"); }
-    let hw: FileWriter = file_writer_open(fw, hdr, false);
-    let hr: Result[FileWriter, String] = file_writer_write(fw, hw, hdr_body(ptype, key));
-    if hr.is_err() { return Err("write llm headers"); }
+
+    let w_body: Result[Int, String] = write_secure_temp_file(sys, fw, tmp, body);
+    if w_body.is_err() {
+        let _c0: Result[String, String] = process_exec(sys, "rm -f " + tmp + " " + hdr);
+        let e_b: String = match w_body { Ok(_) => "", Err(m) => m };
+        return Err("write llm body: " + e_b);
+    }
+
+    let w_hdr: Result[Int, String] = write_secure_temp_file(sys, fw, hdr, hdr_body(ptype, key));
+    if w_hdr.is_err() {
+        let _c1: Result[String, String] = process_exec(sys, "rm -f " + tmp + " " + hdr);
+        let e_h: String = match w_hdr { Ok(_) => "", Err(m) => m };
+        return Err("write llm headers: " + e_h);
+    }
+
     let cmd: String = "curl -sS --fail -m 60 -X POST " + url + " -H @" + hdr + " --data-binary @" + tmp;
     let r: Result[String, String] = process_exec(sys, cmd);
+
+    let _r_clean: Result[String, String] = process_exec(sys, "rm -f " + hdr + " " + tmp);
+
     if r.is_err() {
         let e: String = match r { Ok(_) => "", Err(m) => m };
         return Err("curl: " + e);

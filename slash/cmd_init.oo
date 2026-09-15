@@ -1,0 +1,15 @@
+// # slash/cmd_init.oo - Init Slash Command
+//
+// Logline: Bootstrap AGENTS.md briefing document in the current working directory.
+//
+// Setup: Invokes agents_init from agents_md.oo using filesystem capabilities.
+//
+// Beats:
+//   1. Execute agents_init in ReplState.cwd.
+//   2. Append initialization status to ReplState output.
+
+import "agents_md.oo";
+
+pub fn cmd_init_run(st: ReplState, fw: &FsWriteCap, fs_r: &FsReadCap) -> ReplState {
+    return slash_say(st, agents_init(fw, fs_r, st.cwd));
+}

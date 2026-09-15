@@ -1,0 +1,14 @@
+// # slash/cmd_version.oo - Version Slash Command
+//
+// Logline: Emit ooda-tui binary version string into session output.
+//
+// Setup: Standalone slash command module reporting active version.
+//
+// Beats:
+//   1. Receive runtime version token.
+//   2. Format and append version banner to ReplState output.
+
+
+pub fn cmd_version_run(st: ReplState, ver: String) -> ReplState {
+    return slash_say(st, "ooda-tui " + ver);
+}

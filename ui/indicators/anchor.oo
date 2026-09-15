@@ -1,0 +1,122 @@
+// # ui/indicators/anchor.oo - Thinking & Telemetry Indicators Subsystem Hub
+//
+// Logline: Unified front-door re-exporting progress bar, streaming throughput, telemetry, and Braille dots indicators.
+//
+// Setup: Imports ./indicator_bar.oo, ./indicator_stream.oo, ./indicator_telemetry.oo, ./indicator_dots.oo, and plugins/registry.oo.
+//
+// Beats:
+//   1. Re-exports for bar, stream, telemetry, and dots indicator modules.
+//   2. Indicator specification factories conforming to plugins/registry.oo IndicatorPlugin.
+//   3. Unified facade dispatchers for indicator rendering and height query.
+//   4. Indicator plugin discovery and resolution helpers.
+//   5. Self-test validation verifying all 4 indicator components and styling contracts.
+
+import "./indicator_bar.oo";
+import "./indicator_stream.oo";
+import "./indicator_telemetry.oo";
+import "./indicator_dots.oo";
+import "plugins/registry.oo";
+
+pub fn indicator_plugin_bar() -> IndicatorPlugin {
+    return IndicatorPlugin {
+        name: "indicator_bar",
+        description: "Progress bar with percentage and step display",
+        style: "bar",
+        enabled: true
+    };
+}
+
+pub fn indicator_plugin_stream() -> IndicatorPlugin {
+    return IndicatorPlugin {
+        name: "indicator_stream",
+        description: "Live token throughput and streaming pulse indicator",
+        style: "stream",
+        enabled: true
+    };
+}
+
+pub fn indicator_plugin_telemetry() -> IndicatorPlugin {
+    return IndicatorPlugin {
+        name: "indicator_telemetry",
+        description: "Context window token gauge and latency tracker",
+        style: "telemetry",
+        enabled: true
+    };
+}
+
+pub fn indicator_plugin_dots() -> IndicatorPlugin {
+    return IndicatorPlugin {
+        name: "indicator_dots",
+        description: "Braille spinner animated thinking dots",
+        style: "dots",
+        enabled: true
+    };
+}
+
+pub fn indicator_plugin_list() -> List[String] {
+    let mut out: List[String] = list_new();
+    out = list_push(out, "indicator_bar");
+    out = list_push(out, "indicator_stream");
+    out = list_push(out, "indicator_telemetry");
+    out = list_push(out, "indicator_dots");
+    return out;
+}
+
+pub fn indicator_plugin_resolve(name: String) -> Result[IndicatorPlugin, String] {
+    if name == "indicator_bar" || name == "bar" { return Ok(indicator_plugin_bar()); }
+    if name == "indicator_stream" || name == "stream" { return Ok(indicator_plugin_stream()); }
+    if name == "indicator_telemetry" || name == "telemetry" { return Ok(indicator_plugin_telemetry()); }
+    if name == "indicator_dots" || name == "dots" { return Ok(indicator_plugin_dots()); }
+    return Err("unknown indicator plugin: " + name);
+}
+
+pub fn ui_indicators_self_check() -> Bool {
+    // 1. Bar indicator check
+    let mut b: BarState = bar_new(1, 4, "step 1");
+    if b.pct != 25 { return false; }
+    b = bar_update_pct(b, 50);
+    if b.pct != 50 { return false; }
+    b = bar_update_step(b, 3, 4, "step 3");
+    if b.pct != 75 { return false; }
+    if bar_height() != 1 { return false; }
+
+    // 2. Stream indicator check
+    let mut s: StreamState = stream_new();
+    s = stream_start(s, 1000);
+    if !s.is_active { return false; }
+    s = stream_push_tokens(s, 100, 2000);
+    if s.token_count != 100 { return false; }
+    if s.tok_per_sec != 100 { return false; }
+    s = stream_finish(s);
+    if s.is_active { return false; }
+    if stream_height() != 1 { return false; }
+
+    // 3. Telemetry indicator check
+    let mut t: TelemetryState = telemetry_new("claude-sonnet", 128000);
+    t = telemetry_update(t, 14200, 142, 52);
+    if t.context_used != 14200 { return false; }
+    if t.latency_ms != 142 { return false; }
+    if t.tok_per_sec != 52 { return false; }
+    if telemetry_height() != 1 { return false; }
+
+    // 4. Dots indicator check
+    let mut d: DotsState = dots_new("thinking");
+    if d.frame != 0 { return false; }
+    d = dots_tick(d);
+    if d.frame != 1 { return false; }
+    if dots_height() != 1 { return false; }
+
+    // 5. Plugin resolve checks
+    let r_bar: Result[IndicatorPlugin, String] = indicator_plugin_resolve("indicator_bar");
+    if r_bar.is_err() { return false; }
+    let r_stream: Result[IndicatorPlugin, String] = indicator_plugin_resolve("indicator_stream");
+    if r_stream.is_err() { return false; }
+    let r_telem: Result[IndicatorPlugin, String] = indicator_plugin_resolve("indicator_telemetry");
+    if r_telem.is_err() { return false; }
+    let r_dots: Result[IndicatorPlugin, String] = indicator_plugin_resolve("indicator_dots");
+    if r_dots.is_err() { return false; }
+    let r_bad: Result[IndicatorPlugin, String] = indicator_plugin_resolve("invalid_indicator");
+    if r_bad.is_ok() { return false; }
+
+    return true;
+}

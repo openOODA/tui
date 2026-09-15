@@ -1,0 +1,81 @@
+// # slash/common.oo - Shared Utilities for Slash Subsystem
+//
+// Logline: Common helper functions for string parsing, state mutation, persistence, and LLM queries.
+//
+// Setup: Provides shared utilities for slash command modules.
+//
+// Beats:
+//   1. Message rendering: slash_say appends output to ReplState.
+//   2. State persistence: slash_persist saves FlatCfg to config.oot.
+//   3. Provider setup: slash_apply_provider updates provider and defaults.
+//   4. LLM query: slash_llm_line executes completion queries.
+//   5. Utilities: slash_onoff, slash_int_to_str, slash_cmd_of, slash_args_of.
+
+import "repl_state.oo";
+import "config_io.oo";
+import "llm_exec.oo";
+
+pub fn slash_onoff(b: Bool) -> String {
+    if b { return "on"; }
+    return "off";
+}
+
+pub fn slash_say(st: ReplState, msg: String) -> ReplState {
+    let mut s: ReplState = st;
+    if s.output == "" { s.output = msg; } else { s.output = s.output + "\n" + msg; }
+    return s;
+}
+
+pub fn slash_cmd_of(line: String) -> String {
+    let n: Int = chars_len(line);
+    let mut i: Int = 0;
+    let mut out: String = "";
+    while i < n {
+        let c: String = str_slice(line, i, i + 1);
+        if c == " " || c == "\t" { return out; }
+        out = out + c;
+        i = i + 1;
+    }
+    return out;
+}
+
+pub fn slash_args_of(line: String, cmd: String) -> String {
+    return str_trim(str_slice(line, chars_len(cmd), chars_len(line)));
+}
+
+pub fn slash_persist(st: ReplState, fw: &FsWriteCap, env: &EnvCap) -> ReplState {
+    let cfg: FlatCfg = FlatCfg {
+        provider: st.provider, ptype: st.ptype, key: st.key,
+        url: st.url, model: st.model, theme: st.theme
+    };
+    let ok: Bool = config_save_flat(fw, env, cfg);
+    if ok { return slash_say(st, "saved " + config_path(env)); }
+    return slash_say(st, "save skipped (set OODA_HOME to persist)");
+}
+
+pub fn slash_apply_provider(st: ReplState, name: String) -> ReplState {
+    let mut s: ReplState = st;
+    s.provider = provider_norm(name);
+    s.ptype = s.provider;
+    s.model = provider_default_model(s.provider);
+    s.url = provider_default_url(s.provider);
+    return s;
+}
+
+pub fn slash_llm_line(sys: &ProcessCap, fw: &FsWriteCap, ptype: String, key: String, model: String, url: String, prompt: String) -> String {
+    if ptype == "" { return "no LLM — /login muse|minimax|mistral <key>"; }
+    let r: Result[String, String] = llm_complete_exec(sys, fw, ptype, key, model, url, prompt);
+    return match r { Ok(t) => t, Err(e) => "llm: " + e };
+}
+
+pub fn slash_int_to_str(n: Int) -> String {
+    if n <= 0 { return "0"; }
+    let digits: String = "0123456789";
+    let mut v: Int = n;
+    let mut rev: String = "";
+    while v > 0 { let d: Int = v - (v / 10) * 10; rev = rev + char_at(digits, d); v = v / 10; }
+    let mut out: String = "";
+    let mut k: Int = chars_len(rev) - 1;
+    while k >= 0 { out = out + char_at(rev, k); k = k - 1; }
+    return out;
+}

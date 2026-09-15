@@ -1,0 +1,26 @@
+// # ui/presets/preset_frontend.oo - Full-Fidelity Frontend Preset
+//
+// Logline: Full-fidelity UI with cards and rich compose inputs.
+//
+// Setup: Imports preset_kernel.oo for PresetConfig definition.
+//
+// Beats:
+//   1. Configure active compose input plugin (input_compose).
+//   2. Configure streaming pulse indicator (indicator_stream).
+//   3. Configure markdown / say card renderer (card_say).
+//   4. Configure default theme (1982) and interactive build mode.
+
+import "ui/presets/preset_kernel.oo";
+
+pub fn preset_frontend_config() -> PresetConfig {
+    return PresetConfig {
+        name: "frontend",
+        description: "Full-fidelity UI with rich multiline compose box and live thought streaming",
+        input_plugin: "input_compose",
+        indicator_plugin: "indicator_stream",
+        card_style: "card_say",
+        default_mode: "build",
+        default_perm: "ask",
+        theme: "1982"
+    };
+}

@@ -1,0 +1,90 @@
+// # ui/cards/anchor.oo - Card Renderers Re-Export Anchor
+//
+// Logline: Unified hub re-exporting all modular card plugins and dispatching common card render contracts.
+//
+// Setup: Aggregates card_diff, card_ask, card_tool, and card_say with micro-kernel event dispatch.
+//
+// Beats:
+//   1. Re-export child card renderer modules (diff, ask, tool, say).
+//   2. Common card render contract dispatching Event records to active card plugin.
+//   3. Bulk plugin registration helper seeding master registry with all card plugins.
+//   4. Subsystem version string and verification self-test validating card rendering.
+
+import "core/types.oo";
+import "plugins/registry.oo";
+import "./card_diff.oo";
+import "./card_ask.oo";
+import "./card_tool.oo";
+import "./card_say.oo";
+
+pub fn cards_version() -> String {
+    return "0.2.0";
+}
+
+pub fn cards_register_all(reg: Registry) -> Registry {
+    let mut r: Registry = reg;
+    r = registry_register_card(r, card_diff_plugin());
+    r = registry_register_card(r, card_ask_plugin());
+    r = registry_register_card(r, card_tool_plugin());
+    r = registry_register_card(r, card_say_plugin());
+    return r;
+}
+
+pub fn card_render(card_name: String, theme: String, color: Bool, ev: Event) -> String {
+    if card_name == "card_diff" {
+        return card_diff_from_event(theme, ev, color);
+    }
+    if card_name == "card_ask" {
+        return card_ask_from_event(theme, ev, color);
+    }
+    if card_name == "card_tool" {
+        return card_tool_from_event(theme, ev, false, color);
+    }
+    if card_name == "card_say" {
+        return card_say_from_event(theme, ev, color);
+    }
+    return card_say_from_event(theme, ev, color);
+}
+
+pub fn card_render_ask(theme: String, color: Bool, act: ActionIntent) -> String {
+    return card_ask_intent(theme, color, act);
+}
+
+pub fn card_render_message(card_name: String, theme: String, color: Bool, msg: MessageEnvelope) -> String {
+    if card_name == "card_diff" {
+        let ev: Event = event_new(msg.id, "diff", msg.role, msg.content, msg.timestamp);
+        return card_diff_from_event(theme, ev, color);
+    }
+    return card_say_envelope(theme, msg, color);
+}
+
+pub fn cards_self_check() -> Bool {
+    let mut reg: Registry = registry_init();
+    reg = cards_register_all(reg);
+    if !registry_has_card(reg, "card_diff") { return false; }
+    if !registry_has_card(reg, "card_ask") { return false; }
+    if !registry_has_card(reg, "card_tool") { return false; }
+    if !registry_has_card(reg, "card_say") { return false; }
+
+    let ev_say: Event = event_new(1, "line", "assistant", "Hello openOODA", 100);
+    let s_say: String = card_render("card_say", "1982", false, ev_say);
+    if chars_len(s_say) == 0 { return false; }
+
+    let ev_diff: Event = event_new(2, "diff", "patch", "+added line\n-removed line", 101);
+    let s_diff: String = card_render("card_diff", "1982", false, ev_diff);
+    if chars_len(s_diff) == 0 { return false; }
+
+    let ev_tool: Event = event_new(3, "tool_result", "read", "file contents", 102);
+    let s_tool: String = card_render("card_tool", "1982", false, ev_tool);
+    if chars_len(s_tool) == 0 { return false; }
+
+    let ev_ask: Event = event_new(4, "action", "write", "foo.txt", 103);
+    let s_ask: String = card_render("card_ask", "1982", false, ev_ask);
+    if chars_len(s_ask) == 0 { return false; }
+
+    let act: ActionIntent = action_intent_new(5, "file", "write", "bar.txt", "overwrites");
+    let s_act: String = card_render_ask("1982", false, act);
+    if chars_len(s_act) == 0 { return false; }
+
+    return true;
+}

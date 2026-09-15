@@ -1,0 +1,45 @@
+// # tools/tool_mcp.oo - Sandboxed Model Context Protocol Tool Caller
+//
+// Logline: Invokes external MCP server tools via JSON-RPC protocol over stdio subprocess.
+//
+// Setup: Connects to ooda-mcp via McpClient, executes tools/call, and clips response text.
+//
+// Beats:
+//   1. Rejects empty tool names fail-closed.
+//   2. Instantiates McpClient bound to cwd and process capabilities.
+//   3. Dispatches tool call request to ooda-mcp server.
+//   4. Extracts response text or raw JSON envelope and clips to 8000 characters.
+
+import "./path_guard.oo";
+import "mcp_client.oo";
+
+pub fn tool_mcp_call(fw: &FsWriteCap, sys: &ProcessCap, cwd: String, tool_name: String, args_json: String) -> Result[String, String] {
+    if str_trim(tool_name) == "" { return Err("empty MCP tool name"); }
+    let client: McpClient = mcp_new("", cwd, "");
+    let r: Result[String, String] = mcp_call_tool(client, fw, sys, tool_name, args_json);
+    let _ = mcp_close(client);
+    if r.is_err() {
+        let e: String = match r { Ok(_) => "", Err(m) => m };
+        return Err(path_clip(e));
+    }
+    let res: String = match r { Ok(s) => s, Err(_) => "" };
+    let text: String = mcp_extract_result_text(res);
+    if text != "" { return Ok(path_clip(text)); }
+    return Ok(path_clip(res));
+}
+
+pub fn tool_mcp_list(fw: &FsWriteCap, sys: &ProcessCap, cwd: String) -> Result[String, String] {
+    let client: McpClient = mcp_new("", cwd, "");
+    let r: Result[String, String] = mcp_list_tools(client, fw, sys);
+    let _ = mcp_close(client);
+    if r.is_err() {
+        let e: String = match r { Ok(_) => "", Err(m) => m };
+        return Err(path_clip(e));
+    }
+    let res: String = match r { Ok(s) => s, Err(_) => "" };
+    return Ok(path_clip(res));
+}
+
+pub fn tool_mcp(fw: &FsWriteCap, sys: &ProcessCap, cwd: String, tool_name: String, args_json: String) -> Result[String, String] {
+    return tool_mcp_call(fw, sys, cwd, tool_name, args_json);
+}

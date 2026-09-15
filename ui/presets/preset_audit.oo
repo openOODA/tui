@@ -1,0 +1,26 @@
+// # ui/presets/preset_audit.oo - Security-Hardened Audit Preset
+//
+// Logline: Security-hardened layout with telemetry indicators and diff cards.
+//
+// Setup: Imports preset_kernel.oo for PresetConfig definition.
+//
+// Beats:
+//   1. Configure single-line input prompt (input_simple).
+//   2. Configure engineering telemetry indicator (indicator_telemetry).
+//   3. Configure unified diff card renderer (card_diff).
+//   4. Configure default plan mode and read-only plan permissions.
+
+import "ui/presets/preset_kernel.oo";
+
+pub fn preset_audit_config() -> PresetConfig {
+    return PresetConfig {
+        name: "audit",
+        description: "Security-hardened read-only layout with telemetry indicators and diff cards",
+        input_plugin: "input_simple",
+        indicator_plugin: "indicator_telemetry",
+        card_style: "card_diff",
+        default_mode: "plan",
+        default_perm: "plan",
+        theme: "1982"
+    };
+}

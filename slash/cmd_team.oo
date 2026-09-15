@@ -1,0 +1,35 @@
+// # slash/cmd_team.oo - Team Slash Command
+//
+// Logline: Configure multi-agent teamwork mesh and execute team run workflows.
+//
+// Setup: Parses subcommands (on, off, init, run) and executes teamwork actions.
+//
+// Beats:
+//   1. Parse teamwork subcommands and parameters.
+//   2. Enable or disable multi-agent mode in ReplState.
+//   3. Execute multi-agent run using lead/reviewer prompt.
+//   4. Report current teamwork status and options.
+
+
+pub fn cmd_team_run(st: ReplState, args: String, sys: &ProcessCap, fw: &FsWriteCap) -> ReplState {
+    let sub: String = slash_cmd_of(args);
+    let rest: String = slash_args_of(args, sub);
+    if sub == "on" || sub == "init" {
+        let mut s: ReplState = st;
+        s.teamwork = true;
+        return slash_say(s, "team: on (lead + review)");
+    }
+    if sub == "off" {
+        let mut s: ReplState = st;
+        s.teamwork = false;
+        return slash_say(s, "team: off");
+    }
+    if sub == "run" {
+        let mut job: String = st.plan;
+        if rest != "" { job = rest; }
+        if job == "" { return slash_say(st, "team run: set /plan first"); }
+        let a: String = slash_llm_line(sys, fw, st.ptype, st.key, st.model, st.url, "TEAM RUN as lead then reviewer.\nGOAL: " + st.goal + "\nPLAN: " + job);
+        return slash_say(st, a);
+    }
+    return slash_say(st, "team: " + slash_onoff(st.teamwork) + "  /team on|off|init|run");
+}

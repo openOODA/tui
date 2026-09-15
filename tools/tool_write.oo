@@ -1,0 +1,22 @@
+// # tools/tool_write.oo - Sandboxed File Write Tool
+//
+// Logline: Writes files under cwd using explicit FsWriteCap with path traversal prevention.
+//
+// Setup: Resolves relative path via tool_join and writes body directly via write_file.
+//
+// Beats:
+//   1. Validates and joins relative path within cwd boundary via tool_join.
+//   2. Fails closed if path attempts traversal or absolute escape.
+//   3. Writes contents via write_file under FsWriteCap.
+//   4. Returns confirmation message with written path.
+
+import "./path_guard.oo";
+
+pub fn tool_write(fw: &FsWriteCap, cwd: String, rel: String, body: String) -> Result[String, String] {
+    let jp: Result[String, String] = path_guard_join(cwd, rel);
+    if jp.is_err() { return jp; }
+    let path: String = match jp { Ok(p) => p, Err(_) => "" };
+    let wr: Result[Void, String] = write_file(fw, path, body);
+    if wr.is_err() { return Err("write failed"); }
+    return Ok("wrote " + rel);
+}

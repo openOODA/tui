@@ -1,0 +1,6 @@
+default_provider = ""
+default_model = ""
+theme = "minimax"
+type = "cloud"
+url = ""
+key = ""

@@ -1,0 +1,29 @@
+// # tools/tool_grep.oo - Sanitized Regular Expression Grep Tool
+//
+// Logline: Recursively searches text files under cwd with strict shell argument sanitization to prevent injection.
+//
+// Setup: Validates search specification via sanitize_shell_arg before passing to grep subprocess under ProcessCap.
+//
+// Beats:
+//   1. Sanitizes search argument via sanitize_shell_arg (rejects metacharacters, leading flags, empty).
+//   2. Fails closed immediately if argument validation fails.
+//   3. Spawns grep with recursion, line numbers, and binary exclusion flags.
+//   4. Returns match results clipped to 80 lines and 8000 characters.
+
+import "std/fs/process/process.oo";
+import "./path_guard.oo";
+import "./sanitize.oo";
+
+pub fn tool_grep(sys: &ProcessCap, cwd: String, spec: String) -> Result[String, String] {
+    let clean_res: Result[String, String] = sanitize_shell_arg(spec);
+    if clean_res.is_err() {
+        let err: String = match clean_res { Ok(_) => "", Err(e) => e };
+        return Err(err);
+    }
+    let clean: String = match clean_res { Ok(s) => s, Err(_) => "" };
+    let sh: String = "cd \"" + cwd + "\" && grep -R -n -I -E -- " + clean + " . 2>/dev/null | head -n 80";
+    let r: Result[String, String] = process_exec(sys, sh);
+    let out: String = match r { Ok(s) => s, Err(m) => m };
+    if str_trim(out) == "" { return Ok("(no matches)"); }
+    return Ok(path_clip(out));
+}

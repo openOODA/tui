@@ -1,0 +1,163 @@
+// # ui/cards/card_tool.oo - Collapsible Tool Invocation Preview Card
+//
+// Logline: Collapsible tool card displaying invocation status badges, arguments, and execution output.
+//
+// Setup: Imports theme.oo, core/types.oo, and plugins/registry.oo with compact row and expanded box modes.
+//
+// Beats:
+//   1. Single-line compact preview row with status markers (* pending, . success, x error).
+//   2. Collapsible framed tool card with status pill badge and bordered output body.
+//   3. Diff-aware output highlighting detecting patch blocks within tool results.
+//   4. Micro-kernel Event adapter mapping tool_call and tool_result events to styled cards.
+//   5. CardPlugin descriptor constructor for registry integration.
+
+import "theme.oo";
+import "core/types.oo";
+import "plugins/registry.oo";
+
+pub fn card_tool_plugin() -> CardPlugin {
+    return CardPlugin {
+        name: "card_tool",
+        description: "Collapsible tool invocation and execution preview card",
+        style: "tool",
+        enabled: true
+    };
+}
+
+fn pad_right(s: String, w: Int) -> String {
+    let mut out: String = s;
+    while chars_len(out) < w { out = out + " "; }
+    if chars_len(out) > w { return str_slice(out, 0, w); }
+    return out;
+}
+
+fn repeat_str(s: String, count: Int) -> String {
+    let mut out: String = "";
+    let mut i: Int = 0;
+    while i < count {
+        out = out + s;
+        i = i + 1;
+    }
+    return out;
+}
+
+fn split_lines(s: String) -> List[String] {
+    let mut out: List[String] = list_new();
+    let mut cur: String = "";
+    let len: Int = chars_len(s);
+    let mut i: Int = 0;
+    while i < len {
+        let c: String = char_at(s, i);
+        if c == "\n" {
+            out = list_push(out, cur);
+            cur = "";
+        } else if c == "\r" {
+            // ignore carriage return
+        } else {
+            cur = cur + c;
+        }
+        i = i + 1;
+    }
+    if cur != "" || len == 0 { out = list_push(out, cur); }
+    return out;
+}
+
+pub fn card_tool_row(theme: String, color: Bool, mark: String, name: String, target: String, note: String) -> String {
+    let dim: String = theme_color(theme, "dim");
+    let acc: String = theme_color(theme, "accent");
+    let ok: String = theme_color(theme, "success");
+    let err: String = theme_color(theme, "error");
+    let mut mk: String = theme_color(theme, "dim");
+    if mark == "*" { mk = acc; }
+    if mark == "." { mk = ok; }
+    if mark == "?" { mk = acc; }
+    if mark == "x" { mk = err; }
+    let mut s: String = "  ";
+    s = s + ansi_fg(color, mk) + mark + ansi_reset(color) + " ";
+    s = s + ansi_fg(color, acc) + pad_right(name, 6) + ansi_reset(color) + " ";
+    s = s + pad_right(target, 40);
+    if note != "" {
+        s = s + " " + ansi_fg(color, dim) + note + ansi_reset(color);
+    }
+    return s;
+}
+
+pub fn card_tool_box(theme: String, color: Bool, name: String, status: String, body: String, collapsed: Bool) -> String {
+    let border: String = theme_color(theme, "borderMuted");
+    let title: String = theme_color(theme, "toolTitle");
+    let output: String = theme_color(theme, "toolOutput");
+
+    let pill_bg: String = if status == "success" {
+        theme_color(theme, "toolSuccessBg")
+    } else if status == "error" {
+        theme_color(theme, "toolErrorBg")
+    } else {
+        theme_color(theme, "toolPendingBg")
+    };
+
+    let pill_fg: String = if status == "success" {
+        theme_color(theme, "success")
+    } else if status == "error" {
+        theme_color(theme, "error")
+    } else {
+        theme_color(theme, "warning")
+    };
+
+    if collapsed {
+        let snippet: String = if chars_len(body) > 30 { str_slice(body, 0, 30) + "..." } else { body };
+        let mut s: String = "  [+] ";
+        s = s + ansi_fg(color, title) + name + ansi_reset(color) + " ";
+        s = s + ansi_bg(color, pill_bg) + ansi_fg(color, pill_fg) + " " + status + " " + ansi_reset(color) + " ";
+        s = s + ansi_fg(color, output) + snippet + ansi_reset(color) + "\n";
+        return s;
+    }
+
+    let mut s: String = "";
+    let top_prefix: String = "┌─ " + name + " ──";
+    s = s + ansi_fg(color, border) + top_prefix + ansi_reset(color);
+    s = s + ansi_bg(color, pill_bg) + ansi_fg(color, pill_fg) + " " + status + " " + ansi_reset(color);
+    s = s + ansi_fg(color, border) + "──┐\n" + ansi_reset(color);
+
+    let lines: List[String] = split_lines(body);
+    let n: Int = list_len(lines);
+    let mut i: Int = 0;
+    while i < n {
+        let bl: String = list_get(lines, i);
+        let is_diff: Bool = str_starts_with(bl, "+") || str_starts_with(bl, "-") || str_starts_with(bl, "@@");
+        let mut line_sgr: String = "";
+        if is_diff && str_starts_with(bl, "+") {
+            line_sgr = ansi_fg(color, theme_color(theme, "toolDiffAdded")) + bl + ansi_reset(color);
+        } else if is_diff && str_starts_with(bl, "-") {
+            line_sgr = ansi_fg(color, theme_color(theme, "toolDiffRemoved")) + bl + ansi_reset(color);
+        } else if is_diff && str_starts_with(bl, "@@") {
+            line_sgr = ansi_fg(color, theme_color(theme, "borderAccent")) + bl + ansi_reset(color);
+        } else {
+            line_sgr = ansi_fg(color, output) + bl + ansi_reset(color);
+        }
+        s = s + ansi_fg(color, border) + "│ " + ansi_reset(color) + line_sgr + "\n";
+        i = i + 1;
+    }
+    s = s + ansi_fg(color, border) + "└────────────────────────────────────────┘\n" + ansi_reset(color);
+    return s;
+}
+
+pub fn card_tool_from_event(theme: String, ev: Event, collapsed: Bool, color: Bool) -> String {
+    let name: String = if ev.source != "" { ev.source } else { "tool" };
+    if event_is_kind(ev, "tool_call") {
+        return card_tool_box(theme, color, name, "pending", ev.payload, collapsed);
+    }
+    if event_is_kind(ev, "tool_result") {
+        let st: String = if ev.metadata != "" { ev.metadata } else { "success" };
+        return card_tool_box(theme, color, name, st, ev.payload, collapsed);
+    }
+    let mark: String = if ev.metadata == "error" { "x" } else { "." };
+    return card_tool_row(theme, color, mark, name, ev.payload, ev.metadata) + "\n";
+}
+
+pub fn types_card_tool(ev: Event) -> Bool {
+    return event_is_kind(ev, "tool_call") || event_is_kind(ev, "tool_result");
+}
+
+pub fn registry_card_tool() -> CardPlugin {
+    return card_tool_plugin();
+}

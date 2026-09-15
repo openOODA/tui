@@ -1,0 +1,21 @@
+// # slash/cmd_perm.oo - Perm Slash Command
+//
+// Logline: Query or mutate tool execution permission gate policy (ask, allow, yolo).
+//
+// Setup: Validates permission level, mutates ReplState.perm and yolo flag.
+//
+// Beats:
+//   1. Query active permission policy if args empty.
+//   2. Validate permission mode (ask, allow, yolo).
+//   3. Mutate perm and yolo state flags.
+//   4. Emit confirmation to session output.
+
+
+pub fn cmd_perm_run(st: ReplState, args: String) -> ReplState {
+    if args == "" { return slash_say(st, "perm: " + st.perm); }
+    if args != "ask" && args != "allow" && args != "yolo" { return slash_say(st, "perm: ask|allow|yolo"); }
+    let mut s: ReplState = st;
+    s.perm = args;
+    s.yolo = args == "yolo";
+    return slash_say(s, "perm: " + args);
+}

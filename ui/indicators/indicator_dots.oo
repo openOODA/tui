@@ -1,0 +1,84 @@
+// # ui/indicators/indicator_dots.oo - Braille Spinner Animated Thinking Dots
+//
+// Logline: Distraction-free Braille spinner and animated thinking dots indicator for minimalist presets.
+//
+// Setup: Pure UI indicator component. Conforms to plugins/registry.oo IndicatorPlugin specification and micro-kernel ticks.
+//
+// Beats:
+//   1. DotsState record: frame index, label, active flag.
+//   2. 10-frame Braille spinner cycle with clean ASCII fallback.
+//   3. Frame step advance on clock ticks.
+//   4. Quiet distraction-free rendering without borders or visual noise.
+//   5. Single-line SGR ANSI render output and 1-line constant height.
+
+import "theme.oo";
+
+pub type DotsState = struct {
+    frame: Int,
+    label: String,
+    active: Bool
+};
+
+pub fn dots_new(label: String) -> DotsState {
+    let lbl: String = if label != "" { label } else { "thinking..." };
+    return DotsState {
+        frame: 0,
+        label: lbl,
+        active: true
+    };
+}
+
+pub fn dots_tick(st: DotsState) -> DotsState {
+    let mut s: DotsState = st;
+    s.frame = (s.frame + 1) - ((s.frame + 1) / 10) * 10;
+    return s;
+}
+
+pub fn dots_set_label(st: DotsState, label: String) -> DotsState {
+    let mut s: DotsState = st;
+    s.label = label;
+    return s;
+}
+
+pub fn dots_set_active(st: DotsState, active: Bool) -> DotsState {
+    let mut s: DotsState = st;
+    s.active = active;
+    return s;
+}
+
+fn dots_glyph_utf8(frame: Int) -> String {
+    if frame == 0 { return "⠋"; }
+    if frame == 1 { return "⠙"; }
+    if frame == 2 { return "⠹"; }
+    if frame == 3 { return "⠸"; }
+    if frame == 4 { return "⠼"; }
+    if frame == 5 { return "⠴"; }
+    if frame == 6 { return "⠦"; }
+    if frame == 7 { return "⠧"; }
+    if frame == 8 { return "⠇"; }
+    return "⠏";
+}
+
+fn dots_glyph_ascii(frame: Int) -> String {
+    let f4: Int = frame - (frame / 4) * 4;
+    if f4 == 0 { return ".  "; }
+    if f4 == 1 { return ".. "; }
+    if f4 == 2 { return "..."; }
+    return " ..";
+}
+
+pub fn dots_render(st: DotsState, theme: String, color: Bool, cols: Int) -> String {
+    if !st.active { return ""; }
+    let accent: String = theme_color(theme, "accent");
+    let muted: String = theme_color(theme, "muted");
+
+    let glyph: String = if color { dots_glyph_utf8(st.frame) } else { dots_glyph_ascii(st.frame) };
+
+    let mut s: String = ansi_fg(color, accent) + glyph + ansi_reset(color) + " ";
+    s = s + ansi_fg(color, muted) + st.label + ansi_reset(color);
+    return s;
+}
+
+pub fn dots_height() -> Int {
+    return 1;
+}

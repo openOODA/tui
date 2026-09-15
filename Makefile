@@ -1,4 +1,4 @@
-# ooda-tui v0.2.2 Makefile
+# ooda-tui v0.3.0 Makefile
 #
 # Agent loop: read/grep/glob/write/bash, ask/allow/yolo, AGENTS.md.
 #
@@ -20,8 +20,10 @@
 
 # LLVM emit of this graph currently fails (SSA + List[struct]). Prefer a
 # compiler that still has --backend c (oodac_bin.core, or oodac < v0.2.76).
-OODA_COMPILER ?= $(firstword $(wildcard $(HOME)/.openooda/bin/oodac_bin.core $(CURDIR)/../oodac/bin/oodac $(HOME)/.openooda/bin/oodac))
+OODA_C_COMPILER ?= $(firstword $(wildcard $(HOME)/.openooda/bin/oodac.pre_m4.bak $(HOME)/.openooda/bin/oodac_bin.core $(CURDIR)/../oodac/bin/oodac $(HOME)/.openooda/bin/oodac))
+OODA_COMPILER ?= $(firstword $(wildcard $(HOME)/.openooda/bin/oodac $(CURDIR)/../oodac/bin/oodac $(HOME)/.openooda/bin/oodac_bin.core))
 OODACODEX ?= $(HOME)/.openooda/northstar.oot
+export OO_LIST_AMBIENT_QUOTA := 1073741824
 BIN := dist/ooda-tui
 
 .PHONY: all build test parity line-cap file-law academy check qa verify install clean no-color dumb-term token-help
@@ -30,9 +32,15 @@ all: build verify test
 
 build: $(BIN)
 
-$(BIN): main.oo version.oo anchor.oo app.oo config.oo config_io.oo loop.oo mcp_client.oo lsp_client.oo llm.oo llm_exec.oo llm_anthropic.oo llm_openai.oo llm_ollama.oo llm_google.oo llm_custom.oo teamwork.oo slash.oo slash_extra.oo session.oo compact.oo plan.oo btw.oo keys.oo theme.oo themes/1982.oo themes/minimax.oo chrome.oo header.oo statusbar.oo pane.oo input.oo popover.oo markdown.oo tool_card.oo diff.oo repl.oo repl_state.oo repl_slash.oo native_tools.oo card.oo agent_turn.oo agents_md.oo
-	@mkdir -p dist
-	OO_LIST_AMBIENT_QUOTA=1073741824 OODACODEX=$(OODACODEX) OODA_COMPILER=$(OODA_COMPILER) OODA_STD=$(HOME)/.openooda/std OODA_NO_JAIL=1 $(OODA_COMPILER) build --backend c main.oo -o $(BIN)
+$(BIN): main.oo version.oo anchor.oo config_io.oo mcp_client.oo lsp_client.oo llm.oo llm_exec.oo llm_anthropic.oo llm_openai.oo llm_ollama.oo llm_google.oo llm_custom.oo teamwork.oo session.oo compact.oo plan.oo btw.oo keys.oo theme.oo themes/1982.oo themes/minimax.oo chrome.oo header.oo statusbar.oo pane.oo input.oo popover.oo markdown.oo tool_card.oo diff.oo repl.oo repl_state.oo repl_slash.oo tools/sanitize.oo tools/path_guard.oo tools/tool_read.oo tools/tool_write.oo tools/tool_bash.oo tools/tool_grep.oo tools/tool_glob.oo tools/tool_mcp.oo tools/anchor.oo card.oo agent_turn.oo agents_md.oo core/types.oo core/state.oo core/event_bus.oo core/kernel.oo core/anchor.oo plugins/registry.oo plugins/anchor.oo slash/anchor.oo slash/router.oo slash/common.oo slash/cmd_help.oo slash/cmd_exit.oo slash/cmd_version.oo slash/cmd_providers.oo slash/cmd_provider.oo slash/cmd_model.oo slash/cmd_login.oo slash/cmd_logout.oo slash/cmd_theme.oo slash/cmd_cwd.oo slash/cmd_plan.oo slash/cmd_goal.oo slash/cmd_status.oo slash/cmd_settings.oo slash/cmd_clear.oo slash/cmd_rename.oo slash/cmd_resume.oo slash/cmd_compact.oo slash/cmd_btw.oo slash/cmd_team.oo slash/cmd_init.oo slash/cmd_perm.oo slash/cmd_mode.oo slash/cmd_preset.oo slash/cmd_tools.oo slash/cmd_external.oo
+	@mkdir -p dist .ooda-cache/ooda-tmp
+	@if [ ! -f .ooda-cache/ooda-tmp/oodac_host_rt.c ]; then \
+		printf '%s\n' '// # seed' '//' '// Logline: seed' '//' '// Setup: none' '//' '// Beats:' 'fn main() -> Result[Int, String] { return Ok(0); }' > .ooda-cache/ooda-tmp/seed.oo; \
+		$(OODA_C_COMPILER) build --backend c .ooda-cache/ooda-tmp/seed.oo -o .ooda-cache/ooda-tmp/seed.bin 2>/dev/null || true; \
+	fi
+	OO_LIST_AMBIENT_QUOTA=1073741824 OODACODEX=$(OODACODEX) OODA_STD=$(HOME)/.openooda/std OODA_NO_JAIL=1 $(OODA_C_COMPILER) emit-c --concat main.oo > .ooda-cache/ooda-tmp/tui.c
+	gcc -O0 -g0 -fno-ident -I $(CURDIR)/../oodar $(CURDIR)/../oodar/oodar.c .ooda-cache/ooda-tmp/oodac_host_rt.c .ooda-cache/ooda-tmp/tui.c -lm -ldl -lpthread -o $(BIN)
+	@chmod +x $(BIN)
 	@echo "built $(BIN)"
 
 test: $(BIN)
@@ -42,6 +50,16 @@ test: $(BIN)
 	@./$(BIN) --version > /dev/null && echo "PASS" || echo "FAIL"
 	@echo "=== --unknown-flag (expect exit 2) ==="
 	@./$(BIN) --unknown-flag 2>/dev/null; test $$? -eq 2 && echo "PASS" || echo "FAIL"
+	@echo "=== --preset invalid (expect exit 2) ==="
+	@./$(BIN) --preset bogus 2>/dev/null; test $$? -eq 2 && echo "PASS" || echo "FAIL"
+	@echo "=== --preset kernel ==="
+	@echo '/exit' | ./$(BIN) --preset kernel > /dev/null && echo "PASS" || echo "FAIL"
+	@echo "=== --preset frontend ==="
+	@echo '/exit' | ./$(BIN) --preset frontend > /dev/null && echo "PASS" || echo "FAIL"
+	@echo "=== --preset audit ==="
+	@echo '/exit' | ./$(BIN) --preset audit > /dev/null && echo "PASS" || echo "FAIL"
+	@echo "=== --preset zen ==="
+	@echo '/exit' | ./$(BIN) --preset zen > /dev/null && echo "PASS" || echo "FAIL"
 
 parity: install
 	@dist_sum=$$(sha256sum dist/ooda-tui | cut -d' ' -f1); \
@@ -106,10 +124,12 @@ academy:
 	echo "PASS: academy headers hold (all 4 elements present in first 7 lines)"
 
 check:
-	@OO_LIST_AMBIENT_QUOTA=1073741824 OODACODEX=$(OODACODEX) OODA_COMPILER=$(OODA_COMPILER) \
+	@export OO_LIST_AMBIENT_QUOTA=1073741824; \
+	export OODACODEX=$(OODACODEX); \
+	export OODA_COMPILER=$(OODA_COMPILER); \
 	failed=0; \
 	for f in $$(find . -name "*.oo" -not -path "./qa/*" -not -path "./.ooda-cache/*"); do \
-		if ! OODACODEX=$(OODACODEX) OODA_COMPILER=$(OODA_COMPILER) $$OODA_COMPILER check "$$f" > /dev/null 2>&1; then \
+		if ! OO_LIST_AMBIENT_QUOTA=1073741824 OODACODEX=$(OODACODEX) OODA_COMPILER=$(OODA_COMPILER) $$OODA_COMPILER check "$$f" > /dev/null 2>&1; then \
 			echo "FAIL: oodac check $$f"; \
 			failed=$$((failed+1)); \
 		fi; \
@@ -118,10 +138,12 @@ check:
 	echo "PASS: oodac check holds"
 
 qa:
-	@OO_LIST_AMBIENT_QUOTA=1073741824 OODACODEX=$(OODACODEX) OODA_COMPILER=$(OODA_COMPILER) \
+	@export OO_LIST_AMBIENT_QUOTA=1073741824; \
+	export OODACODEX=$(OODACODEX); \
+	export OODA_COMPILER=$(OODA_COMPILER); \
 	for f in $$(find qa -name "*.oo"); do \
 		echo "=== $$f ==="; \
-		OODACODEX=$(OODACODEX) OODA_COMPILER=$(OODA_COMPILER) $$OODA_COMPILER check "$$f" || exit 1; \
+		OO_LIST_AMBIENT_QUOTA=1073741824 OODACODEX=$(OODACODEX) OODA_COMPILER=$(OODA_COMPILER) $$OODA_COMPILER check "$$f" || exit 1; \
 	done; \
 	echo "PASS: qa probes compile"
 

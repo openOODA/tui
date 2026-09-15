@@ -1,0 +1,23 @@
+// # slash/cmd_login.oo - Login Slash Command
+//
+// Logline: Authenticate and configure LLM provider API credentials and defaults.
+//
+// Setup: Parses provider and key arguments, updates state, and persists.
+//
+// Beats:
+//   1. Prompt usage if arguments empty.
+//   2. Parse provider token and optional API key.
+//   3. Configure default model and endpoint URL.
+//   4. Persist credentials and configuration to disk.
+
+
+pub fn cmd_login_run(st: ReplState, args: String, fw: &FsWriteCap, env: &EnvCap) -> ReplState {
+    if args == "" { return slash_say(st, "login: /login muse|minimax|mistral|vibe <key>"); }
+    let p_name: String = slash_cmd_of(args);
+    let mut s: ReplState = slash_apply_provider(st, p_name);
+    let k: String = slash_args_of(args, p_name);
+    if k != "" { s.key = k; }
+    if s.model == "" { s.model = provider_default_model(s.provider); }
+    if s.url == "" { s.url = provider_default_url(s.provider); }
+    return slash_persist(slash_say(s, "login: " + s.provider + " / " + s.model), fw, env);
+}

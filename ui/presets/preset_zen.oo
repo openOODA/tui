@@ -1,0 +1,26 @@
+// # ui/presets/preset_zen.oo - Distraction-Free Zen Preset
+//
+// Logline: Distraction-free single-line editor with subtle indicators.
+//
+// Setup: Imports preset_kernel.oo for PresetConfig definition.
+//
+// Beats:
+//   1. Configure single-line prompt editor (input_simple).
+//   2. Configure subtle animated dots indicator (indicator_dots).
+//   3. Configure minimalist prose card renderer (card_say).
+//   4. Configure distraction-free zen mode and zen permissions.
+
+import "ui/presets/preset_kernel.oo";
+
+pub fn preset_zen_config() -> PresetConfig {
+    return PresetConfig {
+        name: "zen",
+        description: "Distraction-free single-line editor with subtle indicator dots and quiet borders",
+        input_plugin: "input_simple",
+        indicator_plugin: "indicator_dots",
+        card_style: "card_say",
+        default_mode: "zen",
+        default_perm: "zen",
+        theme: "1982"
+    };
+}

@@ -1,0 +1,78 @@
+// # ui/cards/card_ask.oo - Interactive Confirmation and Permission Card
+//
+// Logline: High-visibility confirmation dialog card for gating mutating actions and tool permissions.
+//
+// Setup: Imports theme.oo, core/types.oo, and plugins/registry.oo for action intent confirmation.
+//
+// Beats:
+//   1. Unmissable bordered confirmation dialog card with action name and target path.
+//   2. Mutation warning note and interactive key options (y yes, n no, a always, d deny).
+//   3. ActionIntent and Event adapters translating micro-kernel intents into prompt cards.
+//   4. Interactive response parser validating single-character user decisions.
+//   5. CardPlugin descriptor constructor for registry integration.
+
+import "theme.oo";
+import "core/types.oo";
+import "plugins/registry.oo";
+
+pub fn card_ask_plugin() -> CardPlugin {
+    return CardPlugin {
+        name: "card_ask",
+        description: "Interactive confirmation and permission dialog card",
+        style: "dialog",
+        enabled: true
+    };
+}
+
+fn pad_right(s: String, w: Int) -> String {
+    let mut out: String = s;
+    while chars_len(out) < w { out = out + " "; }
+    if chars_len(out) > w { return str_slice(out, 0, w); }
+    return out;
+}
+
+pub fn card_ask_render(theme: String, color: Bool, name: String, target: String, note: String) -> String {
+    let err: String = theme_color(theme, "error");
+    let acc: String = theme_color(theme, "accent");
+    let dim: String = theme_color(theme, "dim");
+    let bar: String = "+--------------------------------------------------------------+";
+    let mut s: String = ansi_fg(color, err) + "  " + bar + ansi_reset(color) + "\n";
+    s = s + ansi_fg(color, err) + "  | ASK  " + pad_right(name, 6) + " " + pad_right(target, 44) + " |" + ansi_reset(color) + "\n";
+    if note != "" {
+        s = s + ansi_fg(color, dim) + "  |      " + pad_right(note, 51) + " |" + ansi_reset(color) + "\n";
+    }
+    s = s + ansi_fg(color, acc) + "  |  y yes    n no    a always    d deny                       |" + ansi_reset(color) + "\n";
+    s = s + ansi_fg(color, err) + "  " + bar + ansi_reset(color) + "\n";
+    return s;
+}
+
+pub fn card_ask_intent(theme: String, color: Bool, act: ActionIntent) -> String {
+    let label: String = act.target + ":" + act.verb;
+    let target: String = act.arg;
+    let note: String = if act.payload != "" { act.payload } else { "this mutates the tree" };
+    return card_ask_render(theme, color, label, target, note);
+}
+
+pub fn card_ask_from_event(theme: String, ev: Event, color: Bool) -> String {
+    let name: String = if ev.source != "" { ev.source } else { "action" };
+    let target: String = ev.payload;
+    let note: String = if ev.metadata != "" { ev.metadata } else { "confirmation required" };
+    return card_ask_render(theme, color, name, target, note);
+}
+
+pub fn card_ask_parse_response(input: String) -> Result[String, String] {
+    let trimmed: String = str_trim(input);
+    if trimmed == "y" || trimmed == "yes" || trimmed == "Y" { return Ok("yes"); }
+    if trimmed == "n" || trimmed == "no" || trimmed == "N" { return Ok("no"); }
+    if trimmed == "a" || trimmed == "always" || trimmed == "A" { return Ok("always"); }
+    if trimmed == "d" || trimmed == "deny" || trimmed == "D" { return Ok("deny"); }
+    return Err("invalid choice: must be y (yes), n (no), a (always), or d (deny)");
+}
+
+pub fn types_card_ask(act: ActionIntent) -> Bool {
+    return act.target != "";
+}
+
+pub fn registry_card_ask() -> CardPlugin {
+    return card_ask_plugin();
+}

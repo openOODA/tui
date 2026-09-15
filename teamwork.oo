@@ -11,8 +11,20 @@
 //   4. teamwork_render(state) -> String: the dashboard pane.
 //   5. teamwork_proof(state) -> String: aggregated proof JSON.
 
-import "config.oo";
+import "config_io.oo";
 import "llm.oo";
+
+fn int_to_str(n: Int) -> String {
+    if n <= 0 { return "0"; }
+    let digits: String = "0123456789";
+    let mut v: Int = n;
+    let mut rev: String = "";
+    while v > 0 { let d: Int = v - (v / 10) * 10; rev = rev + char_at(digits, d); v = v / 10; }
+    let mut out: String = "";
+    let mut k: Int = chars_len(rev) - 1;
+    while k >= 0 { out = out + char_at(rev, k); k = k - 1; }
+    return out;
+}
 
 type TeamworkAgent = struct {
     id: Int,
@@ -163,34 +175,17 @@ fn progress_bar(p: Int) -> String {
     return bar;
 }
 
-pub fn team_from_config(cfg: Config, default_task: String) -> TeamState {
+pub fn team_from_config(cfg: FlatCfg, default_task: String) -> TeamState {
     let mut ts: TeamState = team_new();
     ts.active = true;
-    let n: Int = cfg.teamwork_agents;
+    let n: Int = 4;
     let mut i: Int = 0;
-    let pn: Int = list_len(cfg.providers);
     while i < n {
-        let provider_name: String = round_robin_provider(cfg, i, pn);
-        let model: String = round_robin_model(cfg, i);
+        let provider_name: String = if cfg.provider != "" { cfg.provider } else { "anthropic" };
+        let model: String = if cfg.model != "" { cfg.model } else { "claude-sonnet-4.5" };
         let task: String = default_task;
         ts = team_assign(ts, i + 1, provider_name, model, task);
         i = i + 1;
     }
     return ts;
-}
-
-fn round_robin_provider(cfg: Config, idx: Int, count: Int) -> String {
-    if count == 0 { return cfg.default_provider; }
-    let slot: Int = idx % count;
-    let p: Provider = list_get(cfg.providers, slot);
-    return p.name;
-}
-
-fn round_robin_model(cfg: Config, idx: Int) -> String {
-    let pn: Int = list_len(cfg.providers);
-    if pn == 0 { return cfg.default_model; }
-    let slot: Int = idx % pn;
-    let p: Provider = list_get(cfg.providers, slot);
-    if list_len(p.models) == 0 { return cfg.default_model; }
-    return list_get(p.models, 0);
 }

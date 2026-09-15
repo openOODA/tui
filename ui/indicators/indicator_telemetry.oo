@@ -1,0 +1,127 @@
+// # ui/indicators/indicator_telemetry.oo - Engineering Context & Telemetry Indicator
+//
+// Logline: High-density engineering telemetry gauge displaying context window utilization, latency, and throughput.
+//
+// Setup: Pure UI indicator component. Conforms to plugins/registry.oo IndicatorPlugin specification and micro-kernel ticks.
+//
+// Beats:
+//   1. TelemetryState record: used tokens, max tokens, latency ms, tok/sec, model name, active flag.
+//   2. Context utilization percentage and mini-bar gauge calculation.
+//   3. Threshold alert coloring: accent for normal, warning for >80%, error for >95% context fill.
+//   4. Compact engineering status string formatting for high-density terminal presets.
+//   5. Single-line SGR ANSI render output and 1-line constant height.
+
+import "theme.oo";
+
+pub type TelemetryState = struct {
+    context_used: Int,
+    context_max: Int,
+    latency_ms: Int,
+    tok_per_sec: Int,
+    model_name: String,
+    active: Bool
+};
+
+pub fn telemetry_new(model: String, max_ctx: Int) -> TelemetryState {
+    let m_ctx: Int = if max_ctx > 0 { max_ctx } else { 128000 };
+    return TelemetryState {
+        context_used: 0,
+        context_max: m_ctx,
+        latency_ms: 0,
+        tok_per_sec: 0,
+        model_name: model,
+        active: true
+    };
+}
+
+pub fn telemetry_update(st: TelemetryState, used: Int, lat_ms: Int, tok_s: Int) -> TelemetryState {
+    let mut s: TelemetryState = st;
+    s.context_used = used;
+    s.latency_ms = lat_ms;
+    s.tok_per_sec = tok_s;
+    return s;
+}
+
+pub fn telemetry_set_active(st: TelemetryState, active: Bool) -> TelemetryState {
+    let mut s: TelemetryState = st;
+    s.active = active;
+    return s;
+}
+
+fn telem_int_to_str(n: Int) -> String {
+    if n <= 0 { return "0"; }
+    let digits: String = "0123456789";
+    let mut v: Int = n;
+    let mut rev: String = "";
+    while v > 0 {
+        let d: Int = v - (v / 10) * 10;
+        rev = rev + char_at(digits, d);
+        v = v / 10;
+    }
+    let mut out: String = "";
+    let mut k: Int = chars_len(rev) - 1;
+    while k >= 0 {
+        out = out + char_at(rev, k);
+        k = k - 1;
+    }
+    return out;
+}
+
+fn telem_format_tokens(n: Int) -> String {
+    if n >= 1000 {
+        let k: Int = n / 1000;
+        let rem: Int = (n - k * 1000) / 100;
+        if rem > 0 {
+            return telem_int_to_str(k) + "." + telem_int_to_str(rem) + "k";
+        }
+        return telem_int_to_str(k) + "k";
+    }
+    return telem_int_to_str(n);
+}
+
+pub fn telemetry_render(st: TelemetryState, theme: String, color: Bool, cols: Int) -> String {
+    if !st.active { return ""; }
+    let accent: String = theme_color(theme, "accent");
+    let warn: String = theme_color(theme, "warning");
+    let err: String = theme_color(theme, "error");
+    let muted: String = theme_color(theme, "muted");
+    let dim: String = theme_color(theme, "dim");
+    let success: String = theme_color(theme, "success");
+
+    let mut pct: Int = 0;
+    if st.context_max > 0 {
+        pct = (st.context_used * 100) / st.context_max;
+    }
+    if pct > 100 { pct = 100; }
+
+    let mut ctx_color: String = accent;
+    if pct >= 95 { ctx_color = err; }
+    else if pct >= 80 { ctx_color = warn; }
+
+    // [CTX 14.2k/128k (11%)]
+    let mut s: String = ansi_fg(color, dim) + "[CTX " + ansi_reset(color);
+    s = s + ansi_fg(color, ctx_color) + telem_format_tokens(st.context_used) + "/" + telem_format_tokens(st.context_max) + ansi_reset(color);
+    s = s + ansi_fg(color, dim) + " (" + ansi_reset(color);
+    s = s + ansi_fg(color, ctx_color) + telem_int_to_str(pct) + "%" + ansi_reset(color);
+    s = s + ansi_fg(color, dim) + ")] " + ansi_reset(color);
+
+    // [LAT 142ms]
+    s = s + ansi_fg(color, dim) + "[LAT " + ansi_reset(color);
+    s = s + ansi_fg(color, muted) + telem_int_to_str(st.latency_ms) + "ms" + ansi_reset(color);
+    s = s + ansi_fg(color, dim) + "] " + ansi_reset(color);
+
+    // [52 tok/s]
+    s = s + ansi_fg(color, dim) + "[" + ansi_reset(color);
+    s = s + ansi_fg(color, success) + telem_int_to_str(st.tok_per_sec) + " tok/s" + ansi_reset(color);
+    s = s + ansi_fg(color, dim) + "]" + ansi_reset(color);
+
+    if st.model_name != "" {
+        s = s + " " + ansi_fg(color, dim) + st.model_name + ansi_reset(color);
+    }
+
+    return s;
+}
+
+pub fn telemetry_height() -> Int {
+    return 1;
+}

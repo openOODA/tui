@@ -1,0 +1,17 @@
+// # slash/cmd_clear.oo - Clear Slash Command
+//
+// Logline: Reset transcript scrollback history and signal screen clearance.
+//
+// Setup: Sets ReplState.hist to empty and output to __CLEAR__ sentinel.
+//
+// Beats:
+//   1. Clear conversation history buffer.
+//   2. Set clear control token for terminal renderer.
+
+
+pub fn cmd_clear_run(st: ReplState) -> ReplState {
+    let mut s: ReplState = st;
+    s.hist = "";
+    s.output = "__CLEAR__";
+    return s;
+}

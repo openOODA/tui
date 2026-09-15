@@ -1,0 +1,16 @@
+// # slash/cmd_exit.oo - Exit Slash Command
+//
+// Logline: Gracefully flag session state for shutdown and emit termination notice.
+//
+// Setup: Standalone slash command module setting exiting flag in ReplState.
+//
+// Beats:
+//   1. Mutate exiting state to true.
+//   2. Emit exit status message to session output.
+
+
+pub fn cmd_exit_run(st: ReplState) -> ReplState {
+    let mut s: ReplState = st;
+    s.exiting = true;
+    return slash_say(s, "exit");
+}

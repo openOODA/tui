@@ -1,0 +1,25 @@
+// # slash/cmd_compact.oo - Compact Slash Command
+//
+// Logline: Summarize conversation transcript history using LLM or drop scrollback.
+//
+// Setup: Compacts conversation transcript in ReplState using LLM synthesis.
+//
+// Beats:
+//   1. Mark output with __COMPACT__ control token.
+//   2. If LLM provider configured, query 6-bullet summary.
+//   3. Fall back to clearing scrollback if no provider available.
+
+
+pub fn cmd_compact_run(st: ReplState, sys: &ProcessCap, fw: &FsWriteCap) -> ReplState {
+    let mut s: ReplState = st;
+    s.output = "__COMPACT__";
+    if s.provider != "" && s.hist != "" {
+        let sum: String = slash_llm_line(sys, fw, s.ptype, s.key, s.model, s.url, "Summarize this thread in 6 bullets:\n" + s.hist);
+        s.hist = "summary: " + sum + "\n";
+        s = slash_say(s, "compact: summarized");
+    } else {
+        s.hist = "";
+        s = slash_say(s, "compact: dropped scrollback");
+    }
+    return s;
+}

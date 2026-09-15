@@ -1,0 +1,136 @@
+// # qa/probe_preset - Workflow Presets Opaque-Box Probe
+//
+// Logline: Verify workflow presets (kernel, frontend, audit, zen) and fail-closed rejection on invalid presets.
+//
+// Setup: Spawns ooda-tui under &ProcessCap with --preset flags and asserts configuration and exit codes.
+//
+// Beats:
+//   1. Resolve ooda-tui release or build binary path.
+//   2. Assert --preset without argument fails closed (exit code 2).
+//   3. Assert --preset with invalid preset name fails closed (exit code 2).
+//   4. Assert valid presets (kernel, frontend, audit, zen) execute cleanly with /exit piped.
+//   5. Verify Double-Run determinism across repeated invocations.
+
+import "std/fs/process/process.oo";
+
+fn resolve_bin(sys: &ProcessCap) -> String {
+    let r_inst: Result[String, String] = process_exec(sys, "test -x ~/.openooda/bin/ooda-tui");
+    if r_inst.is_ok() { return "~/.openooda/bin/ooda-tui"; }
+    let r_dist: Result[String, String] = process_exec(sys, "test -x ./dist/ooda-tui");
+    if r_dist.is_ok() { return "./dist/ooda-tui"; }
+    return "ooda-tui";
+}
+
+fn test_preset_run(sys: &ProcessCap, bin: String) -> Result[Int, String] {
+    let mut pass: Int = 0;
+    let mut fail: Int = 0;
+
+    // 1. Negative: Missing argument to --preset must fail closed (exit code 2)
+    let r_missing: Result[String, String] = process_exec(sys, bin + " --preset 2>/dev/null");
+    if r_missing.is_err() {
+        pass = pass + 1;
+        println("PASS: --preset missing argument rejected fail-closed");
+    } else {
+        fail = fail + 1;
+        println("FAIL: --preset missing argument accepted without error");
+    }
+
+    // 2. Negative: Invalid preset name must fail closed (exit code 2)
+    let r_invalid: Result[String, String] = process_exec(sys, bin + " --preset invalid_bogus_preset 2>/dev/null");
+    if r_invalid.is_err() {
+        pass = pass + 1;
+        println("PASS: --preset invalid preset name rejected fail-closed");
+    } else {
+        fail = fail + 1;
+        println("FAIL: --preset invalid preset name accepted without error");
+    }
+
+    // 3. Negative: Empty string preset name must fail closed
+    let r_empty: Result[String, String] = process_exec(sys, bin + " --preset '' 2>/dev/null");
+    if r_empty.is_err() {
+        pass = pass + 1;
+        println("PASS: --preset empty name rejected fail-closed");
+    } else {
+        fail = fail + 1;
+        println("FAIL: --preset empty name accepted without error");
+    }
+
+    // 4. Positive: Kernel preset execution with piped /exit
+    let r_kernel: Result[String, String] = process_exec(sys, "echo '/exit' | " + bin + " --preset kernel 2>&1");
+    if r_kernel.is_ok() {
+        pass = pass + 1;
+        println("PASS: --preset kernel launches and exits cleanly");
+    } else {
+        fail = fail + 1;
+        println("FAIL: --preset kernel failed to launch cleanly");
+    }
+
+    // 5. Positive: Frontend preset execution with piped /exit
+    let r_front: Result[String, String] = process_exec(sys, "echo '/exit' | " + bin + " --preset frontend 2>&1");
+    if r_front.is_ok() {
+        pass = pass + 1;
+        println("PASS: --preset frontend launches and exits cleanly");
+    } else {
+        fail = fail + 1;
+        println("FAIL: --preset frontend failed to launch cleanly");
+    }
+
+    // 6. Positive: Audit preset execution with piped /exit
+    let r_audit: Result[String, String] = process_exec(sys, "echo '/exit' | " + bin + " --preset audit 2>&1");
+    if r_audit.is_ok() {
+        pass = pass + 1;
+        println("PASS: --preset audit launches and exits cleanly");
+    } else {
+        fail = fail + 1;
+        println("FAIL: --preset audit failed to launch cleanly");
+    }
+
+    // 7. Positive: Zen preset execution with piped /exit
+    let r_zen: Result[String, String] = process_exec(sys, "echo '/exit' | " + bin + " --preset zen 2>&1");
+    if r_zen.is_ok() {
+        pass = pass + 1;
+        println("PASS: --preset zen launches and exits cleanly");
+    } else {
+        fail = fail + 1;
+        println("FAIL: --preset zen failed to launch cleanly");
+    }
+
+    println("qa/probe_preset: pass=" + int_to_str(pass) + " fail=" + int_to_str(fail));
+    if fail > 0 { return Err("qa/probe_preset: failures detected"); }
+    return Ok(0);
+}
+
+pub fn main(bind: &BindCap, fs_r: &FsReadCap, fs_w: &FsWriteCap, sys: &ProcessCap, sys_cap: &SysCap, env: &EnvCap, time: &TimeCap, alloc: &AllocCap, thread: &ThreadCap, args: List[String]) -> Result[Int, String] {
+    println("qa/probe_preset: starting workflow presets opaque-box probe");
+    let bin: String = resolve_bin(sys);
+    println("qa/probe_preset: target binary=" + bin);
+
+    // Double-run verification: Run_1 == Run_2
+    let run1: Result[Int, String] = test_preset_run(sys, bin);
+    if run1.is_err() { return run1; }
+    let run2: Result[Int, String] = test_preset_run(sys, bin);
+    if run2.is_err() { return run2; }
+
+    println("qa/probe_preset: PASS (Double-Run verified)");
+    return Ok(0);
+}
+
+fn int_to_str(n: Int) -> String {
+    if n < 0 { return "0"; }
+    if n == 0 { return "0"; }
+    let digits: String = "0123456789";
+    let mut v: Int = n;
+    let mut rev: String = "";
+    while v > 0 {
+        let d: Int = v - (v / 10) * 10;
+        rev = rev + char_at(digits, d);
+        v = v / 10;
+    }
+    let mut out: String = "";
+    let mut k: Int = chars_len(rev) - 1;
+    while k >= 0 {
+        out = out + char_at(rev, k);
+        k = k - 1;
+    }
+    return out;
+}

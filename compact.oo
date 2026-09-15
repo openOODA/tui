@@ -2,14 +2,30 @@
 //
 // Logline: When the conversation exceeds the configured threshold, summarize older turns into a single condensed block.
 //
-// Setup: Imports loop.oo for the LoopState type. Manual trigger via /compact; auto-trigger fires when token estimate exceeds threshold.
+// Setup: Pure compaction engine with flat turn and state definitions for decoupled operation.
 //
 // Beats:
 //   1. Estimate token count: chars / 4 (rough heuristic).
 //   2. If over threshold, mark the oldest N turns as "compacted" and insert a summary turn.
 //   3. /compact is idempotent: second call in a row is a no-op.
 
-import "loop.oo";
+pub type LoopTurn = struct {
+    role: String,
+    content: String,
+    kind: String,
+    ts: Int
+};
+
+pub type LoopState = struct {
+    turns: List[LoopTurn],
+    plan: String,
+    goal: String,
+    tools_json: String
+};
+
+pub fn loop_state_new() -> LoopState {
+    return LoopState { turns: list_new(), plan: "", goal: "", tools_json: "" };
+}
 
 pub fn compact_estimate_tokens(state: LoopState) -> Int {
     let mut total: Int = 0;

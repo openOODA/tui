@@ -1,0 +1,20 @@
+// # slash/cmd_theme.oo - Theme Slash Command
+//
+// Logline: Query or switch active 47-token visual theme (1982 or minimax).
+//
+// Setup: Validates theme name, switches ReplState.theme, and persists.
+//
+// Beats:
+//   1. Query current active theme name if args empty.
+//   2. Validate requested theme against supported themes (1982, minimax).
+//   3. Mutate theme setting in ReplState.
+//   4. Persist updated configuration to disk.
+
+
+pub fn cmd_theme_run(st: ReplState, args: String, fw: &FsWriteCap, env: &EnvCap) -> ReplState {
+    if args == "" { return slash_say(st, "theme: " + st.theme); }
+    if args != "1982" && args != "minimax" { return slash_say(st, "unknown theme: " + args); }
+    let mut s: ReplState = st;
+    s.theme = args;
+    return slash_persist(slash_say(s, "theme: " + args), fw, env);
+}

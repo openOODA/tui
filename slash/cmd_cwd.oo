@@ -1,0 +1,18 @@
+// # slash/cmd_cwd.oo - CWD Slash Command
+//
+// Logline: Query or update current working directory for native tool resolution.
+//
+// Setup: Inspects or sets cwd property in ReplState.
+//
+// Beats:
+//   1. Query current working directory if args empty.
+//   2. Mutate working directory in ReplState.
+//   3. Emit updated path to session output.
+
+
+pub fn cmd_cwd_run(st: ReplState, args: String) -> ReplState {
+    if args == "" { return slash_say(st, "cwd: " + st.cwd); }
+    let mut s: ReplState = st;
+    s.cwd = args;
+    return slash_say(s, "cwd: " + args);
+}

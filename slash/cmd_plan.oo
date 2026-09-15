@@ -1,0 +1,18 @@
+// # slash/cmd_plan.oo - Plan Slash Command
+//
+// Logline: Query or set current operational task plan in session state.
+//
+// Setup: Inspects or mutates active plan string in ReplState.
+//
+// Beats:
+//   1. Query current active plan if args empty.
+//   2. Update operational plan in ReplState.
+//   3. Emit confirmation notice to session output.
+
+
+pub fn cmd_plan_run(st: ReplState, args: String) -> ReplState {
+    if args == "" { return slash_say(st, "plan: " + st.plan); }
+    let mut s: ReplState = st;
+    s.plan = args;
+    return slash_say(s, "plan: set");
+}

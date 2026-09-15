@@ -1,0 +1,137 @@
+// # ui/input/anchor.oo - Pluggable Input Plugins Subsystem Hub
+//
+// Logline: Unified front-door re-exporting compose, simple, and headless input plugins with registry contract builders.
+//
+// Setup: Imports ./input_compose.oo, ./input_simple.oo, ./input_headless.oo, and plugins/registry.oo.
+//
+// Beats:
+//   1. Re-exports for compose, simple, and headless modules.
+//   2. Input plugin specification factories (compose, simple, headless).
+//   3. Plugin registry query and discovery helpers (resolve, list).
+//   4. Common facade functions for input plugin specs and default heights.
+//   5. Self-test validation verifying all 3 plugins and contract invariants.
+
+import "./input_compose.oo";
+import "./input_simple.oo";
+import "./input_headless.oo";
+import "plugins/registry.oo";
+
+pub fn input_plugin_compose() -> InputPlugin {
+    return InputPlugin {
+        name: "input_compose",
+        description: "Multi-line prompt compose editor with line wrap and history",
+        kind: "compose",
+        height: 3,
+        enabled: true
+    };
+}
+
+pub fn input_plugin_simple() -> InputPlugin {
+    return InputPlugin {
+        name: "input_simple",
+        description: "Single-line readline-style prompt editor",
+        kind: "readline",
+        height: 1,
+        enabled: true
+    };
+}
+
+pub fn input_plugin_headless() -> InputPlugin {
+    return InputPlugin {
+        name: "input_headless",
+        description: "Headless non-interactive streaming input handler",
+        kind: "headless",
+        height: 0,
+        enabled: true
+    };
+}
+
+pub fn input_plugin_list() -> List[String] {
+    let mut out: List[String] = list_new();
+    out = list_push(out, "input_compose");
+    out = list_push(out, "input_simple");
+    out = list_push(out, "input_headless");
+    return out;
+}
+
+pub fn input_plugin_resolve(name: String) -> Result[InputPlugin, String] {
+    if name == "input_compose" || name == "compose" { return Ok(input_plugin_compose()); }
+    if name == "input_simple" || name == "simple" || name == "readline" { return Ok(input_plugin_simple()); }
+    if name == "input_headless" || name == "headless" || name == "pipe" { return Ok(input_plugin_headless()); }
+    return Err("unknown input plugin: " + name);
+}
+
+pub fn input_plugin_default_height(name: String) -> Int {
+    let r: Result[InputPlugin, String] = input_plugin_resolve(name);
+    if r.is_err() { return 1; }
+    let p: InputPlugin = match r { Ok(v) => v, Err(_) => return 1; };
+    return p.height;
+}
+
+pub fn ui_input_self_check() -> Bool {
+    // 1. Compose plugin check
+    let mut c: ComposeState = compose_new();
+    c = compose_push_char(c, "h");
+    c = compose_push_char(c, "i");
+    if c.buffer != "hi" { return false; }
+    c = compose_backspace(c);
+    if c.buffer != "h" { return false; }
+    c = compose_push_char(c, "ello");
+    c = compose_submit(c);
+    if !c.submitted { return false; }
+    if compose_get_submission(c) != "hello" { return false; }
+    c = compose_consume(c);
+    if c.buffer != "" { return false; }
+    if list_len(c.history) != 1 { return false; }
+    c = compose_history_prev(c);
+    if c.buffer != "hello" { return false; }
+    let wrapped: List[String] = compose_wrap("one two three four five", 10);
+    if list_len(wrapped) < 2 { return false; }
+    let ch: Int = compose_height(c, 80);
+    if ch < 3 { return false; }
+
+    // 2. Simple plugin check
+    let mut s: SimpleInputState = simple_new();
+    s = simple_push_char(s, "x");
+    s = simple_push_char(s, "y");
+    if s.buffer != "xy" { return false; }
+    s = simple_backspace(s);
+    if s.buffer != "x" { return false; }
+    s = simple_submit(s);
+    if !s.submitted { return false; }
+    if simple_get_submission(s) != "x" { return false; }
+    s = simple_consume(s);
+    if s.buffer != "" { return false; }
+    if simple_height() != 1 { return false; }
+
+    // 3. Headless plugin check
+    let mut h: HeadlessInputState = headless_new();
+    if headless_height() != 0 { return false; }
+    if headless_has_input(h) { return false; }
+    h = headless_enqueue(h, "line 1");
+    h = headless_enqueue(h, "line 2");
+    if !headless_has_input(h) { return false; }
+    let p1: Result[String, String] = headless_poll(h);
+    if p1.is_err() { return false; }
+    let l1: String = match p1 { Ok(v) => v, Err(_) => "" };
+    if l1 != "line 1" { return false; }
+    h = headless_pop(h);
+    if headless_get_submission(h) != "line 1" { return false; }
+    h = headless_pop(h);
+    if headless_get_submission(h) != "line 2" { return false; }
+    if headless_has_input(h) { return false; }
+    h = headless_set_eof(h);
+    if !headless_is_eof(h) { return false; }
+
+    // 4. Registry resolve check
+    let r_comp: Result[InputPlugin, String] = input_plugin_resolve("input_compose");
+    if r_comp.is_err() { return false; }
+    let r_simp: Result[InputPlugin, String] = input_plugin_resolve("input_simple");
+    if r_simp.is_err() { return false; }
+    let r_head: Result[InputPlugin, String] = input_plugin_resolve("input_headless");
+    if r_head.is_err() { return false; }
+    let r_bad: Result[InputPlugin, String] = input_plugin_resolve("invalid_plugin");
+    if r_bad.is_ok() { return false; }
+
+    return true;
+}

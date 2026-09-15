@@ -1,0 +1,215 @@
+// # plugins/registry.oo - Master Typed Plugin Registry
+//
+// Logline: Central typed registry maintaining zero hardcoded commands or tools with fail-closed query and dispatch.
+//
+// Setup: Flat registry records for input, indicator, card, slash, tool, and workflow preset plugins.
+//
+// Beats:
+//   1. Typed plugin definitions across 6 domains (Input, Indicator, Card, Slash, Tool, Preset).
+//   2. Capability record ToolCaps for capability-gated dispatch.
+//   3. Registry constructors and registration methods for all 6 domains.
+//   4. Query functions (has, get, list) with fail-closed Result returns.
+//   5. Fail-closed dispatch mechanisms for slash commands, tools, and presets.
+
+pub type InputPlugin = struct {
+    name: String, description: String, kind: String, height: Int, enabled: Bool
+};
+pub type IndicatorPlugin = struct {
+    name: String, description: String, style: String, enabled: Bool
+};
+pub type CardPlugin = struct {
+    name: String, description: String, style: String, enabled: Bool
+};
+pub type SlashPlugin = struct {
+    name: String, description: String, usage: String, is_external: Bool, script_path: String, enabled: Bool
+};
+pub type ToolPlugin = struct {
+    name: String, description: String, needs_ask: Bool, required_cap: String, is_external: Bool, enabled: Bool
+};
+pub type PresetPlugin = struct {
+    name: String, description: String, input_plugin: String, indicator_plugin: String, card_plugin: String, default_mode: String, default_perm: String, theme: String, enabled: Bool
+};
+pub type ToolCaps = struct {
+    can_read: Bool, can_write: Bool, can_bash: Bool, can_net: Bool, can_mcp: Bool, can_lsp: Bool
+};
+pub type Registry = struct {
+    inputs: List[InputPlugin], indicators: List[IndicatorPlugin], cards: List[CardPlugin], slash_commands: List[SlashPlugin], tools: List[ToolPlugin], presets: List[PresetPlugin]
+};
+
+pub fn tool_caps_new(r: Bool, w: Bool, b: Bool, n: Bool, m: Bool, l: Bool) -> ToolCaps {
+    return ToolCaps { can_read: r, can_write: w, can_bash: b, can_net: n, can_mcp: m, can_lsp: l };
+}
+pub fn tool_caps_default() -> ToolCaps { return ToolCaps { can_read: true, can_write: false, can_bash: false, can_net: false, can_mcp: true, can_lsp: true }; }
+pub fn tool_caps_yolo() -> ToolCaps { return ToolCaps { can_read: true, can_write: true, can_bash: true, can_net: true, can_mcp: true, can_lsp: true }; }
+
+pub fn registry_init() -> Registry {
+    return Registry { inputs: list_new(), indicators: list_new(), cards: list_new(), slash_commands: list_new(), tools: list_new(), presets: list_new() };
+}
+
+pub fn registry_register_input(reg: Registry, p: InputPlugin) -> Registry {
+    let mut r: Registry = reg; r.inputs = list_push(r.inputs, p); return r;
+}
+pub fn registry_get_input(reg: Registry, name: String) -> Result[InputPlugin, String] {
+    let n: Int = list_len(reg.inputs); let mut i: Int = 0;
+    while i < n {
+        let p: InputPlugin = list_get(reg.inputs, i);
+        if p.name == name { return Ok(p); }
+        i = i + 1;
+    }
+    return Err("unknown input plugin: " + name);
+}
+pub fn registry_has_input(reg: Registry, name: String) -> Bool { return registry_get_input(reg, name).is_ok(); }
+pub fn registry_list_inputs(reg: Registry) -> List[String] {
+    let mut out: List[String] = list_new(); let n: Int = list_len(reg.inputs); let mut i: Int = 0;
+    while i < n { out = list_push(out, list_get(reg.inputs, i).name); i = i + 1; }
+    return out;
+}
+
+pub fn registry_register_indicator(reg: Registry, p: IndicatorPlugin) -> Registry {
+    let mut r: Registry = reg; r.indicators = list_push(r.indicators, p); return r;
+}
+pub fn registry_get_indicator(reg: Registry, name: String) -> Result[IndicatorPlugin, String] {
+    let n: Int = list_len(reg.indicators); let mut i: Int = 0;
+    while i < n {
+        let p: IndicatorPlugin = list_get(reg.indicators, i);
+        if p.name == name { return Ok(p); }
+        i = i + 1;
+    }
+    return Err("unknown indicator plugin: " + name);
+}
+pub fn registry_has_indicator(reg: Registry, name: String) -> Bool { return registry_get_indicator(reg, name).is_ok(); }
+pub fn registry_list_indicators(reg: Registry) -> List[String] {
+    let mut out: List[String] = list_new(); let n: Int = list_len(reg.indicators); let mut i: Int = 0;
+    while i < n { out = list_push(out, list_get(reg.indicators, i).name); i = i + 1; }
+    return out;
+}
+
+pub fn registry_register_card(reg: Registry, p: CardPlugin) -> Registry {
+    let mut r: Registry = reg; r.cards = list_push(r.cards, p); return r;
+}
+pub fn registry_get_card(reg: Registry, name: String) -> Result[CardPlugin, String] {
+    let n: Int = list_len(reg.cards); let mut i: Int = 0;
+    while i < n {
+        let p: CardPlugin = list_get(reg.cards, i);
+        if p.name == name { return Ok(p); }
+        i = i + 1;
+    }
+    return Err("unknown card plugin: " + name);
+}
+pub fn registry_has_card(reg: Registry, name: String) -> Bool { return registry_get_card(reg, name).is_ok(); }
+pub fn registry_list_cards(reg: Registry) -> List[String] {
+    let mut out: List[String] = list_new(); let n: Int = list_len(reg.cards); let mut i: Int = 0;
+    while i < n { out = list_push(out, list_get(reg.cards, i).name); i = i + 1; }
+    return out;
+}
+
+pub fn registry_register_slash(reg: Registry, p: SlashPlugin) -> Registry {
+    let mut r: Registry = reg; r.slash_commands = list_push(r.slash_commands, p); return r;
+}
+pub fn registry_get_slash(reg: Registry, name: String) -> Result[SlashPlugin, String] {
+    let n: Int = list_len(reg.slash_commands); let mut i: Int = 0;
+    while i < n {
+        let p: SlashPlugin = list_get(reg.slash_commands, i);
+        if p.name == name { return Ok(p); }
+        i = i + 1;
+    }
+    return Err("unknown slash command: /" + name);
+}
+pub fn registry_has_slash(reg: Registry, name: String) -> Bool { return registry_get_slash(reg, name).is_ok(); }
+pub fn registry_list_slash(reg: Registry) -> List[String] {
+    let mut out: List[String] = list_new(); let n: Int = list_len(reg.slash_commands); let mut i: Int = 0;
+    while i < n { out = list_push(out, list_get(reg.slash_commands, i).name); i = i + 1; }
+    return out;
+}
+
+pub fn registry_register_tool(reg: Registry, p: ToolPlugin) -> Registry {
+    let mut r: Registry = reg; r.tools = list_push(r.tools, p); return r;
+}
+pub fn registry_get_tool(reg: Registry, name: String) -> Result[ToolPlugin, String] {
+    let n: Int = list_len(reg.tools); let mut i: Int = 0;
+    while i < n {
+        let p: ToolPlugin = list_get(reg.tools, i);
+        if p.name == name { return Ok(p); }
+        i = i + 1;
+    }
+    return Err("unknown tool: " + name);
+}
+pub fn registry_has_tool(reg: Registry, name: String) -> Bool { return registry_get_tool(reg, name).is_ok(); }
+pub fn registry_list_tools(reg: Registry) -> List[String] {
+    let mut out: List[String] = list_new(); let n: Int = list_len(reg.tools); let mut i: Int = 0;
+    while i < n { out = list_push(out, list_get(reg.tools, i).name); i = i + 1; }
+    return out;
+}
+pub fn registry_tool_needs_ask(reg: Registry, name: String) -> Bool {
+    let tr: Result[ToolPlugin, String] = registry_get_tool(reg, name);
+    if tr.is_err() { return true; }
+    let tool: ToolPlugin = match tr { Ok(t) => t, Err(_) => return true; };
+    return tool.needs_ask;
+}
+
+pub fn registry_register_preset(reg: Registry, p: PresetPlugin) -> Registry {
+    let mut r: Registry = reg; r.presets = list_push(r.presets, p); return r;
+}
+pub fn registry_get_preset(reg: Registry, name: String) -> Result[PresetPlugin, String] {
+    let n: Int = list_len(reg.presets); let mut i: Int = 0;
+    while i < n {
+        let p: PresetPlugin = list_get(reg.presets, i);
+        if p.name == name { return Ok(p); }
+        i = i + 1;
+    }
+    return Err("unknown preset: " + name);
+}
+pub fn registry_has_preset(reg: Registry, name: String) -> Bool { return registry_get_preset(reg, name).is_ok(); }
+pub fn registry_list_presets(reg: Registry) -> List[String] {
+    let mut out: List[String] = list_new(); let n: Int = list_len(reg.presets); let mut i: Int = 0;
+    while i < n { out = list_push(out, list_get(reg.presets, i).name); i = i + 1; }
+    return out;
+}
+pub fn registry_resolve_preset(reg: Registry, name: String) -> Result[PresetPlugin, String] {
+    if name == "" { return Err("empty preset name"); }
+    let pr: Result[PresetPlugin, String] = registry_get_preset(reg, name);
+    if pr.is_err() { return Err("unknown preset: " + name); }
+    let p: PresetPlugin = match pr { Ok(v) => v, Err(e) => return Err(e); };
+    if !p.enabled { return Err("preset is disabled: " + name); }
+    return Ok(p);
+}
+
+fn contains_meta(s: String) -> Bool {
+    let n: Int = chars_len(s); let mut i: Int = 0;
+    while i < n {
+        let c: String = char_at(s, i);
+        if c == "/" || c == ";" || c == "&" || c == "|" || c == "`" || c == "$" || c == "\n" { return true; }
+        i = i + 1;
+    }
+    return false;
+}
+
+pub fn registry_dispatch_slash(reg: Registry, cmd: String, args: String) -> Result[String, String] {
+    if cmd == "" { return Err("empty slash command"); }
+    if contains_meta(cmd) { return Err("SECURITY: invalid characters in slash command: " + cmd); }
+    let pr: Result[SlashPlugin, String] = registry_get_slash(reg, cmd);
+    if pr.is_err() { return Err("unknown slash command: /" + cmd); }
+    let p: SlashPlugin = match pr { Ok(v) => v, Err(e) => return Err(e); };
+    if !p.enabled { return Err("slash command is disabled: /" + cmd); }
+    if p.is_external { return Ok("external:" + p.script_path); }
+    return Ok("builtin:" + cmd);
+}
+
+pub fn registry_dispatch_tool(reg: Registry, name: String, args: String, caps: ToolCaps) -> Result[String, String] {
+    if name == "" { return Err("empty tool name"); }
+    let tr: Result[ToolPlugin, String] = registry_get_tool(reg, name);
+    if tr.is_err() { return Err("unknown tool: " + name); }
+    let tool: ToolPlugin = match tr { Ok(t) => t, Err(e) => return Err(e); };
+    if !tool.enabled { return Err("tool is disabled: " + name); }
+    let req: String = tool.required_cap;
+    if req == "read" && !caps.can_read { return Err("permission denied: read capability required for " + name); }
+    if req == "write" && !caps.can_write { return Err("permission denied: write capability required for " + name); }
+    if req == "bash" && !caps.can_bash { return Err("permission denied: bash capability required for " + name); }
+    if req == "net" && !caps.can_net { return Err("permission denied: net capability required for " + name); }
+    if req == "mcp" && !caps.can_mcp { return Err("permission denied: mcp capability required for " + name); }
+    if req == "lsp" && !caps.can_lsp { return Err("permission denied: lsp capability required for " + name); }
+    if req != "" && req != "read" && req != "write" && req != "bash" && req != "net" && req != "mcp" && req != "lsp" {
+        return Err("permission denied: unknown required capability: " + req);
+    }
+    return Ok(name);
+}

@@ -1,0 +1,188 @@
+// # slash/cmd_external.oo - Dynamic External Slash Command Fallback
+//
+// Logline: Resolve and execute external user slash scripts across workspace, home, and PATH under ProcessCap.
+//
+// Setup: Validates command identifier and arguments, searches hierarchical paths, executes script with ProcessCap.
+//
+// Beats:
+//   1. Validate command identifier against path traversal, wildcards, and metacharacters.
+//   2. Validate command arguments against shell injection breakout.
+//   3. Search candidate locations: workspace .openooda/slash/, home ~/.openooda/slash/, plugins, and PATH.
+//   4. Execute candidate with argument forwarding and capture combined stdout/stderr.
+//   5. Fail closed with informative error if candidate is missing, invalid, or fails.
+
+import "std/fs/process/process.oo";
+import "std/fs/process/env.oo";
+
+fn has_dotdot(s: String) -> Bool {
+    let len: Int = chars_len(s);
+    let mut i: Int = 0;
+    while i < len - 1 {
+        if char_at(s, i) == "." && char_at(s, i + 1) == "." { return true; }
+        i = i + 1;
+    }
+    return false;
+}
+
+fn is_bad_cmd_char(c: String) -> Bool {
+    if c == "/" || c == "\\" || c == ";" || c == "&" || c == "|" || c == "`" || c == "$" { return true; }
+    if c == "<" || c == ">" || c == "(" || c == ")" || c == "\"" || c == "'" || c == "\n" || c == "\r" { return true; }
+    if c == " " || c == "\t" || c == "\0" || c == "*" || c == "?" || c == "~" || c == "!" { return true; }
+    if c == "[" || c == "]" || c == "{" || c == "}" || c == "^" { return true; }
+    return false;
+}
+
+fn contains_meta(s: String) -> Bool {
+    let len: Int = chars_len(s);
+    let mut i: Int = 0;
+    while i < len {
+        if is_bad_cmd_char(char_at(s, i)) { return true; }
+        i = i + 1;
+    }
+    return false;
+}
+
+fn is_bad_arg_char(c: String) -> Bool {
+    if c == ";" || c == "&" || c == "|" || c == "`" || c == "$" || c == "\n" || c == "\r" || c == "\0" { return true; }
+    if c == "<" || c == ">" || c == "(" || c == ")" { return true; }
+    return false;
+}
+
+fn contains_shell_injection(s: String) -> Bool {
+    let len: Int = chars_len(s);
+    let mut i: Int = 0;
+    while i < len {
+        if is_bad_arg_char(char_at(s, i)) { return true; }
+        i = i + 1;
+    }
+    return false;
+}
+
+fn check_executable(sys: &ProcessCap, path: String) -> Bool {
+    let r: Result[String, String] = process_exec(sys, "test -x \"" + path + "\"");
+    return r.is_ok();
+}
+
+fn check_in_path(sys: &ProcessCap, bin_name: String) -> Bool {
+    let r: Result[String, String] = process_exec(sys, "command -v " + bin_name);
+    return r.is_ok();
+}
+
+fn resolve_home(env: &EnvCap) -> String {
+    let r1: Result[String, String] = env_get(env, "OODA_HOME");
+    if r1.is_ok() {
+        let h1: String = match r1 { Ok(s) => s, Err(_) => "" };
+        if h1 != "" { return h1; }
+    }
+    let r2: Result[String, String] = env_get(env, "HOME");
+    if r2.is_ok() {
+        let h2: String = match r2 { Ok(s) => s, Err(_) => "" };
+        if h2 != "" { return h2; }
+    }
+    return "/home/jeryd";
+}
+
+fn execute_script(sys: &ProcessCap, path: String, clean_cmd: String, args: String) -> Result[String, String] {
+    let mut run_cmd: String = "\"" + path + "\"";
+    if args != "" { run_cmd = run_cmd + " " + args; }
+    let r: Result[String, String] = process_exec(sys, run_cmd);
+    if r.is_ok() {
+        let out: String = match r { Ok(s) => s, Err(_) => "" };
+        return Ok(str_trim(out));
+    }
+    let err: String = match r { Ok(_) => "", Err(e) => e };
+    let trimmed: String = str_trim(err);
+    if trimmed == "" {
+        return Err("external command /" + clean_cmd + " failed (non-zero exit code)");
+    }
+    return Err("external command /" + clean_cmd + " failed: " + trimmed);
+}
+
+pub fn cmd_external_dispatch(sys: &ProcessCap, env: &EnvCap, cwd: String, cmd: String, args: String) -> Result[String, String] {
+    let mut clean_cmd: String = cmd;
+    if str_starts_with(clean_cmd, "/") {
+        clean_cmd = str_slice(clean_cmd, 1, chars_len(clean_cmd));
+    }
+    if clean_cmd == "" {
+        return Err("type /help for available commands");
+    }
+    if has_dotdot(clean_cmd) {
+        return Err("SECURITY: path traversal rejected in slash command: " + clean_cmd);
+    }
+    if contains_meta(clean_cmd) {
+        return Err("SECURITY: invalid characters in slash command: " + clean_cmd);
+    }
+    if contains_shell_injection(args) {
+        return Err("SECURITY: shell metacharacter rejected in arguments: " + args);
+    }
+
+    // 1. Project workspace: .openooda/slash/<cmd>
+    if cwd != "" && cwd != "." {
+        let c_ws: String = cwd + "/.openooda/slash/" + clean_cmd;
+        if check_executable(sys, c_ws) {
+            return execute_script(sys, c_ws, clean_cmd, args);
+        }
+    }
+    let c_ws_rel: String = ".openooda/slash/" + clean_cmd;
+    if check_executable(sys, c_ws_rel) {
+        return execute_script(sys, c_ws_rel, clean_cmd, args);
+    }
+
+    let pdir_res: Result[String, String] = env_get(env, "OODA_PLUGINS_DIR");
+    if pdir_res.is_ok() {
+        let pdir: String = match pdir_res { Ok(d) => d, Err(_) => "" };
+        if pdir != "" {
+            let cp1: String = pdir + "/ooda-cmd-" + clean_cmd;
+            if check_executable(sys, cp1) {
+                return execute_script(sys, cp1, clean_cmd, args);
+            }
+            let cp2: String = pdir + "/" + clean_cmd;
+            if check_executable(sys, cp2) {
+                return execute_script(sys, cp2, clean_cmd, args);
+            }
+        }
+    }
+
+    let home: String = resolve_home(env);
+
+    // 2. User home: ~/.openooda/slash/<cmd>
+    let c_home: String = home + "/.openooda/slash/" + clean_cmd;
+    if check_executable(sys, c_home) {
+        return execute_script(sys, c_home, clean_cmd, args);
+    }
+
+    // 3. User plugins / config dirs (backward compatibility)
+    let c_p1: String = home + "/.openooda/plugins/ooda-cmd-" + clean_cmd;
+    if check_executable(sys, c_p1) {
+        return execute_script(sys, c_p1, clean_cmd, args);
+    }
+    let c_p2: String = home + "/.openooda/plugins/" + clean_cmd;
+    if check_executable(sys, c_p2) {
+        return execute_script(sys, c_p2, clean_cmd, args);
+    }
+    let c_c1: String = home + "/.config/ooda-tui/slash/cmd_" + clean_cmd;
+    if check_executable(sys, c_c1) {
+        return execute_script(sys, c_c1, clean_cmd, args);
+    }
+    let c_c2: String = home + "/.config/ooda-tui/slash/" + clean_cmd;
+    if check_executable(sys, c_c2) {
+        return execute_script(sys, c_c2, clean_cmd, args);
+    }
+
+    // 4. User PATH: ooda-slash-<cmd>
+    let bin_name: String = "ooda-slash-" + clean_cmd;
+    if check_in_path(sys, bin_name) {
+        return execute_script(sys, bin_name, clean_cmd, args);
+    }
+
+    return Err("unknown command: /" + clean_cmd + "  (type /help)");
+}
+
+pub fn cmd_external_run(st: ReplState, cmd: String, args: String, sys: &ProcessCap, env: &EnvCap, _fs_r: &FsReadCap) -> ReplState {
+    let r: Result[String, String] = cmd_external_dispatch(sys, env, st.cwd, cmd, args);
+    let msg: String = match r {
+        Ok(out) => out,
+        Err(err) => err
+    };
+    return slash_say(st, msg);
+}

@@ -1,0 +1,17 @@
+// # slash/cmd_provider.oo - Provider Slash Command
+//
+// Logline: Query or switch active LLM provider and persist selection.
+//
+// Setup: Inspects or updates active provider and default model settings.
+//
+// Beats:
+//   1. Query active provider if args empty.
+//   2. Apply new provider defaults to ReplState.
+//   3. Persist updated configuration to disk.
+
+
+pub fn cmd_provider_run(st: ReplState, args: String, fw: &FsWriteCap, env: &EnvCap) -> ReplState {
+    if args == "" { return slash_say(st, "provider: " + st.provider); }
+    let s: ReplState = slash_apply_provider(st, args);
+    return slash_persist(slash_say(s, "provider: " + s.provider + " / " + s.model), fw, env);
+}

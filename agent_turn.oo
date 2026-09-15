@@ -11,7 +11,7 @@
 
 import "repl_state.oo";
 import "llm_exec.oo";
-import "native_tools.oo";
+import "tools/anchor.oo";
 import "card.oo";
 
 fn sys_prompt(st: ReplState) -> String {

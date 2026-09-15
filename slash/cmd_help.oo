@@ -1,0 +1,17 @@
+// # slash/cmd_help.oo - Help Slash Command
+//
+// Logline: Output table of available slash commands, options, and sandboxed native tools.
+//
+// Setup: Standalone slash command module returning help strings to ReplState.
+//
+// Beats:
+//   1. Define SlashPlugin descriptor.
+//   2. Output standard command catalog.
+//   3. Tabulate tool capabilities and operation modes.
+
+
+pub fn cmd_help_run(st: ReplState) -> ReplState {
+    let mut s: ReplState = slash_say(st, "commands: /login /logout /providers /model /theme /cwd /plan /goal");
+    s = slash_say(s, "  /init /perm /mode /clear /compact /btw /team /resume /rename /settings /status /exit /preset /tools");
+    return slash_say(s, "  tools: read grep glob write bash  ·  /perm ask|allow|yolo  /mode build|plan");
+}

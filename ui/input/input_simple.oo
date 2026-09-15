@@ -1,0 +1,164 @@
+// # ui/input/input_simple.oo - Single-Line Readline Prompt Input Plugin
+//
+// Logline: Single-line readline-style prompt editor with history navigation and minimal vertical footprint.
+//
+// Setup: Pure UI input component. Conforms to micro-kernel event model and plugins/registry.oo InputPlugin specification.
+//
+// Beats:
+//   1. SimpleInputState record: buffer, history, draft, prompt label, ask mode, status.
+//   2. Character editing: push_char, backspace, clear, submit, and cancel bindings.
+//   3. History navigation: Up/Down arrow previous and next prompt traversal.
+//   4. Key dispatching: handles enter, esc, ctrl_c, up, down, backspace.
+//   5. Single-line SGR ANSI prompt rendering with theme accent and 1-line constant height.
+
+import "theme.oo";
+
+pub type SimpleInputState = struct {
+    buffer: String,
+    history: List[String],
+    history_idx: Int,
+    draft: String,
+    prompt_label: String,
+    is_ask: Bool,
+    submitted: Bool,
+    cancelled: Bool
+};
+
+pub fn simple_new() -> SimpleInputState {
+    let hist: List[String] = list_new();
+    return SimpleInputState {
+        buffer: "",
+        history: hist,
+        history_idx: -1,
+        draft: "",
+        prompt_label: "ooda> ",
+        is_ask: false,
+        submitted: false,
+        cancelled: false
+    };
+}
+
+pub fn simple_set_ask(st: SimpleInputState, ask: Bool) -> SimpleInputState {
+    let mut s: SimpleInputState = st;
+    s.is_ask = ask;
+    return s;
+}
+
+pub fn simple_push_char(st: SimpleInputState, ch: String) -> SimpleInputState {
+    let mut s: SimpleInputState = st;
+    s.buffer = s.buffer + ch;
+    s.submitted = false;
+    s.cancelled = false;
+    return s;
+}
+
+pub fn simple_backspace(st: SimpleInputState) -> SimpleInputState {
+    let mut s: SimpleInputState = st;
+    let n: Int = chars_len(s.buffer);
+    if n > 0 {
+        s.buffer = str_slice(s.buffer, 0, n - 1);
+    }
+    return s;
+}
+
+pub fn simple_clear(st: SimpleInputState) -> SimpleInputState {
+    let mut s: SimpleInputState = st;
+    s.buffer = "";
+    s.submitted = false;
+    s.cancelled = false;
+    return s;
+}
+
+pub fn simple_submit(st: SimpleInputState) -> SimpleInputState {
+    let mut s: SimpleInputState = st;
+    s.submitted = true;
+    s.cancelled = false;
+    return s;
+}
+
+pub fn simple_cancel(st: SimpleInputState) -> SimpleInputState {
+    let mut s: SimpleInputState = st;
+    s.buffer = "";
+    s.submitted = false;
+    s.cancelled = true;
+    return s;
+}
+
+pub fn simple_history_add(st: SimpleInputState, item: String) -> SimpleInputState {
+    let mut s: SimpleInputState = st;
+    if item != "" {
+        s.history = list_push(s.history, item);
+    }
+    s.history_idx = -1;
+    s.draft = "";
+    return s;
+}
+
+pub fn simple_history_prev(st: SimpleInputState) -> SimpleInputState {
+    let mut s: SimpleInputState = st;
+    let total: Int = list_len(s.history);
+    if total == 0 { return s; }
+    if s.history_idx == -1 {
+        s.draft = s.buffer;
+        s.history_idx = total - 1;
+        s.buffer = list_get(s.history, s.history_idx);
+    } else if s.history_idx > 0 {
+        s.history_idx = s.history_idx - 1;
+        s.buffer = list_get(s.history, s.history_idx);
+    }
+    return s;
+}
+
+pub fn simple_history_next(st: SimpleInputState) -> SimpleInputState {
+    let mut s: SimpleInputState = st;
+    let total: Int = list_len(s.history);
+    if total == 0 || s.history_idx == -1 { return s; }
+    if s.history_idx < total - 1 {
+        s.history_idx = s.history_idx + 1;
+        s.buffer = list_get(s.history, s.history_idx);
+    } else {
+        s.history_idx = -1;
+        s.buffer = s.draft;
+        s.draft = "";
+    }
+    return s;
+}
+
+pub fn simple_handle_key(st: SimpleInputState, key: String) -> SimpleInputState {
+    if key == "enter" || key == "<enter>" { return simple_submit(st); }
+    if key == "esc" || key == "<esc>" || key == "ctrl_c" { return simple_cancel(st); }
+    if key == "up" || key == "<up>" { return simple_history_prev(st); }
+    if key == "down" || key == "<down>" { return simple_history_next(st); }
+    if key == "backspace" || key == "<backspace>" { return simple_backspace(st); }
+    return st;
+}
+
+pub fn simple_render(st: SimpleInputState, theme: String, color: Bool, cols: Int) -> String {
+    let accent: String = theme_color(theme, "accent");
+    let err: String = theme_color(theme, "error");
+    let text_col: String = theme_color(theme, "text");
+
+    let p_color: String = if st.is_ask { err } else { accent };
+    let p_label: String = if st.is_ask { "APPROVE [y/n/a/d]> " } else { st.prompt_label };
+
+    let mut s: String = ansi_fg(color, p_color) + p_label + ansi_reset(color);
+    s = s + ansi_fg(color, text_col) + st.buffer + ansi_reset(color);
+    return s;
+}
+
+pub fn simple_height() -> Int {
+    return 1;
+}
+
+pub fn simple_get_submission(st: SimpleInputState) -> String {
+    return st.buffer;
+}
+
+pub fn simple_consume(st: SimpleInputState) -> SimpleInputState {
+    let mut s: SimpleInputState = st;
+    s = simple_history_add(s, s.buffer);
+    s.buffer = "";
+    s.submitted = false;
+    s.cancelled = false;
+    return s;
+}

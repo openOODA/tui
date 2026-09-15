@@ -1,42 +1,107 @@
 // # qa/slash - Slash Command Probe
 //
-// Logline: Run slash_run on synthesized lines and assert /help and unknown commands produce output.
+// Logline: Run slash_line on synthesized lines and assert /help and unknown commands produce output.
 //
-// Setup: In-process. Builds a default AppState and dispatches through slash.oo.
+// Setup: In-process probe testing live slash execution on ReplState and plugins/registry.oo dispatch.
 //
 // Beats:
-//   1. /help writes command text into AppState.output.
-//   2. /bogus is unknown and mentions /help.
-//   3. /theme minimax switches the theme.
-//   4. /exit sets exiting.
+//   1. /help produces command list output.
+//   2. /bogus produces unknown command error mentioning /help.
+//   3. /theme minimax switches active theme to minimax.
+//   4. /exit sets exiting flag to true.
+//   5. Master plugin registry dispatches slash commands cleanly.
+//   6. Case-insensitive /HELP canonicalization produces help output.
+//   7. Empty slash / produces helpful usage hint.
+//   8. slash_self_check validates in-process registration and routing.
+//   9. Double-Run determinism verified (Run_1 == Run_2).
 
-import "slash.oo";
-import "app.oo";
-import "config.oo";
-import "session.oo";
+import "repl_state.oo";
+import "repl_slash.oo";
+import "plugins/registry.oo";
+import "slash/anchor.oo";
 
-fn main(bind: &BindCap, fs_r: &FsReadCap, fs_w: &FsWriteCap, sys: &ProcessCap, sys_cap: &SysCap, env: &EnvCap, time: &TimeCap, alloc: &AllocCap, thread: &ThreadCap, args: List[String]) -> Result[Int, String] {
-    println("qa/slash: starting slash command probe");
+fn test_slash_run(sys: &ProcessCap, fs_w: &FsWriteCap, env: &EnvCap, fs_r: &FsReadCap) -> Result[Int, String] {
     let mut pass: Int = 0;
     let mut fail: Int = 0;
-    let cfg: Config = config_default();
-    let sess: Session = session_create("qa", "", "", ".");
-    let st: AppState = app_state_new(cfg, sess, false, false);
 
-    let h: AppState = slash_run(st, "/help");
-    if chars_len(h.output) > 8 { pass = pass + 1; } else { fail = fail + 1; println("FAIL: /help empty"); }
+    let st: ReplState = ReplState {
+        theme: "1982", provider: "", ptype: "cloud", key: "", url: "", model: "",
+        cwd: ".", teamwork: false, yolo: false, plan: "", goal: "", output: "",
+        exiting: false, session: "qa", hist: "", perm: "ask", mode: "build",
+        brief: "", pending_tool: "", pending_args: "", pending_body: ""
+    };
+    let ver: String = "0.3.0";
 
-    let u: AppState = slash_run(h, "/bogus");
-    if str_starts_with(u.output, "unknown") { pass = pass + 1; } else { fail = fail + 1; println("FAIL: /bogus"); }
+    let h: ReplState = slash_line(st, "/help", ver, sys, fs_w, env, fs_r);
+    if str_starts_with(h.output, "commands:") { pass = pass + 1; println("PASS: /help command catalog"); }
+    else { fail = fail + 1; println("FAIL: /help empty"); }
 
-    let t: AppState = slash_run(u, "/theme minimax");
-    if t.theme == "minimax" { pass = pass + 1; } else { fail = fail + 1; println("FAIL: /theme"); }
+    let to: ReplState = slash_line(st, "/tools", ver, sys, fs_w, env, fs_r);
+    if str_starts_with(to.output, "tools: read") { pass = pass + 1; println("PASS: /tools produces tool list"); }
+    else { fail = fail + 1; println("FAIL: /tools"); }
 
-    let e: AppState = slash_run(t, "/exit");
-    if e.exiting { pass = pass + 1; } else { fail = fail + 1; println("FAIL: /exit"); }
+    let u: ReplState = slash_line(h, "/bogus", ver, sys, fs_w, env, fs_r);
+    if str_starts_with(u.output, "unknown") { pass = pass + 1; println("PASS: /bogus unknown"); }
+    else { fail = fail + 1; println("FAIL: /bogus"); }
+
+    let t: ReplState = slash_line(u, "/theme minimax", ver, sys, fs_w, env, fs_r);
+    if t.theme == "minimax" { pass = pass + 1; println("PASS: /theme switched to minimax"); }
+    else { fail = fail + 1; println("FAIL: /theme"); }
+
+    let e: ReplState = slash_line(t, "/exit", ver, sys, fs_w, env, fs_r);
+    if e.exiting { pass = pass + 1; println("PASS: /exit sets exiting"); }
+    else { fail = fail + 1; println("FAIL: /exit"); }
+
+    let mut reg: Registry = registry_init();
+    let sp: SlashPlugin = SlashPlugin {
+        name: "theme", description: "Switch visual theme", usage: "/theme [name]",
+        is_external: false, script_path: "", enabled: true
+    };
+    reg = registry_register_slash(reg, sp);
+    let r_disp: Result[String, String] = registry_dispatch_slash(reg, "theme", "minimax");
+    if r_disp.is_ok() { pass = pass + 1; println("PASS: registry dispatch slash theme"); }
+    else { fail = fail + 1; println("FAIL: registry dispatch slash"); }
+
+    // Case-insensitive /HELP
+    let h_upper: ReplState = slash_line(st, "/HELP", ver, sys, fs_w, env, fs_r);
+    if str_starts_with(h_upper.output, "commands:") { pass = pass + 1; println("PASS: /HELP case-insensitive"); }
+    else { fail = fail + 1; println("FAIL: /HELP empty"); }
+
+    // Empty slash /
+    let slash_empty: ReplState = slash_line(st, "/", ver, sys, fs_w, env, fs_r);
+    if str_starts_with(slash_empty.output, "type /help") { pass = pass + 1; println("PASS: / empty hint"); }
+    else { fail = fail + 1; println("FAIL: / empty"); }
+
+    // slash_self_check
+    if slash_self_check() { pass = pass + 1; println("PASS: slash_self_check"); }
+    else { fail = fail + 1; println("FAIL: slash_self_check"); }
+
+    // slash_register_all
+    let mut full_reg: Registry = registry_init();
+    full_reg = slash_register_all(full_reg);
+    if registry_has_slash(full_reg, "help") && registry_has_slash(full_reg, "plan") && registry_has_slash(full_reg, "login") && registry_has_slash(full_reg, "preset") && registry_has_slash(full_reg, "tools") {
+        pass = pass + 1;
+        println("PASS: slash_register_all registered core plugins");
+    } else {
+        fail = fail + 1;
+        println("FAIL: slash_register_all missing plugins");
+    }
 
     println("qa/slash: pass=" + int_to_str(pass) + " fail=" + int_to_str(fail));
     if fail > 0 { return Err("qa/slash: failures"); }
+    return Ok(0);
+}
+
+pub fn main(bind: &BindCap, fs_r: &FsReadCap, fs_w: &FsWriteCap, sys: &ProcessCap, sys_cap: &SysCap, env: &EnvCap, time: &TimeCap, alloc: &AllocCap, thread: &ThreadCap, args: List[String]) -> Result[Int, String] {
+    println("qa/slash: starting slash command probe");
+
+    // Double-run verification: Run_1 == Run_2
+    let run1: Result[Int, String] = test_slash_run(sys, fs_w, env, fs_r);
+    if run1.is_err() { return run1; }
+    let run2: Result[Int, String] = test_slash_run(sys, fs_w, env, fs_r);
+    if run2.is_err() { return run2; }
+
+    println("qa/slash: PASS (Double-Run verified)");
     return Ok(0);
 }
 

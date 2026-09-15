@@ -1,0 +1,99 @@
+// # slash/router.oo - Central Slash Command Router & Dispatcher
+//
+// Logline: Parse and dispatch incoming slash command lines to discrete single-purpose modules.
+//
+// Setup: Canonicalizes command names, routes to cmd_* modules, falls back to dynamic external scripts.
+//
+// Beats:
+//   1. Guard against empty command lines or standalone slash.
+//   2. Extract command identifier and arguments with whitespace trimming.
+//   3. Canonicalize command name to lowercase for case-insensitive matching.
+//   4. Dispatch to matching built-in command handler.
+//   5. Fall back to dynamic external script runner if command unhandled.
+
+import "slash/common.oo";
+import "slash/cmd_help.oo";
+import "slash/cmd_exit.oo";
+import "slash/cmd_version.oo";
+import "slash/cmd_providers.oo";
+import "slash/cmd_provider.oo";
+import "slash/cmd_model.oo";
+import "slash/cmd_login.oo";
+import "slash/cmd_logout.oo";
+import "slash/cmd_theme.oo";
+import "slash/cmd_cwd.oo";
+import "slash/cmd_plan.oo";
+import "slash/cmd_goal.oo";
+import "slash/cmd_status.oo";
+import "slash/cmd_settings.oo";
+import "slash/cmd_clear.oo";
+import "slash/cmd_rename.oo";
+import "slash/cmd_resume.oo";
+import "slash/cmd_compact.oo";
+import "slash/cmd_btw.oo";
+import "slash/cmd_team.oo";
+import "slash/cmd_init.oo";
+import "slash/cmd_perm.oo";
+import "slash/cmd_mode.oo";
+import "slash/cmd_preset.oo";
+import "slash/cmd_tools.oo";
+import "slash/cmd_external.oo";
+
+fn to_lower(s: String) -> String {
+    let upper: String = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    let lower: String = "abcdefghijklmnopqrstuvwxyz";
+    let len: Int = chars_len(s);
+    let mut out: String = "";
+    let mut i: Int = 0;
+    while i < len {
+        let c: String = char_at(s, i);
+        let idx: Int = str_index_of(upper, c);
+        if idx >= 0 {
+            out = out + char_at(lower, idx);
+        } else {
+            out = out + c;
+        }
+        i = i + 1;
+    }
+    return out;
+}
+
+pub fn slash_dispatch(st: ReplState, line: String, ver: String, sys: &ProcessCap, fw: &FsWriteCap, env: &EnvCap, fs_r: &FsReadCap) -> ReplState {
+    let mut s0: ReplState = st;
+    s0.output = "";
+    let trimmed: String = str_trim(line);
+    if trimmed == "" || trimmed == "/" {
+        return slash_say(s0, "type /help for available commands");
+    }
+    let raw_cmd: String = slash_cmd_of(trimmed);
+    let args: String = slash_args_of(trimmed, raw_cmd);
+    let cmd: String = to_lower(raw_cmd);
+
+    if cmd == "/exit" || cmd == "/quit" { return cmd_exit_run(s0); }
+    if cmd == "/help" { return cmd_help_run(s0); }
+    if cmd == "/version" { return cmd_version_run(s0, ver); }
+    if cmd == "/providers" { return cmd_providers_run(s0); }
+    if cmd == "/provider" { return cmd_provider_run(s0, args, fw, env); }
+    if cmd == "/model" { return cmd_model_run(s0, args, fw, env); }
+    if cmd == "/login" { return cmd_login_run(s0, args, fw, env); }
+    if cmd == "/logout" { return cmd_logout_run(s0, fw, env); }
+    if cmd == "/theme" { return cmd_theme_run(s0, args, fw, env); }
+    if cmd == "/cwd" { return cmd_cwd_run(s0, args); }
+    if cmd == "/plan" { return cmd_plan_run(s0, args); }
+    if cmd == "/goal" { return cmd_goal_run(s0, args); }
+    if cmd == "/status" { return cmd_status_run(s0); }
+    if cmd == "/settings" { return cmd_settings_run(s0); }
+    if cmd == "/clear" { return cmd_clear_run(s0); }
+    if cmd == "/rename" { return cmd_rename_run(s0, args); }
+    if cmd == "/resume" { return cmd_resume_run(s0, args); }
+    if cmd == "/compact" { return cmd_compact_run(s0, sys, fw); }
+    if cmd == "/btw" { return cmd_btw_run(s0, args, sys, fw); }
+    if cmd == "/team" { return cmd_team_run(s0, args, sys, fw); }
+    if cmd == "/init" { return cmd_init_run(s0, fw, fs_r); }
+    if cmd == "/perm" { return cmd_perm_run(s0, args); }
+    if cmd == "/mode" { return cmd_mode_run(s0, args); }
+    if cmd == "/preset" { return cmd_preset_run(s0, args); }
+    if cmd == "/tools" { return cmd_tools_run(s0); }
+
+    return cmd_external_run(s0, raw_cmd, args, sys, env, fs_r);
+}

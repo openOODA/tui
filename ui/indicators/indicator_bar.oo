@@ -1,0 +1,137 @@
+// # ui/indicators/indicator_bar.oo - Progress Bar Thinking Indicator
+//
+// Logline: Progress bar indicator displaying step count, animated fill gauge, percentage, and task description.
+//
+// Setup: Pure UI indicator component. Conforms to plugins/registry.oo IndicatorPlugin specification and micro-kernel ticks.
+//
+// Beats:
+//   1. BarState record: step, total_steps, percentage, activity label, active flag.
+//   2. Percentage and clamp calculations (0..100).
+//   3. Bar width adaptation calculating dynamic fill against terminal column constraints.
+//   4. SGR ANSI styling with theme accent, success, and muted tokens with ASCII fallback.
+//   5. Single-line render function and 1-line height query.
+
+import "theme.oo";
+
+pub type BarState = struct {
+    step: Int,
+    total_steps: Int,
+    pct: Int,
+    label: String,
+    active: Bool
+};
+
+pub fn bar_new(step: Int, total_steps: Int, label: String) -> BarState {
+    let mut initial_pct: Int = 0;
+    if total_steps > 0 {
+        initial_pct = (step * 100) / total_steps;
+    }
+    if initial_pct > 100 { initial_pct = 100; }
+    return BarState {
+        step: step,
+        total_steps: total_steps,
+        pct: initial_pct,
+        label: label,
+        active: true
+    };
+}
+
+pub fn bar_update_pct(st: BarState, pct: Int) -> BarState {
+    let mut s: BarState = st;
+    let mut p: Int = pct;
+    if p < 0 { p = 0; }
+    if p > 100 { p = 100; }
+    s.pct = p;
+    return s;
+}
+
+pub fn bar_update_step(st: BarState, step: Int, total: Int, label: String) -> BarState {
+    let mut s: BarState = st;
+    s.step = step;
+    s.total_steps = total;
+    s.label = label;
+    if total > 0 {
+        s.pct = (step * 100) / total;
+    }
+    if s.pct > 100 { s.pct = 100; }
+    return s;
+}
+
+pub fn bar_set_active(st: BarState, active: Bool) -> BarState {
+    let mut s: BarState = st;
+    s.active = active;
+    return s;
+}
+
+fn bar_repeat_char(c: String, n: Int) -> String {
+    let mut s: String = "";
+    let mut i: Int = 0;
+    while i < n { s = s + c; i = i + 1; }
+    return s;
+}
+
+fn bar_int_to_str(n: Int) -> String {
+    if n <= 0 { return "0"; }
+    let digits: String = "0123456789";
+    let mut v: Int = n;
+    let mut rev: String = "";
+    while v > 0 {
+        let d: Int = v - (v / 10) * 10;
+        rev = rev + char_at(digits, d);
+        v = v / 10;
+    }
+    let mut out: String = "";
+    let mut k: Int = chars_len(rev) - 1;
+    while k >= 0 {
+        out = out + char_at(rev, k);
+        k = k - 1;
+    }
+    return out;
+}
+
+pub fn bar_render(st: BarState, theme: String, color: Bool, cols: Int) -> String {
+    if !st.active { return ""; }
+    let accent: String = theme_color(theme, "accent");
+    let success: String = theme_color(theme, "success");
+    let muted: String = theme_color(theme, "muted");
+    let dim: String = theme_color(theme, "dim");
+    let text_col: String = theme_color(theme, "text");
+
+    // Format step prefix: [Step 3/8]
+    let step_str: String = "[" + bar_int_to_str(st.step) + "/" + bar_int_to_str(st.total_steps) + "]";
+    let pct_str: String = bar_int_to_str(st.pct) + "%";
+
+    let mut w: Int = cols;
+    if w < 40 { w = 40; }
+
+    // Fixed parts length
+    let fixed_len: Int = chars_len(step_str) + 1 + chars_len(pct_str) + 1 + 2;
+    let mut avail: Int = w - fixed_len - chars_len(st.label) - 3;
+    let mut bar_w: Int = 16;
+    if avail >= 20 { bar_w = 20; }
+    else if avail > 10 { bar_w = avail; }
+
+    let filled: Int = (st.pct * bar_w) / 100;
+    let empty: Int = bar_w - filled;
+
+    let fill_char: String = if color { "=" } else { "=" };
+    let empty_char: String = if color { "-" } else { "-" };
+
+    let fill_str: String = bar_repeat_char(fill_char, filled);
+    let empty_str: String = bar_repeat_char(empty_char, empty);
+
+    let mut s: String = ansi_fg(color, accent) + step_str + ansi_reset(color) + " ";
+    s = s + ansi_fg(color, dim) + "[" + ansi_reset(color);
+    s = s + ansi_fg(color, success) + fill_str + ansi_reset(color);
+    s = s + ansi_fg(color, dim) + empty_str + ansi_reset(color);
+    s = s + ansi_fg(color, dim) + "] " + ansi_reset(color);
+    s = s + ansi_fg(color, muted) + pct_str + ansi_reset(color) + " ";
+    if st.label != "" {
+        s = s + ansi_fg(color, text_col) + st.label + ansi_reset(color);
+    }
+    return s;
+}
+
+pub fn bar_height() -> Int {
+    return 1;
+}

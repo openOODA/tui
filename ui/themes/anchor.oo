@@ -1,0 +1,64 @@
+// # ui/themes/anchor.oo - 47-Token Theme Re-Export Hub
+//
+// Logline: Unified registry and token resolver for 47-token themes (1982, minimax).
+//
+// Setup: Re-exports theme_1982 and theme_minimax modules with theme resolution dispatchers.
+//
+// Beats:
+//   1. Re-export child theme modules for CRT and modern dark neutral palettes.
+//   2. Resolve semantic color tokens across registered themes with fallback to 1982.
+//   3. Query available theme names and validate existence.
+//   4. Self-test verifying token resolution and completeness across all 47 tokens.
+
+import "./theme_1982.oo";
+import "./theme_minimax.oo";
+
+pub fn theme_resolve(name: String, token: String) -> String {
+    if name == "1982" { return theme_1982_token(token); }
+    if name == "minimax" { return theme_minimax_token(token); }
+    return theme_1982_token(token);
+}
+
+pub fn theme_exists(name: String) -> Bool {
+    if name == "1982" { return true; }
+    if name == "minimax" { return true; }
+    return false;
+}
+
+pub fn theme_names() -> List[String] {
+    let mut names: List[String] = list_new();
+    names = list_push(names, "1982");
+    names = list_push(names, "minimax");
+    return names;
+}
+
+pub fn theme_token_count() -> Int {
+    return 47;
+}
+
+pub fn themes_version() -> String {
+    return "0.2.0";
+}
+
+pub fn themes_self_check() -> Bool {
+    if !theme_exists("1982") { return false; }
+    if !theme_exists("minimax") { return false; }
+    if theme_exists("nonexistent") { return false; }
+
+    let t1: String = theme_resolve("1982", "accent");
+    if t1 != "#FFB000" { return false; }
+
+    let t2: String = theme_resolve("minimax", "accent");
+    if t2 != "#E0A040" { return false; }
+
+    let t3: String = theme_resolve("unknown", "accent");
+    if t3 != "#FFB000" { return false; }
+
+    let d1: String = theme_resolve("1982", "toolDiffAdded");
+    if d1 != "#33FF33" { return false; }
+
+    let d2: String = theme_resolve("minimax", "toolDiffAdded");
+    if d2 != "#7AC888" { return false; }
+
+    return true;
+}

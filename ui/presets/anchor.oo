@@ -1,0 +1,95 @@
+// # ui/presets/anchor.oo - Unified Workflow Presets Hub
+//
+// Logline: Master preset resolver, validator, and registry wiring hub for openOODA workflow presets.
+//
+// Setup: Aggregates preset_kernel, preset_frontend, preset_audit, and preset_zen.
+//
+// Beats:
+//   1. Re-exports PresetConfig and individual preset constructors.
+//   2. Implements preset_resolve with fail-closed validation.
+//   3. Implements preset_validate and preset_list query utilities.
+//   4. Implements presets_register_all wiring presets into Master Plugin Registry.
+//   5. Implements presets_self_check verification.
+
+import "plugins/registry.oo";
+import "ui/presets/preset_kernel.oo";
+import "ui/presets/preset_frontend.oo";
+import "ui/presets/preset_audit.oo";
+import "ui/presets/preset_zen.oo";
+
+pub fn presets_version() -> String {
+    return "0.2.0";
+}
+
+pub fn preset_resolve(name: String) -> Result[PresetConfig, String] {
+    if name == "kernel" { return Ok(preset_kernel_config()); }
+    if name == "frontend" { return Ok(preset_frontend_config()); }
+    if name == "audit" { return Ok(preset_audit_config()); }
+    if name == "zen" { return Ok(preset_zen_config()); }
+    return Err("unknown preset: " + name);
+}
+
+pub fn preset_validate(name: String) -> Bool {
+    return preset_resolve(name).is_ok();
+}
+
+pub fn preset_default() -> PresetConfig {
+    return preset_kernel_config();
+}
+
+pub fn preset_list() -> List[String] {
+    let mut out: List[String] = list_new();
+    out = list_push(out, "kernel");
+    out = list_push(out, "frontend");
+    out = list_push(out, "audit");
+    out = list_push(out, "zen");
+    return out;
+}
+
+pub fn preset_to_plugin(c: PresetConfig) -> PresetPlugin {
+    return PresetPlugin {
+        name: c.name,
+        description: c.description,
+        input_plugin: c.input_plugin,
+        indicator_plugin: c.indicator_plugin,
+        card_plugin: c.card_style,
+        default_mode: c.default_mode,
+        default_perm: c.default_perm,
+        theme: c.theme,
+        enabled: true
+    };
+}
+
+pub fn presets_register_all(reg: Registry) -> Registry {
+    let mut r: Registry = reg;
+    r = registry_register_preset(r, preset_to_plugin(preset_kernel_config()));
+    r = registry_register_preset(r, preset_to_plugin(preset_frontend_config()));
+    r = registry_register_preset(r, preset_to_plugin(preset_audit_config()));
+    r = registry_register_preset(r, preset_to_plugin(preset_zen_config()));
+    return r;
+}
+
+pub fn presets_self_check() -> Bool {
+    let r1: Result[PresetConfig, String] = preset_resolve("kernel");
+    if r1.is_err() { return false; }
+    let r2: Result[PresetConfig, String] = preset_resolve("frontend");
+    if r2.is_err() { return false; }
+    let r3: Result[PresetConfig, String] = preset_resolve("audit");
+    if r3.is_err() { return false; }
+    let r4: Result[PresetConfig, String] = preset_resolve("zen");
+    if r4.is_err() { return false; }
+    let r5: Result[PresetConfig, String] = preset_resolve("bogus");
+    if r5.is_ok() { return false; }
+    let r6: Result[PresetConfig, String] = preset_resolve("");
+    if r6.is_ok() { return false; }
+    if !preset_validate("kernel") { return false; }
+    if preset_validate("bogus") { return false; }
+    if list_len(preset_list()) != 4 { return false; }
+    let reg: Registry = presets_register_all(registry_init());
+    if !registry_has_preset(reg, "kernel") { return false; }
+    if !registry_has_preset(reg, "frontend") { return false; }
+    if !registry_has_preset(reg, "audit") { return false; }
+    if !registry_has_preset(reg, "zen") { return false; }
+    if registry_has_preset(reg, "bogus") { return false; }
+    return true;
+}

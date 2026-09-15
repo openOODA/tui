@@ -1,0 +1,17 @@
+// # slash/cmd_resume.oo - Resume Slash Command
+//
+// Logline: Resume named conversation session context from memory or disk.
+//
+// Setup: Updates session identifier and reports conversation history length.
+//
+// Beats:
+//   1. Update session identifier if optional argument provided.
+//   2. Calculate active transcript history buffer length.
+//   3. Format and emit session resumption confirmation.
+
+
+pub fn cmd_resume_run(st: ReplState, args: String) -> ReplState {
+    let mut s: ReplState = st;
+    if args != "" { s.session = args; }
+    return slash_say(s, "resume: " + s.session + " (in-memory; hist " + slash_int_to_str(chars_len(s.hist)) + " chars)");
+}

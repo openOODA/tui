@@ -1,0 +1,78 @@
+// # slash/anchor.oo - Unified Slash Command Subsystem Hub
+//
+// Logline: Unified entrypoint re-exporting slash router, dispatch, registry wiring, and self-test.
+//
+// Setup: Re-exports slash_dispatch, wires SlashPlugin catalog, provides slash_self_check.
+//
+// Beats:
+//   1. Re-export slash version token and dispatch functions.
+//   2. Forward slash_line backwards-compatibility interface to router.
+//   3. Register all 25 discrete slash commands into Master Typed Registry.
+//   4. In-process validation: slash_self_check exercising core routing behavior.
+
+import "plugins/registry.oo";
+import "slash/router.oo";
+
+pub fn slash_version() -> String {
+    return "0.2.0";
+}
+
+pub fn slash_line(st: ReplState, line: String, ver: String, sys: &ProcessCap, fw: &FsWriteCap, env: &EnvCap, fs_r: &FsReadCap) -> ReplState {
+    return slash_dispatch(st, line, ver, sys, fw, env, fs_r);
+}
+
+fn make_slash_plugin(name: String, desc: String, usage: String) -> SlashPlugin {
+    return SlashPlugin {
+        name: name,
+        description: desc,
+        usage: usage,
+        is_external: false,
+        script_path: "",
+        enabled: true
+    };
+}
+
+pub fn slash_register_all(reg: Registry) -> Registry {
+    let mut r: Registry = reg;
+    r = registry_register_slash(r, make_slash_plugin("help", "Display available commands and tools", "/help"));
+    r = registry_register_slash(r, make_slash_plugin("exit", "Terminate active TUI session", "/exit"));
+    r = registry_register_slash(r, make_slash_plugin("version", "Display ooda-tui binary version", "/version"));
+    r = registry_register_slash(r, make_slash_plugin("providers", "List available LLM providers", "/providers"));
+    r = registry_register_slash(r, make_slash_plugin("provider", "Query or switch active LLM provider", "/provider [name]"));
+    r = registry_register_slash(r, make_slash_plugin("model", "Query or switch active LLM model", "/model [provider:model]"));
+    r = registry_register_slash(r, make_slash_plugin("login", "Configure LLM provider API credentials", "/login <provider> <key>"));
+    r = registry_register_slash(r, make_slash_plugin("logout", "Clear active LLM credentials", "/logout"));
+    r = registry_register_slash(r, make_slash_plugin("theme", "Inspect or switch visual theme", "/theme [1982|minimax]"));
+    r = registry_register_slash(r, make_slash_plugin("cwd", "Query or switch working directory", "/cwd [path]"));
+    r = registry_register_slash(r, make_slash_plugin("plan", "Query or update operational plan", "/plan [text]"));
+    r = registry_register_slash(r, make_slash_plugin("goal", "Query or update operational goal", "/goal [text]"));
+    r = registry_register_slash(r, make_slash_plugin("status", "Display diagnostic status report", "/status"));
+    r = registry_register_slash(r, make_slash_plugin("settings", "Display active configuration settings", "/settings"));
+    r = registry_register_slash(r, make_slash_plugin("clear", "Clear transcript scrollback history", "/clear"));
+    r = registry_register_slash(r, make_slash_plugin("rename", "Assign friendly name to active session", "/rename <name>"));
+    r = registry_register_slash(r, make_slash_plugin("resume", "Resume conversation session context", "/resume [name]"));
+    r = registry_register_slash(r, make_slash_plugin("compact", "Compact session transcript using LLM", "/compact"));
+    r = registry_register_slash(r, make_slash_plugin("btw", "Ask isolated ephemeral question to LLM", "/btw <question>"));
+    r = registry_register_slash(r, make_slash_plugin("team", "Configure multi-agent coordination mesh", "/team on|off|init|run"));
+    r = registry_register_slash(r, make_slash_plugin("init", "Bootstrap AGENTS.md briefing document", "/init"));
+    r = registry_register_slash(r, make_slash_plugin("perm", "Set tool execution confirmation policy", "/perm ask|allow|yolo"));
+    r = registry_register_slash(r, make_slash_plugin("mode", "Switch operational mode (build or plan)", "/mode build|plan"));
+    r = registry_register_slash(r, make_slash_plugin("preset", "Switch workflow preset", "/preset kernel|frontend|audit|zen"));
+    r = registry_register_slash(r, make_slash_plugin("tools", "Display available native sandboxed tools", "/tools"));
+    return r;
+}
+
+pub fn slash_self_check() -> Bool {
+    let mut reg: Registry = registry_init();
+    reg = slash_register_all(reg);
+    if !registry_has_slash(reg, "help") { return false; }
+    if !registry_has_slash(reg, "plan") { return false; }
+    if !registry_has_slash(reg, "login") { return false; }
+    if !registry_has_slash(reg, "preset") { return false; }
+    if !registry_has_slash(reg, "tools") { return false; }
+    let r_disp: Result[String, String] = registry_dispatch_slash(reg, "plan", "Refactor");
+    if r_disp.is_err() { return false; }
+    let val: String = match r_disp { Ok(v) => v, Err(_) => return false; };
+    if val != "builtin:plan" { return false; }
+    return true;
+}

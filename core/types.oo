@@ -1,0 +1,175 @@
+// # core/types.oo - Micro-Kernel Core Event & Message Types
+//
+// Logline: Flat event types, message envelopes, action intents, and capability records for the decoupled micro-kernel.
+//
+// Setup: Pure structural types with zero ambient authority and flat fields for C-backend predictability.
+//
+// Beats:
+//   1. Event kind markers (key, line, action, tool_call, tool_result, stream_delta, tick, render, error).
+//   2. Event record: monotonic id, kind, source, payload, metadata, timestamp.
+//   3. MessageEnvelope record: conversational history turn with role, content, name, ts.
+//   4. ActionIntent record: decoupled intent target, verb, argument, and payload.
+//   5. CoreCaps capability record: capability permissions for read, write, bash, net, mcp, lsp.
+
+pub type Event = struct {
+    id: Int,
+    kind: String,
+    source: String,
+    payload: String,
+    metadata: String,
+    timestamp: Int
+};
+
+pub type MessageEnvelope = struct {
+    id: Int,
+    role: String,
+    content: String,
+    name: String,
+    timestamp: Int
+};
+
+pub type ActionIntent = struct {
+    id: Int,
+    target: String,
+    verb: String,
+    arg: String,
+    payload: String
+};
+
+pub type CoreCaps = struct {
+    can_read: Bool,
+    can_write: Bool,
+    can_bash: Bool,
+    can_net: Bool,
+    can_mcp: Bool,
+    can_lsp: Bool
+};
+
+// Event kind string markers
+pub fn event_kind_key() -> String { return "key"; }
+pub fn event_kind_line() -> String { return "line"; }
+pub fn event_kind_action() -> String { return "action"; }
+pub fn event_kind_tool_call() -> String { return "tool_call"; }
+pub fn event_kind_tool_result() -> String { return "tool_result"; }
+pub fn event_kind_stream_delta() -> String { return "stream_delta"; }
+pub fn event_kind_tick() -> String { return "tick"; }
+pub fn event_kind_render() -> String { return "render"; }
+pub fn event_kind_error() -> String { return "error"; }
+
+// Event constructor
+pub fn event_new(id: Int, kind: String, source: String, payload: String, ts: Int) -> Event {
+    return Event {
+        id: id,
+        kind: kind,
+        source: source,
+        payload: payload,
+        metadata: "",
+        timestamp: ts
+    };
+}
+
+// Event constructor with metadata
+pub fn event_with_meta(id: Int, kind: String, source: String, payload: String, meta: String, ts: Int) -> Event {
+    return Event {
+        id: id,
+        kind: kind,
+        source: source,
+        payload: payload,
+        metadata: meta,
+        timestamp: ts
+    };
+}
+
+// Event kind matching helper
+pub fn event_is_kind(ev: Event, kind: String) -> Bool {
+    return ev.kind == kind;
+}
+
+// MessageEnvelope constructor for conversational turns
+pub fn msg_envelope_new(id: Int, role: String, content: String, ts: Int) -> MessageEnvelope {
+    return MessageEnvelope {
+        id: id,
+        role: role,
+        content: content,
+        name: "",
+        timestamp: ts
+    };
+}
+
+// MessageEnvelope constructor for tool responses
+pub fn msg_envelope_tool(id: Int, name: String, content: String, ts: Int) -> MessageEnvelope {
+    return MessageEnvelope {
+        id: id,
+        role: "tool",
+        content: content,
+        name: name,
+        timestamp: ts
+    };
+}
+
+// ActionIntent constructor
+pub fn action_intent_new(id: Int, target: String, verb: String, arg: String, payload: String) -> ActionIntent {
+    return ActionIntent {
+        id: id,
+        target: target,
+        verb: verb,
+        arg: arg,
+        payload: payload
+    };
+}
+
+// Default capabilities: safe ask mode (read only, write/bash gated)
+pub fn core_caps_default() -> CoreCaps {
+    return CoreCaps {
+        can_read: true,
+        can_write: false,
+        can_bash: false,
+        can_net: false,
+        can_mcp: true,
+        can_lsp: true
+    };
+}
+
+// YOLO capabilities: full autonomy granted
+pub fn core_caps_yolo() -> CoreCaps {
+    return CoreCaps {
+        can_read: true,
+        can_write: true,
+        can_bash: true,
+        can_net: true,
+        can_mcp: true,
+        can_lsp: true
+    };
+}
+
+// Plan mode capabilities: read and lsp only, zero mutation or external bash
+pub fn core_caps_plan() -> CoreCaps {
+    return CoreCaps {
+        can_read: true,
+        can_write: false,
+        can_bash: false,
+        can_net: false,
+        can_mcp: false,
+        can_lsp: true
+    };
+}
+
+// Zen mode capabilities: minimal distraction-free read only
+pub fn core_caps_zen() -> CoreCaps {
+    return CoreCaps {
+        can_read: true,
+        can_write: false,
+        can_bash: false,
+        can_net: false,
+        can_mcp: false,
+        can_lsp: false
+    };
+}
+
+// Resolve capabilities from permission name string
+pub fn core_caps_from_perm(perm: String) -> CoreCaps {
+    if perm == "yolo" { return core_caps_yolo(); }
+    if perm == "plan" { return core_caps_plan(); }
+    if perm == "zen" { return core_caps_zen(); }
+    return core_caps_default();
+}

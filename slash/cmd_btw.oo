@@ -1,0 +1,17 @@
+// # slash/cmd_btw.oo - BTW Slash Command
+//
+// Logline: Send ephemeral side question to LLM without mutating plan or goal.
+//
+// Setup: Executes isolated one-shot LLM completion with BTW prompt prefix.
+//
+// Beats:
+//   1. Prompt syntax if question argument empty.
+//   2. Query LLM with isolated ephemeral prompt.
+//   3. Append LLM response to ReplState output.
+
+
+pub fn cmd_btw_run(st: ReplState, args: String, sys: &ProcessCap, fw: &FsWriteCap) -> ReplState {
+    if args == "" { return slash_say(st, "btw: /btw <question>"); }
+    let a: String = slash_llm_line(sys, fw, st.ptype, st.key, st.model, st.url, "BTW (aside, do not change the plan): " + args);
+    return slash_say(st, "btw: " + a);
+}

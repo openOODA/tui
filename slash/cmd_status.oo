@@ -1,0 +1,15 @@
+// # slash/cmd_status.oo - Status Slash Command
+//
+// Logline: Emit operational diagnostic status report from ReplState fields.
+//
+// Setup: Formats provider, model, mode, perm, cwd, and session into status line.
+//
+// Beats:
+//   1. Extract operational parameters from ReplState.
+//   2. Format unified diagnostic summary line.
+//   3. Append formatted report to session output.
+
+
+pub fn cmd_status_run(st: ReplState) -> ReplState {
+    return slash_say(st, "status: " + st.provider + "/" + st.model + " " + st.mode + "/" + st.perm + " cwd=" + st.cwd + " session=" + st.session + " theme=" + st.theme + " team=" + slash_onoff(st.teamwork));
+}

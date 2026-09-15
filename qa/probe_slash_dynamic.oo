@@ -1,0 +1,189 @@
+// # qa/probe_slash_dynamic - Dynamic External Slash Script Fallback Probe
+//
+// Logline: Verify unbuilt slash commands dispatch to external user scripts across workspace and PATH under &ProcessCap.
+//
+// Setup: Prepares fixture scripts in temporary test workspace, executes fallback dispatch, asserts execution.
+//
+// Beats:
+//   1. Assert lookup in project workspace .openooda/slash/<cmd> under &ProcessCap.
+//   2. Assert positive execution captures script stdout and passes arguments.
+//   3. Assert non-existent commands fail closed with unknown-command diagnostic.
+//   4. Assert path traversal sequences (../) in slash command names fail closed.
+//   5. Assert command metacharacters and argument injection fail closed without execution.
+//   6. Assert failing scripts report non-zero execution error diagnostics.
+//   7. Assert deterministic cleanup of test fixtures across double-run cycles.
+
+import "std/fs/process/process.oo";
+import "std/fs/process/env.oo";
+import "repl_state.oo";
+import "repl_slash.oo";
+import "slash/anchor.oo";
+
+fn test_dynamic_slash_run(sys: &ProcessCap, fs_w: &FsWriteCap, env: &EnvCap, fs_r: &FsReadCap) -> Result[Int, String] {
+    let _ = slash_version();
+    let mut pass: Int = 0;
+    let mut fail: Int = 0;
+    let test_dir: String = "/tmp/ooda_qa_dynamic_ws";
+    let ws_slash: String = test_dir + "/.openooda/slash";
+    let test_script: String = ws_slash + "/custom_greet";
+    let fail_script: String = ws_slash + "/failing_cmd";
+    let canary: String = "/tmp/ooda_qa_dyn_canary.tmp";
+    let ver: String = "0.3.0";
+
+    // Setup fixture directory
+    let _r0: Result[String, String] = process_exec(sys, "rm -rf " + test_dir + " " + canary);
+    if _r0.is_err() { return Err("fixture init rm failed"); }
+    let _r1: Result[String, String] = process_exec(sys, "mkdir -p " + ws_slash);
+    if _r1.is_err() { return Err("fixture mkdir failed"); }
+
+    // Positive fixture: custom_greet
+    let _r2: Result[String, String] = process_exec(sys, "echo '#!/bin/sh' > " + test_script);
+    if _r2.is_err() { return Err("write test_script failed"); }
+    let _r3: Result[String, String] = process_exec(sys, "echo 'echo DYNAMIC_FALLBACK_OK arg=$1' >> " + test_script);
+    if _r3.is_err() { return Err("append test_script failed"); }
+    let _r4: Result[String, String] = process_exec(sys, "chmod +x " + test_script);
+    if _r4.is_err() { return Err("chmod test_script failed"); }
+
+    // Negative fixture: failing_cmd (exits status 1)
+    let _r5: Result[String, String] = process_exec(sys, "echo '#!/bin/sh' > " + fail_script);
+    if _r5.is_err() { return Err("write fail_script failed"); }
+    let _r6: Result[String, String] = process_exec(sys, "echo 'echo SCRIPT_ABORTED >&2; exit 1' >> " + fail_script);
+    if _r6.is_err() { return Err("append fail_script failed"); }
+    let _r7: Result[String, String] = process_exec(sys, "chmod +x " + fail_script);
+    if _r7.is_err() { return Err("chmod fail_script failed"); }
+
+    let st: ReplState = ReplState {
+        theme: "1982", provider: "", ptype: "cloud", key: "", url: "", model: "",
+        cwd: test_dir, teamwork: false, yolo: false, plan: "", goal: "", output: "",
+        exiting: false, session: "qa_dyn", hist: "", perm: "ask", mode: "build",
+        brief: "", pending_tool: "", pending_args: "", pending_body: ""
+    };
+
+    // 1. Positive: Execute valid dynamic fallback script in workspace .openooda/slash/
+    let s1: ReplState = slash_line(st, "/custom_greet world", ver, sys, fs_w, env, fs_r);
+    if str_starts_with(s1.output, "DYNAMIC_FALLBACK_OK arg=world") {
+        pass = pass + 1;
+        println("PASS: dynamic external slash script executed cleanly");
+    } else {
+        fail = fail + 1;
+        println("FAIL: dynamic script execution failed: " + s1.output);
+    }
+
+    // 2. Negative: Non-existent command must fail closed
+    let s2: ReplState = slash_line(st, "/nonexistent_cmd", ver, sys, fs_w, env, fs_r);
+    if str_starts_with(s2.output, "unknown command: /nonexistent_cmd") {
+        pass = pass + 1;
+        println("PASS: nonexistent slash command rejected fail-closed");
+    } else {
+        fail = fail + 1;
+        println("FAIL: nonexistent command accepted without error: " + s2.output);
+    }
+
+    // 3. Negative: Directory traversal attempt must fail closed
+    let s3: ReplState = slash_line(st, "/../bin/sh", ver, sys, fs_w, env, fs_r);
+    if str_starts_with(s3.output, "SECURITY: path traversal rejected") {
+        pass = pass + 1;
+        println("PASS: directory traversal ../ rejected fail-closed");
+    } else {
+        fail = fail + 1;
+        println("FAIL: directory traversal ../ accepted: " + s3.output);
+    }
+
+    // 4. Negative: Metacharacter injection in command name must fail closed
+    let s4: ReplState = slash_line(st, "/greet;id", ver, sys, fs_w, env, fs_r);
+    if str_starts_with(s4.output, "SECURITY: invalid characters in slash command") {
+        pass = pass + 1;
+        println("PASS: command name metacharacters rejected fail-closed");
+    } else {
+        fail = fail + 1;
+        println("FAIL: command name metacharacters accepted: " + s4.output);
+    }
+
+    // 5. Negative: Shell injection in arguments must fail closed
+    let s5: ReplState = slash_line(st, "/custom_greet world;touch " + canary, ver, sys, fs_w, env, fs_r);
+    if str_starts_with(s5.output, "SECURITY: shell metacharacter rejected in arguments") {
+        pass = pass + 1;
+        println("PASS: argument injection metacharacters rejected fail-closed");
+    } else {
+        fail = fail + 1;
+        println("FAIL: argument injection metacharacters accepted: " + s5.output);
+    }
+
+    // Canary check
+    let r_canary: Result[String, String] = process_exec(sys, "test -f " + canary);
+    if r_canary.is_ok() {
+        fail = fail + 1;
+        println("FAIL: canary file created! Argument injection succeeded!");
+    } else {
+        pass = pass + 1;
+        println("PASS: canary absent (zero argument injection execution)");
+    }
+
+    // 6. Negative: Script failure reporting
+    let s6: ReplState = slash_line(st, "/failing_cmd", ver, sys, fs_w, env, fs_r);
+    if str_starts_with(s6.output, "external command /failing_cmd failed") {
+        pass = pass + 1;
+        println("PASS: script failure captured and reported with error diagnostic");
+    } else {
+        fail = fail + 1;
+        println("FAIL: script failure not reported properly: " + s6.output);
+    }
+
+    // 7. Direct cmd_external_run invocation verification
+    let s7: ReplState = cmd_external_run(st, "/custom_greet", "direct_call", sys, env, fs_r);
+    if str_starts_with(s7.output, "DYNAMIC_FALLBACK_OK arg=direct_call") {
+        pass = pass + 1;
+        println("PASS: direct cmd_external_run executed cleanly");
+    } else {
+        fail = fail + 1;
+        println("FAIL: direct cmd_external_run failed: " + s7.output);
+    }
+
+    // 8. Cleanup fixture
+    let _r8: Result[String, String] = process_exec(sys, "rm -rf " + test_dir + " " + canary);
+    if _r8.is_err() { return Err("cleanup failed"); }
+    let r_clean: Result[String, String] = process_exec(sys, "test ! -d " + test_dir);
+    if r_clean.is_ok() {
+        pass = pass + 1;
+        println("PASS: test fixture directory cleaned deterministically");
+    } else {
+        fail = fail + 1;
+        println("FAIL: test fixture lingering on disk");
+    }
+
+    println("qa/probe_slash_dynamic: pass=" + int_to_str(pass) + " fail=" + int_to_str(fail));
+    if fail > 0 { return Err("qa/probe_slash_dynamic: failures detected"); }
+    return Ok(0);
+}
+
+pub fn main(bind: &BindCap, fs_r: &FsReadCap, fs_w: &FsWriteCap, sys: &ProcessCap, sys_cap: &SysCap, env: &EnvCap, time: &TimeCap, alloc: &AllocCap, thread: &ThreadCap, args: List[String]) -> Result[Int, String] {
+    println("qa/probe_slash_dynamic: starting dynamic slash script fallback probe");
+
+    // Double-run verification: Run_1 == Run_2
+    let run1: Result[Int, String] = test_dynamic_slash_run(sys, fs_w, env, fs_r);
+    if run1.is_err() { return run1; }
+    let run2: Result[Int, String] = test_dynamic_slash_run(sys, fs_w, env, fs_r);
+    if run2.is_err() { return run2; }
+
+    println("qa/probe_slash_dynamic: PASS (Double-Run verified)");
+    return Ok(0);
+}
+
+fn int_to_str(n: Int) -> String {
+    if n <= 0 { return "0"; }
+    let digits: String = "0123456789";
+    let mut v: Int = n;
+    let mut rev: String = "";
+    while v > 0 {
+        let d: Int = v - (v / 10) * 10;
+        rev = rev + char_at(digits, d);
+        v = v / 10;
+    }
+    let mut out: String = "";
+    let mut k: Int = chars_len(rev) - 1;
+    while k >= 0 {
+        out = out + char_at(rev, k);
+        k = k - 1;
+    }
+    return out;
+}

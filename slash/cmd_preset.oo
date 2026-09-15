@@ -1,0 +1,38 @@
+// # slash/cmd_preset.oo - Preset Slash Command
+//
+// Logline: Hot-swap active workflow preset (kernel, frontend, audit, zen) in session.
+//
+// Setup: Validates preset name, applies mode/perm/theme defaults to ReplState.
+//
+// Beats:
+//   1. Query preset options if args empty.
+//   2. Validate preset name against supported presets.
+//   3. Mutate mode, perm, and theme defaults in ReplState.
+//   4. Emit confirmation to session output.
+
+
+pub fn cmd_preset_run(st: ReplState, args: String) -> ReplState {
+    if args == "" { return slash_say(st, "preset: kernel|frontend|audit|zen"); }
+    if args != "kernel" && args != "frontend" && args != "audit" && args != "zen" {
+        return slash_say(st, "unknown preset: " + args + " (valid: kernel, frontend, audit, zen)");
+    }
+    let mut s: ReplState = st;
+    if args == "kernel" {
+        s.mode = "build";
+        s.perm = "ask";
+        s.theme = "1982";
+    } else if args == "frontend" {
+        s.mode = "build";
+        s.perm = "ask";
+        s.theme = "minimax";
+    } else if args == "audit" {
+        s.mode = "plan";
+        s.perm = "ask";
+        s.theme = "1982";
+    } else if args == "zen" {
+        s.mode = "build";
+        s.perm = "allow";
+        s.theme = "minimax";
+    }
+    return slash_say(s, "preset: " + args);
+}
