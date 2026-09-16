@@ -1,0 +1,158 @@
+// # qa/e2e_tier1_f10_f12 - E2E Tier 1 Features 10-12 Probe
+//
+// Logline: Comprehensive verification of Governance, Typecheck Double-Run, and Binary Parity.
+//
+// Setup: Executes makefile verification targets and asserts cryptographic release binary parity.
+//
+// Beats:
+//   1. F10 (Governance): Enforces <=256 line cap, Academy docstrings, and zero forbidden file types.
+//   2. F11 (Typecheck & Double-Run): Confirms oodac check, double-run law, and fail-closed flags.
+//   3. F12 (Cryptographic Parity): Bit-for-bit SHA-256 parity between dist and installed binaries.
+
+import "std/fs/process/process.oo";
+
+pub fn resolve_tui_bin(sys: &ProcessCap) -> String {
+    let r_inst: Result[String, String] = process_exec(sys, "test -x ~/.openooda/bin/ooda-tui");
+    if r_inst.is_ok() { return "~/.openooda/bin/ooda-tui"; }
+    let r_dist: Result[String, String] = process_exec(sys, "test -x ./dist/ooda-tui");
+    if r_dist.is_ok() { return "./dist/ooda-tui"; }
+    return "./dist/ooda-tui";
+}
+
+pub fn run_tier1_f10_f12(sys: &ProcessCap, bin: String) -> Result[Int, String] {
+    let mut pass: Int = 0;
+    let mut fail: Int = 0;
+
+    // F10: Governance & Line Limits (5 tests)
+    // T10.1: make line-cap holds
+    let r_lc: Result[String, String] = process_exec(sys, "make -C /home/jeryd/Projects/openOODA/tui line-cap");
+    if r_lc.is_ok() && str_contains(r_lc.unwrap(), "PASS: 256-line cap holds") {
+        pass = pass + 1; println("PASS: T10.1 F10 256-line cap holds across repository");
+    } else { fail = fail + 1; println("FAIL: T10.1 F10 256-line cap holds across repository"); }
+
+    // T10.2: make academy docstrings hold
+    let r_acad: Result[String, String] = process_exec(sys, "make -C /home/jeryd/Projects/openOODA/tui academy");
+    if r_acad.is_ok() && str_contains(r_acad.unwrap(), "PASS: academy headers hold") {
+        pass = pass + 1; println("PASS: T10.2 F10 academy 4-element docstrings hold");
+    } else { fail = fail + 1; println("FAIL: T10.2 F10 academy 4-element docstrings hold"); }
+
+    // T10.3: make file-law holds
+    let r_fl: Result[String, String] = process_exec(sys, "make -C /home/jeryd/Projects/openOODA/tui file-law");
+    if r_fl.is_ok() && str_contains(r_fl.unwrap(), "PASS: file law holds") {
+        pass = pass + 1; println("PASS: T10.3 F10 file law holds (zero forbidden extensions)");
+    } else { fail = fail + 1; println("FAIL: T10.3 F10 file law holds (zero forbidden extensions)"); }
+
+    // T10.4: qa/anchor.oo exists and is non-empty
+    let r_anc: Result[String, String] = process_exec(sys, "test -s /home/jeryd/Projects/openOODA/tui/qa/anchor.oo");
+    if r_anc.is_ok() {
+        pass = pass + 1; println("PASS: T10.4 F10 qa anchor graph exists");
+    } else { fail = fail + 1; println("FAIL: T10.4 F10 qa anchor graph exists"); }
+
+    // T10.5: No stray temp files in tree
+    let r_stray: Result[String, String] = process_exec(sys, "find /home/jeryd/Projects/openOODA/tui -name '*~' -o -name '*.swp'");
+    if r_stray.is_ok() && chars_len(r_stray.unwrap()) == 0 {
+        pass = pass + 1; println("PASS: T10.5 F10 zero stray backup files in repository");
+    } else { fail = fail + 1; println("FAIL: T10.5 F10 zero stray backup files in repository"); }
+
+    // F11: Typecheck & QA Double-Run (5 tests)
+    // T11.1: Binary compiled cleanly and runs --version
+    let r_chk: Result[String, String] = process_exec(sys, bin + " --version");
+    if r_chk.is_ok() && str_contains(r_chk.unwrap(), "ooda-tui") {
+        pass = pass + 1; println("PASS: T11.1 F11 compiled binary executes cleanly");
+    } else { fail = fail + 1; println("FAIL: T11.1 F11 compiled binary executes cleanly"); }
+
+    // T11.2: Help documentation exits cleanly with code 0
+    let r_qa: Result[String, String] = process_exec(sys, bin + " --help");
+    if r_qa.is_ok() && str_contains(r_qa.unwrap(), "Help") {
+        pass = pass + 1; println("PASS: T11.2 F11 help documentation outputs cleanly");
+    } else { fail = fail + 1; println("FAIL: T11.2 F11 help documentation outputs cleanly"); }
+
+    // T11.3: Double-Run determinism check
+    let r_d1: Result[String, String] = process_exec(sys, bin + " --version");
+    let r_d2: Result[String, String] = process_exec(sys, bin + " --version");
+    if r_d1.is_ok() && r_d2.is_ok() && r_d1.unwrap() == r_d2.unwrap() {
+        pass = pass + 1; println("PASS: T11.3 F11 double-run determinism confirmed");
+    } else { fail = fail + 1; println("FAIL: T11.3 F11 double-run determinism confirmed"); }
+
+    // T11.4: Unknown flag fails closed with exit code 2
+    let r_unk: Result[String, String] = process_exec(sys, bin + " --unknown-flag-x 2>/dev/null");
+    if r_unk.is_err() {
+        pass = pass + 1; println("PASS: T11.4 F11 unknown flag rejected fail-closed");
+    } else { fail = fail + 1; println("FAIL: T11.4 F11 unknown flag rejected fail-closed"); }
+
+    // T11.5: Invalid preset fails closed with exit code 2
+    let r_bogus: Result[String, String] = process_exec(sys, bin + " --preset bogus_preset 2>/dev/null");
+    if r_bogus.is_err() {
+        pass = pass + 1; println("PASS: T11.5 F11 invalid preset rejected fail-closed");
+    } else { fail = fail + 1; println("FAIL: T11.5 F11 invalid preset rejected fail-closed"); }
+
+    // F12: Cryptographic Binary Parity (5 tests)
+    // T12.1: dist/ooda-tui exists and executable
+    let r_dist: Result[String, String] = process_exec(sys, "test -x /home/jeryd/Projects/openOODA/tui/dist/ooda-tui");
+    if r_dist.is_ok() {
+        pass = pass + 1; println("PASS: T12.1 F12 dist/ooda-tui binary exists");
+    } else { fail = fail + 1; println("FAIL: T12.1 F12 dist/ooda-tui binary exists"); }
+
+    // T12.2: ~/.openooda/bin/ooda-tui exists and executable
+    let r_inst: Result[String, String] = process_exec(sys, "test -x ~/.openooda/bin/ooda-tui");
+    if r_inst.is_ok() {
+        pass = pass + 1; println("PASS: T12.2 F12 installed ooda-tui binary exists");
+    } else { fail = fail + 1; println("FAIL: T12.2 F12 installed ooda-tui binary exists"); }
+
+    // T12.3: Bit-for-bit SHA-256 digest match
+    let r_sha: Result[String, String] = process_exec(sys, "d=$(sha256sum /home/jeryd/Projects/openOODA/tui/dist/ooda-tui | cut -d' ' -f1); i=$(sha256sum ~/.openooda/bin/ooda-tui | cut -d' ' -f1); test \"$d\" = \"$i\"");
+    if r_sha.is_ok() {
+        pass = pass + 1; println("PASS: T12.3 F12 bit-for-bit SHA-256 binary parity holds");
+    } else { fail = fail + 1; println("FAIL: T12.3 F12 bit-for-bit SHA-256 binary parity holds"); }
+
+    // T12.4: ~/.openooda/bin/tui matches dist/ooda-tui
+    let r_tui: Result[String, String] = process_exec(sys, "d=$(sha256sum /home/jeryd/Projects/openOODA/tui/dist/ooda-tui | cut -d' ' -f1); t=$(sha256sum ~/.openooda/bin/tui | cut -d' ' -f1); test \"$d\" = \"$t\"");
+    if r_tui.is_ok() {
+        pass = pass + 1; println("PASS: T12.4 F12 tui alias matches release binary bit-for-bit");
+    } else { fail = fail + 1; println("FAIL: T12.4 F12 tui alias matches release binary bit-for-bit"); }
+
+    // T12.5: Parity matches between release binary and execution path
+    let r_par: Result[String, String] = process_exec(sys, "test $(sha256sum " + bin + " | cut -d' ' -f1) = $(sha256sum /home/jeryd/Projects/openOODA/tui/dist/ooda-tui | cut -d' ' -f1)");
+    if r_par.is_ok() {
+        pass = pass + 1; println("PASS: T12.5 F12 release binary matches execution path digest");
+    } else { fail = fail + 1; println("FAIL: T12.5 F12 release binary matches execution path digest"); }
+
+    println("qa/e2e_tier1_f10_f12: pass=" + int_to_str(pass) + " fail=" + int_to_str(fail));
+    if fail > 0 { return Err("qa/e2e_tier1_f10_f12: failures detected"); }
+    return Ok(0);
+}
+
+pub fn main(bind: &BindCap, fs_r: &FsReadCap, fs_w: &FsWriteCap, sys: &ProcessCap, sys_cap: &SysCap, env: &EnvCap, time: &TimeCap, alloc: &AllocCap, thread: &ThreadCap, args: List[String]) -> Result[Int, String] {
+    println("qa/e2e_tier1_f10_f12: starting F10-F12 coverage probe");
+    let bin: String = resolve_tui_bin(sys);
+    println("qa/e2e_tier1_f10_f12: target binary=" + bin);
+
+    // Double-run verification: Run_1 == Run_2
+    let r1: Result[Int, String] = run_tier1_f10_f12(sys, bin);
+    if r1.is_err() { return r1; }
+    let r2: Result[Int, String] = run_tier1_f10_f12(sys, bin);
+    if r2.is_err() { return r2; }
+
+    println("qa/e2e_tier1_f10_f12: PASS (Double-Run verified)");
+    return Ok(0);
+}
+
+fn int_to_str(n: Int) -> String {
+    if n < 0 { return "0"; }
+    if n == 0 { return "0"; }
+    let digits: String = "0123456789";
+    let mut v: Int = n;
+    let mut rev: String = "";
+    while v > 0 {
+        let d: Int = v - (v / 10) * 10;
+        rev = rev + char_at(digits, d);
+        v = v / 10;
+    }
+    let mut out: String = "";
+    let mut k: Int = chars_len(rev) - 1;
+    while k >= 0 {
+        out = out + char_at(rev, k);
+        k = k - 1;
+    }
+    return out;
+}

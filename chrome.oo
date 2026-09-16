@@ -1,33 +1,53 @@
 // # chrome.oo - Line-Mode Frame Renderer
 //
-// Logline: Full-window frame: header, flex pane, status, compose box last. Host enter/leave uses the alt screen.
+// Logline: Full-window frame: header prompt box, flex pane, status, trailing cursor placement.
 //
-// Setup: Pure renderer. Returns a single String ready to be written to stdout. Uses header.oo / pane.oo / popover.oo / input.oo / statusbar.oo. ANSI clear is ESC[2J ESC[H; cursor home.
+// Setup: Pure renderer. Returns a single String ready to be written to stdout. Uses ui/input/input_header.oo / pane.oo / popover.oo / statusbar.oo. ANSI clear is ESC[2J ESC[H; cursor positioned at prompt row.
 //
 // Beats:
 //   1. chrome_render(theme, pane, popover_buf, popover_idx, input_buf, ..., color, cols, rows) returns the full frame.
-//   2. The status bar is always at the bottom; the pane fills the middle; the popover (if any) sits above the input; the input is above the status bar.
+//   2. Rows 1-3 render the top input header box with mode chips and keyboard hints.
+//   3. Rows 4 to rows-1 render the scrollback pane; popover (if any) sits above the status bar.
+//   4. Row rows renders the environmental status bar at the screen bottom.
+//   5. Emits trailing cursor placement sequence (ESC[2;5H in color mode) at frame end.
 
+import "ui/input/input_header.oo";
 import "header.oo";
 import "pane.oo";
-import "input.oo";
 import "popover.oo";
 import "statusbar.oo";
+import "ui/statusbar/statusbar_footer.oo";
 import "theme.oo";
 
 pub fn chrome_render(theme: String, pane: Pane, popover_buf: String, popover_idx: Int, input_buf: String, teamwork: Bool, yolo: Bool, thinking: String, version: String, color: Bool, cols: Int, rows: Int, provider: String, model: String, cwd: String) -> String {
     let mut s: String = "";
     if color { s = ansi_esc() + "[2J" + ansi_esc() + "[H"; }
-    let mut ph: Int = rows - 6;
+    let mut ph: Int = rows - 4;
     if popover_buf != "" { ph = ph - 1; }
     if ph < 3 { ph = 3; }
-    s = s + header_render(theme, provider, model, cwd, color, cols);
+
+    let mut mode: String = "build";
+    if input_buf == "plan" { mode = "plan"; }
+    else if input_buf == "ask" { mode = "ask"; }
+
+    let mut perm: String = "ask";
+    if yolo { perm = "yolo"; }
+    else if input_buf == "ask" { perm = "ask"; }
+
+    let mut h_buf: String = "";
+    if input_buf != "plan" && input_buf != "ask" && input_buf != "build" {
+        h_buf = input_buf;
+    }
+
+    s = s + input_header_render(theme, h_buf, mode, perm, color, cols);
     s = s + pane_render(theme, pane, color, cols, ph);
     if popover_buf != "" {
         s = s + popover_render(theme, popover_buf, popover_idx, color, cols);
     }
-    s = s + statusbar_render(theme, teamwork, yolo, thinking, version, color, cols);
-    s = s + input_render(theme, input_buf, color, cols);
+    let mcp_ok: Bool = true;
+    let lsp_ok: Bool = true;
+    s = s + statusbar_footer_render(theme, provider, model, cwd, mode, perm, thinking, teamwork, mcp_ok, lsp_ok, version, color, cols);
+    s = s + input_header_cursor(color);
     return s;
 }
 

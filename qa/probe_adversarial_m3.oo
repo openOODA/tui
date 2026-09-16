@@ -1,0 +1,198 @@
+// # qa/probe_adversarial_m3.oo - Milestone 3 Adversarial Probe
+//
+// Logline: Hostile empirical stress tests for thought stream cards across extreme geometries, large inputs, collapsed invariants, and determinism.
+//
+// Setup: Pure in-process probe importing ui/cards/card_thought.oo, theme.oo, and plugins/registry.oo.
+//
+// Beats:
+//   1. Stress test geometry extremes (cols=40, 60, 80, 120, 200) for width bounds and border alignment.
+//   2. Stress test large (>1000 chars), multiline, and unicode thought payloads.
+//   3. Assert collapsed state invariant (strictly 1 line) and glyph rendering.
+//   4. Assert double-run byte-for-byte determinism (Run_1 == Run_2).
+
+import "ui/cards/card_thought.oo";
+import "theme.oo";
+import "plugins/registry.oo";
+
+fn count_nl(s: String) -> Int {
+    let n: Int = chars_len(s); let mut c: Int = 0; let mut i: Int = 0;
+    while i < n { if char_at(s, i) == "\n" { c = c + 1; } i = i + 1; }
+    return c;
+}
+
+fn is_ansi_final(c: String) -> Bool {
+    let finals: String = "mHJKABCDsf"; let n: Int = chars_len(finals); let mut i: Int = 0;
+    while i < n { if char_at(finals, i) == c { return true; } i = i + 1; }
+    return false;
+}
+
+fn strip_ansi(s: String) -> String {
+    let esc: String = ansi_esc(); let n: Int = chars_len(s); let mut out: String = ""; let mut i: Int = 0;
+    while i < n {
+        if char_at(s, i) == esc {
+            i = i + 1;
+            if i < n && char_at(s, i) == "[" {
+                i = i + 1;
+                while i < n {
+                    let ch: String = char_at(s, i);
+                    if is_ansi_final(ch) { i = i + 1; break; }
+                    i = i + 1;
+                }
+            }
+        } else { out = out + char_at(s, i); i = i + 1; }
+    }
+    return out;
+}
+
+fn split_lines_probe(s: String) -> List[String] {
+    let mut out: List[String] = list_new(); let mut cur: String = "";
+    let len: Int = chars_len(s); let mut i: Int = 0;
+    while i < len {
+        let c: String = char_at(s, i);
+        if c == "\n" { out = list_push(out, cur); cur = ""; }
+        else if c != "\r" { cur = cur + c; }
+        i = i + 1;
+    }
+    if cur != "" { out = list_push(out, cur); }
+    return out;
+}
+
+fn make_long_str(n: Int) -> String {
+    let mut s: String = ""; let mut i: Int = 0;
+    while i < n { s = s + "X"; i = i + 1; }
+    return s;
+}
+
+pub fn qa_adversarial_m3_run() -> Int {
+    let mut pass: Int = 0; let mut fail: Int = 0; let theme: String = "1982";
+
+    // SECTION 1: Geometry & Dimension Extremes (cols = 40, 60, 80, 120, 200)
+    let widths: List[Int] = list_new();
+    let widths: List[Int] = list_push(widths, 40);
+    let widths: List[Int] = list_push(widths, 60);
+    let widths: List[Int] = list_push(widths, 80);
+    let widths: List[Int] = list_push(widths, 120);
+    let widths: List[Int] = list_push(widths, 200);
+
+    let mut wi: Int = 0;
+    while wi < list_len(widths) {
+        let cols: Int = list_get(widths, wi);
+        let ren_exp: String = card_thought(theme, false, "step 1: reasoning trace", cols);
+        let lines_exp: List[String] = split_lines_probe(ren_exp);
+        let n_lines: Int = list_len(lines_exp);
+        if n_lines >= 3 {
+            let top: String = strip_ansi(list_get(lines_exp, 0));
+            let bot: String = strip_ansi(list_get(lines_exp, n_lines - 1));
+            let top_len: Int = chars_len(top); let bot_len: Int = chars_len(bot);
+            if top_len <= cols && bot_len <= cols { pass = pass + 1; }
+            else {
+                fail = fail + 1;
+                println("FAIL 1.1: cols=" + int_to_str(cols) + " borders exceed cols (top=" + int_to_str(top_len) + ", bot=" + int_to_str(bot_len) + ")");
+            }
+            if top_len == bot_len { pass = pass + 1; }
+            else {
+                fail = fail + 1;
+                println("FAIL 1.1: cols=" + int_to_str(cols) + " border misalignment: top=" + int_to_str(top_len) + " != bot=" + int_to_str(bot_len));
+            }
+        } else { fail = fail + 1; println("FAIL 1.1: insufficient lines in card: " + int_to_str(n_lines)); }
+
+        let ren_coll: String = card_thought_collapsed(theme, false, "step 1: reasoning trace", cols);
+        let coll_vis: String = strip_ansi(ren_coll);
+        let coll_len: Int = chars_len(coll_vis) - 1;
+        if coll_len <= cols { pass = pass + 1; }
+        else {
+            fail = fail + 1;
+            println("FAIL 1.2: cols=" + int_to_str(cols) + " collapsed card exceeds cols: len=" + int_to_str(coll_len));
+        }
+        wi = wi + 1;
+    }
+
+    // SECTION 2: Large and Multiline Thoughts
+    let long_th: String = make_long_str(1050);
+    let ren_long: String = card_thought(theme, false, long_th, 80);
+    let lines_long: List[String] = split_lines_probe(ren_long);
+    if list_len(lines_long) >= 2 {
+        let bl_len: Int = chars_len(strip_ansi(list_get(lines_long, 1)));
+        if bl_len <= 80 { pass = pass + 1; }
+        else {
+            fail = fail + 1;
+            println("FAIL 2.1: >1000 char thought not wrapped: line len=" + int_to_str(bl_len) + " exceeds cols=80");
+        }
+    } else { fail = fail + 1; println("FAIL 2.1: missing body lines"); }
+
+    let h_calc: Int = card_thought_height(long_th, false, 80);
+    let h_actual: Int = count_nl(ren_long);
+    if h_calc == h_actual { pass = pass + 1; }
+    else {
+        fail = fail + 1;
+        println("FAIL 2.2: height mismatch: calc=" + int_to_str(h_calc) + " actual=" + int_to_str(h_actual));
+    }
+
+    let multi_para: String = "Para 1: Analysis.\n\nPara 2: Architecture.\n   \nPara 3: Verification.";
+    let ren_para: String = card_thought(theme, true, multi_para, 80);
+    let h_p_calc: Int = card_thought_height(multi_para, false, 80);
+    let h_p_actual: Int = count_nl(ren_para);
+    if h_p_calc == h_p_actual && str_contains(ren_para, "Para 1") && str_contains(ren_para, "Para 3") {
+        pass = pass + 1;
+    } else { fail = fail + 1; println("FAIL 2.3: multi-paragraph height mismatch"); }
+
+    let uni_th: String = "Reasoning: 🚀 launching probe ∑(x_i)=100% · check ─│╰╯ · status: OK";
+    let ren_u: String = card_thought(theme, true, uni_th, 80);
+    let coll_u: String = card_thought_collapsed(theme, true, uni_th, 80);
+    if str_contains(ren_u, "🚀") && str_contains(ren_u, "∑(x_i)") && str_contains(coll_u, "Thinking") {
+        pass = pass + 1;
+    } else { fail = fail + 1; println("FAIL 2.4: unicode characters corrupted"); }
+
+    // SECTION 3: Collapsed State Invariant & Glyph Check
+    let test_inputs: List[String] = list_new();
+    let test_inputs: List[String] = list_push(test_inputs, "short");
+    let test_inputs: List[String] = list_push(test_inputs, multi_para);
+    let test_inputs: List[String] = list_push(test_inputs, long_th);
+    let test_inputs: List[String] = list_push(test_inputs, uni_th);
+
+    let mut ti: Int = 0;
+    while ti < list_len(test_inputs) {
+        let inp: String = list_get(test_inputs, ti);
+        let c_out: String = card_thought_collapsed(theme, false, inp, 80);
+        let nl_c: Int = count_nl(c_out);
+        if nl_c == 1 { pass = pass + 1; }
+        else { fail = fail + 1; println("FAIL 3.1: collapsed newline count=" + int_to_str(nl_c)); }
+        ti = ti + 1;
+    }
+
+    let c_color: String = card_thought_collapsed(theme, true, "check duplicate glyph", 80);
+    let c_stripped: String = strip_ansi(c_color);
+    if !str_contains(c_stripped, "▶ ▶") { pass = pass + 1; }
+    else {
+        fail = fail + 1;
+        println("FAIL 3.2: collapsed card in color mode has duplicate glyph '▶ ▶': " + c_stripped);
+    }
+
+    // SECTION 4: Double-Run Determinism (Run_1 == Run_2)
+    let d1: String = card_thought(theme, true, multi_para, 80);
+    let d2: String = card_thought(theme, true, multi_para, 80);
+    let dc1: String = card_thought_collapsed(theme, true, multi_para, 80);
+    let dc2: String = card_thought_collapsed(theme, true, multi_para, 80);
+    if d1 == d2 && dc1 == dc2 { pass = pass + 1; }
+    else { fail = fail + 1; println("FAIL 4.1: double-run determinism broken"); }
+
+    println("qa/probe_adversarial_m3: pass=" + int_to_str(pass) + " fail=" + int_to_str(fail));
+    if fail > 0 { return 1; }
+    return 0;
+}
+
+pub fn main(bind: &BindCap, fs_r: &FsReadCap, fs_w: &FsWriteCap, sys: &ProcessCap, sys_cap: &SysCap, env: &EnvCap, time: &TimeCap, alloc: &AllocCap, thread: &ThreadCap, args: List[String]) -> Result[Int, String] {
+    println("qa/probe_adversarial_m3: starting hostile empirical probe");
+    let res: Int = qa_adversarial_m3_run();
+    if res != 0 { return Err("qa/probe_adversarial_m3 failed"); }
+    return Ok(0);
+}
+
+fn int_to_str(n: Int) -> String {
+    if n <= 0 { return "0"; }
+    let digits: String = "0123456789"; let mut v: Int = n; let mut rev: String = "";
+    while v > 0 { let d: Int = v - (v / 10) * 10; rev = rev + char_at(digits, d); v = v / 10; }
+    let mut out: String = ""; let mut k: Int = chars_len(rev) - 1;
+    while k >= 0 { out = out + char_at(rev, k); k = k - 1; }
+    return out;
+}

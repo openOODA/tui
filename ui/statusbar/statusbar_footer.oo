@@ -1,0 +1,180 @@
+// # ui/statusbar/statusbar_footer.oo - Environmental Footer Statusbar Plugin
+//
+// Logline: Consolidate environmental status, active LLM model, CWD, and telemetry in screen footer.
+//
+// Setup: Pure terminal statusbar renderer with responsive width budgeting and plain-mode zero ESC.
+//
+// Beats:
+//   1. Build responsive horizontal rules and corner glyphs.
+//   2. Format mode, permission, CWD, and provider/model chips with dynamic budgeting.
+//   3. Render telemetry badges (MCP, LSP, TEAM) and version indicator.
+//   4. Guarantee single-line height, zero line-wrap across all terminal widths, and zero ESC in plain mode.
+
+import "theme.oo";
+
+fn u_dashes(n: Int) -> String {
+    let mut s: String = "";
+    let mut i: Int = 0;
+    while i < n { s = s + "─"; i = i + 1; }
+    return s;
+}
+
+fn shorten_path(p: String, max_len: Int) -> String {
+    let n: Int = chars_len(p);
+    if n <= max_len { return p; }
+    if max_len <= 3 { return "..."; }
+    return "..." + str_slice(p, n - (max_len - 3), n);
+}
+
+fn shorten_llm(p: String, max_len: Int) -> String {
+    let n: Int = chars_len(p);
+    if n <= max_len { return p; }
+    if max_len <= 3 { return "..."; }
+    return str_slice(p, 0, max_len - 3) + "...";
+}
+
+fn last_segment(p: String) -> String {
+    let n: Int = chars_len(p);
+    let mut last_slash: Int = -1;
+    let mut i: Int = 0;
+    while i < n {
+        if char_at(p, i) == "/" && i + 1 < n { last_slash = i; }
+        i = i + 1;
+    }
+    if last_slash >= 0 && last_slash + 1 < n { return str_slice(p, last_slash + 1, n); }
+    return p;
+}
+
+fn char_lower(c: String) -> String {
+    let u: String = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    let l: String = "abcdefghijklmnopqrstuvwxyz";
+    let mut j: Int = 0;
+    while j < 26 {
+        if char_at(u, j) == c { return char_at(l, j); }
+        j = j + 1;
+    }
+    return c;
+}
+
+fn clean_model(prov: String, modl: String) -> String {
+    let pl: Int = chars_len(prov);
+    let ml: Int = chars_len(modl);
+    if pl == 0 || ml <= pl + 1 || char_at(modl, pl) != "-" { return modl; }
+    let mut i: Int = 0;
+    while i < pl {
+        let la: String = char_lower(char_at(prov, i));
+        let lb: String = char_lower(char_at(modl, i));
+        if la != lb { return modl; }
+        i = i + 1;
+    }
+    return str_slice(modl, pl + 1, ml);
+}
+
+pub fn statusbar_footer_height() -> Int {
+    return 1;
+}
+
+pub fn statusbar_footer_render(theme: String, provider: String, model: String, cwd: String, mode: String, perm: String, thinking_lvl: String, teamwork: Bool, mcp_ok: Bool, lsp_ok: Bool, version: String, color: Bool, cols: Int) -> String {
+    let mut w: Int = cols;
+    if w < 40 { w = 40; }
+
+    let mut mode_txt: String = "BUILD"; let mut mode_col: String = theme_color(theme, "success");
+    if mode == "plan" || mode == "PLAN" { mode_txt = "PLAN"; mode_col = theme_color(theme, "accent"); }
+    else if mode == "ask" || mode == "ASK" { mode_txt = "ASK"; mode_col = theme_color(theme, "error"); }
+    let mut perm_txt: String = "ask"; let mut perm_col: String = theme_color(theme, "muted");
+    if perm == "yolo" || perm == "YOLO" { perm_txt = "yolo"; perm_col = theme_color(theme, "error"); }
+    else if perm == "allow" || perm == "ALLOW" { perm_txt = "allow"; perm_col = theme_color(theme, "success"); }
+
+    let smod: String = clean_model(provider, model);
+    let mut llm_full: String = if provider != "" && smod != "" { provider + "/" + smod } else if provider != "" { provider } else { smod };
+
+    let chip_mode: String = "[" + mode_txt + "]"; let chip_perm: String = "[" + perm_txt + "]";
+    let raw_cwd: String = if cwd != "" { cwd } else { "openOODA" };
+    let mcp_chip: String = if mcp_ok { "[MCP: ok]" } else { "[MCP: off]" };
+    let mcp_col: String = if mcp_ok { theme_color(theme, "success") } else { theme_color(theme, "dim") };
+    let lsp_chip: String = if lsp_ok { "[LSP: ok]" } else { "[LSP: off]" }; let lsp_col: String = if lsp_ok { theme_color(theme, "success") } else { theme_color(theme, "dim") };
+    let ver_chip: String = if version != "" { "[" + version + "]" } else { "" };
+    let theme_str: String = "theme=" + theme; let bord: String = theme_color(theme, "borderMuted");
+
+    if w >= 120 {
+        let lf: Int = 3 + chars_len(chip_mode) + 3 + chars_len(chip_perm) + 5;
+        let mut rf: Int = 3 + chars_len(theme_str) + 3 + chars_len(mcp_chip) + 3 + chars_len(lsp_chip) + 3;
+        if teamwork { rf = rf + 9; }
+        if thinking_lvl != "" && thinking_lvl != "off" { rf = rf + 12 + chars_len(thinking_lvl); }
+        if ver_chip != "" { rf = rf + 3 + chars_len(ver_chip); }
+
+        let avail_dyn: Int = w - lf - rf - 7;
+        let mut max_cw: Int = avail_dyn / 3;
+        if max_cw < 6 { max_cw = 6; } else if max_cw > 24 { max_cw = 24; }
+        let disp_cwd: String = shorten_path(raw_cwd, max_cw);
+        let mut llm_part: String = if llm_full != "" { llm_full } else { "" };
+        if llm_part != "" && chars_len(llm_part) > avail_dyn - chars_len(disp_cwd) { llm_part = shorten_llm(llm_part, avail_dyn - chars_len(disp_cwd)); }
+
+        let l_vis: Int = lf + chars_len(disp_cwd) + (if llm_part != "" { 5 + chars_len(llm_part) } else { 0 });
+        let mut span: Int = w - l_vis - rf - 1;
+        if span < 1 { span = 1; }
+
+        let mut s: String = ansi_fg(color, bord) + "╰─ " + ansi_reset(color) + ansi_fg(color, mode_col) + ansi_bold(color) + chip_mode + ansi_reset(color) + ansi_fg(color, bord) + " ─ " + ansi_reset(color) + ansi_fg(color, perm_col) + chip_perm + ansi_reset(color) + ansi_fg(color, bord) + " ─ [" + ansi_reset(color) + ansi_fg(color, theme_color(theme, "muted")) + disp_cwd + ansi_reset(color) + ansi_fg(color, bord) + "]" + ansi_reset(color);
+        if llm_part != "" { s = s + ansi_fg(color, bord) + " ─ [" + ansi_reset(color) + ansi_fg(color, theme_color(theme, "accent")) + llm_part + ansi_reset(color) + ansi_fg(color, bord) + "]" + ansi_reset(color); }
+        s = s + ansi_fg(color, bord) + " " + u_dashes(span) + " ─ " + ansi_reset(color) + ansi_fg(color, theme_color(theme, "muted")) + theme_str + ansi_reset(color) + ansi_fg(color, bord) + " ─ " + ansi_reset(color) + ansi_fg(color, mcp_col) + mcp_chip + ansi_reset(color) + ansi_fg(color, bord) + " ─ " + ansi_reset(color) + ansi_fg(color, lsp_col) + lsp_chip + ansi_reset(color);
+        if teamwork { s = s + ansi_fg(color, bord) + " ─ " + ansi_reset(color) + ansi_fg(color, theme_color(theme, "accent")) + "[TEAM]" + ansi_reset(color); }
+        if thinking_lvl != "" && thinking_lvl != "off" { s = s + ansi_fg(color, bord) + " ─ " + ansi_reset(color) + ansi_fg(color, theme_color(theme, "muted")) + "[think: " + thinking_lvl + "]" + ansi_reset(color); }
+        if ver_chip != "" { s = s + ansi_fg(color, bord) + " ─ " + ansi_reset(color) + ansi_fg(color, theme_color(theme, "dim")) + ver_chip + ansi_reset(color); }
+        return s + ansi_fg(color, bord) + " ─╯" + ansi_reset(color) + "\n";
+    }
+
+    if w >= 75 {
+        let lf: Int = 3 + chars_len(chip_mode) + 1 + chars_len(chip_perm);
+        let mut rf: Int = 1 + chars_len(mcp_chip) + 1 + chars_len(lsp_chip) + 3;
+        if teamwork { rf = rf + 7; }
+        if ver_chip != "" { rf = rf + 1 + chars_len(ver_chip); }
+
+        if llm_full == "" {
+            let mv: Int = 1 + chars_len(theme_str);
+            let mut span: Int = w - lf - mv - rf - 1;
+            if span < 1 { span = 1; }
+            let mut s: String = ansi_fg(color, bord) + "╰─ " + ansi_reset(color) + ansi_fg(color, mode_col) + ansi_bold(color) + chip_mode + ansi_reset(color) + " " + ansi_fg(color, perm_col) + chip_perm + ansi_reset(color) + ansi_fg(color, bord) + " " + u_dashes(span) + ansi_reset(color) + " " + ansi_fg(color, theme_color(theme, "muted")) + theme_str + ansi_reset(color) + " " + ansi_fg(color, mcp_col) + mcp_chip + ansi_reset(color) + " " + ansi_fg(color, lsp_col) + lsp_chip + ansi_reset(color);
+            if teamwork { s = s + " " + ansi_fg(color, theme_color(theme, "accent")) + "[TEAM]" + ansi_reset(color); }
+            if ver_chip != "" { s = s + " " + ansi_fg(color, theme_color(theme, "dim")) + ver_chip + ansi_reset(color); }
+            return s + ansi_fg(color, bord) + " ─╯" + ansi_reset(color) + "\n";
+        }
+
+        let avail: Int = w - lf - rf - 8;
+        let base_cwd: String = last_segment(raw_cwd);
+        let mut cw_take: Int = if avail >= 24 { 8 } else if chars_len(base_cwd) <= 6 { chars_len(base_cwd) } else { 6 };
+        if cw_take < 3 { cw_take = 3; }
+
+        let mut disp_cwd: String = if chars_len(base_cwd) <= cw_take { base_cwd } else { shorten_path(raw_cwd, cw_take) };
+        let llm_take: Int = avail - chars_len(disp_cwd);
+        let mut disp_llm: String = llm_full;
+        if chars_len(disp_llm) > llm_take { disp_llm = shorten_llm(disp_llm, llm_take); }
+
+        let mv: Int = 3 + chars_len(disp_cwd) + 3 + chars_len(disp_llm);
+        let mut span: Int = w - lf - mv - rf - 1;
+        if span < 1 { span = 1; }
+
+        let mut s: String = ansi_fg(color, bord) + "╰─ " + ansi_reset(color) + ansi_fg(color, mode_col) + ansi_bold(color) + chip_mode + ansi_reset(color) + " " + ansi_fg(color, perm_col) + chip_perm + ansi_reset(color) + ansi_fg(color, bord) + " [" + ansi_reset(color) + ansi_fg(color, theme_color(theme, "muted")) + disp_cwd + ansi_reset(color) + ansi_fg(color, bord) + "]" + ansi_reset(color) + ansi_fg(color, bord) + " [" + ansi_reset(color) + ansi_fg(color, theme_color(theme, "accent")) + disp_llm + ansi_reset(color) + ansi_fg(color, bord) + "]" + ansi_reset(color) + ansi_fg(color, bord) + " " + u_dashes(span) + ansi_reset(color) + " " + ansi_fg(color, mcp_col) + mcp_chip + ansi_reset(color) + " " + ansi_fg(color, lsp_col) + lsp_chip + ansi_reset(color);
+        if teamwork { s = s + " " + ansi_fg(color, theme_color(theme, "accent")) + "[TEAM]" + ansi_reset(color); }
+        if ver_chip != "" { s = s + " " + ansi_fg(color, theme_color(theme, "dim")) + ver_chip + ansi_reset(color); }
+        return s + ansi_fg(color, bord) + " ─╯" + ansi_reset(color) + "\n";
+    }
+
+    let lf: Int = 3 + chars_len(chip_mode) + 1 + chars_len(chip_perm);
+    let mut rf: Int = 3;
+    if ver_chip != "" { rf = rf + 1 + chars_len(ver_chip); }
+
+    let rem: Int = w - lf - rf - 1;
+    let mut disp_cwd: String = "";
+    if rem >= 8 {
+        let max_cwd: Int = rem - 4;
+        if max_cwd >= 3 { disp_cwd = shorten_path(raw_cwd, max_cwd); }
+    }
+    let mv: Int = if disp_cwd != "" { 3 + chars_len(disp_cwd) } else { 0 };
+    let mut span: Int = w - lf - mv - rf - 1;
+    if span < 1 { span = 1; }
+
+    let mut s: String = ansi_fg(color, bord) + "╰─ " + ansi_reset(color) + ansi_fg(color, mode_col) + ansi_bold(color) + chip_mode + ansi_reset(color) + " " + ansi_fg(color, perm_col) + chip_perm + ansi_reset(color);
+    if disp_cwd != "" { s = s + ansi_fg(color, bord) + " [" + ansi_reset(color) + ansi_fg(color, theme_color(theme, "muted")) + disp_cwd + ansi_reset(color) + ansi_fg(color, bord) + "]" + ansi_reset(color); }
+    if ver_chip != "" { return s + ansi_fg(color, bord) + " " + u_dashes(span) + ansi_reset(color) + " " + ansi_fg(color, theme_color(theme, "dim")) + ver_chip + ansi_reset(color) + ansi_fg(color, bord) + " ─╯" + ansi_reset(color) + "\n"; }
+    return s + ansi_fg(color, bord) + " " + u_dashes(span) + " ─╯" + ansi_reset(color) + "\n";
+}

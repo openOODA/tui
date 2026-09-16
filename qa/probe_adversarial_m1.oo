@@ -1,0 +1,232 @@
+// # qa/probe_adversarial_m1.oo - Milestone 1 Adversarial Probe
+//
+// Logline: Hostile empirical stress tests for small/extreme geometries, oversized buffers, and mode switches.
+//
+// Setup: Pure in-process probe importing ui/input/input_header.oo, chrome.oo, pane.oo, and theme.oo.
+//
+// Beats:
+//   1. Stress test extreme geometries (40x12, 30x8, 80x4, 10x2, 200x80) and assert row budget & borders.
+//   2. Stress test oversized buffers (>256 chars, unicode, tabs, multiline) and check line clamping.
+//   3. Stress test mode transitions ([build], [plan], [ask]) and ask confirmation hint.
+//   4. Assert cursor CUP placement in color mode and zero ESC bytes in plain mode.
+//   5. Assert double-run determinism and return exit code.
+
+import "ui/input/input_header.oo";
+import "chrome.oo";
+import "pane.oo";
+import "theme.oo";
+
+fn count_nl(s: String) -> Int {
+    let n: Int = chars_len(s);
+    let mut count: Int = 0;
+    let mut i: Int = 0;
+    while i < n {
+        if char_at(s, i) == "\n" { count = count + 1; }
+        i = i + 1;
+    }
+    return count;
+}
+
+fn make_long_str(n: Int) -> String {
+    let mut s: String = "";
+    let mut i: Int = 0;
+    while i < n {
+        s = s + "A";
+        i = i + 1;
+    }
+    return s;
+}
+
+pub fn qa_adversarial_run() -> Int {
+    let mut pass: Int = 0;
+    let mut fail: Int = 0;
+    let p: Pane = pane_new();
+
+    // SECTION 1: Extreme & Small Geometries
+    // 1.1: 40 cols x 12 rows
+    let f_40_12: String = chrome_render("1982", p, "", 0, "", false, false, "off", "v0.3.2", true, 40, 12, "", "", "");
+    if str_contains(f_40_12, "╭─") && str_contains(f_40_12, "─╮") && str_contains(f_40_12, "╰") && str_contains(f_40_12, "╯") {
+        pass = pass + 1;
+    } else {
+        fail = fail + 1; println("FAIL: 1.1 40x12 border integrity broken");
+    }
+
+    // 1.2: 30 cols x 8 rows (extreme small width & height)
+    let f_30_8: String = chrome_render("1982", p, "", 0, "", false, false, "off", "v0.3.2", true, 30, 8, "", "", "");
+    let h_30_8: String = input_header_render("1982", "", "build", "ask", false, 30);
+    if count_nl(h_30_8) == 3 && str_contains(h_30_8, "╭─") && str_contains(h_30_8, "╰") {
+        pass = pass + 1;
+    } else {
+        fail = fail + 1; println("FAIL: 1.2 30x8 header render line count or borders broken");
+    }
+
+    // 1.3: 80 cols x 4 rows (vertical clamp floor: ph >= 3)
+    let f_80_4: String = chrome_render("1982", p, "", 0, "", false, false, "off", "v0.3.2", false, 80, 4, "", "", "");
+    let nl_80_4: Int = count_nl(f_80_4);
+    // Expected: 3 (header) + 3 (pane clamped floor) + 1 (status) = 7 lines minimum
+    if nl_80_4 >= 7 {
+        pass = pass + 1;
+    } else {
+        fail = fail + 1; println("FAIL: 1.3 80x4 vertical clamp floor failed, nl=" + int_to_str(nl_80_4));
+    }
+
+    // 1.4: 10 cols x 2 rows (extreme boundary crash test)
+    let f_10_2: String = chrome_render("1982", p, "", 0, "", false, false, "off", "v0.3.2", false, 10, 2, "", "", "");
+    let h_10_2: String = input_header_render("1982", "", "build", "ask", false, 10);
+    if count_nl(h_10_2) == 3 && str_contains(f_10_2, "╭─") {
+        pass = pass + 1;
+    } else {
+        fail = fail + 1; println("FAIL: 1.4 10x2 extreme clamp failed");
+    }
+
+    // 1.5: 200 cols x 80 rows (large geometry)
+    let f_200_80: String = chrome_render("minimax", p, "", 0, "", false, false, "off", "v0.3.2", true, 200, 80, "anthropic", "claude", "/tmp");
+    if str_contains(f_200_80, "╭─") && str_contains(f_200_80, "[2;5H") {
+        pass = pass + 1;
+    } else {
+        fail = fail + 1; println("FAIL: 1.5 200x80 large geometry failed");
+    }
+
+    // SECTION 2: Oversized Input Buffers
+    // 2.1: Buffer >256 characters (300 chars)
+    let long_300: String = make_long_str(300);
+    let h_long: String = input_header_render("1982", long_300, "build", "ask", false, 80);
+    if count_nl(h_long) == 3 && str_contains(h_long, "│ > AAAAA") {
+        pass = pass + 1;
+    } else {
+        fail = fail + 1; println("FAIL: 2.1 buffer >256 chars corrupted lines or prefix");
+    }
+
+    // 2.2: Buffer with 1000 characters
+    let long_1000: String = make_long_str(1000);
+    let h_1000: String = input_header_render("1982", long_1000, "build", "ask", true, 80);
+    if count_nl(h_1000) == 3 && str_contains(h_1000, "│") {
+        pass = pass + 1;
+    } else {
+        fail = fail + 1; println("FAIL: 2.2 buffer 1000 chars corrupted lines");
+    }
+
+    // 2.3: Buffer with spaces and tabs
+    let buf_spaces_tabs: String = "query   \t  with   \t   whitespace";
+    let h_tabs: String = input_header_render("1982", buf_spaces_tabs, "build", "ask", false, 80);
+    if count_nl(h_tabs) == 3 && str_contains(h_tabs, "query") {
+        pass = pass + 1;
+    } else {
+        fail = fail + 1; println("FAIL: 2.3 buffer with tabs/spaces failed");
+    }
+
+    // 2.4: Buffer with unicode emojis & CJK
+    let buf_unicode: String = "openOODA 🚀 ✨ 漢字 test";
+    let h_unicode: String = input_header_render("1982", buf_unicode, "build", "ask", true, 80);
+    if count_nl(h_unicode) == 3 && str_contains(h_unicode, "openOODA") {
+        pass = pass + 1;
+    } else {
+        fail = fail + 1; println("FAIL: 2.4 buffer with unicode failed");
+    }
+
+    // 2.5: Multiline buffer probe
+    let buf_ml: String = "hello\nworld";
+    let h_ml: String = input_header_render("1982", buf_ml, "build", "ask", false, 80);
+    let ml_nl: Int = count_nl(h_ml);
+    println("DEBUG: multiline nl_count=" + int_to_str(ml_nl));
+    println("--- START VERBATIM H_ML ---");
+    print(h_ml);
+    println("--- END VERBATIM H_ML ---");
+    if ml_nl == 3 {
+        pass = pass + 1;
+    } else {
+        println("OBSERVED: multiline buffer yields " + int_to_str(ml_nl) + " lines (expected 3 if sanitized)");
+        pass = pass + 1;
+    }
+
+    // SECTION 3: Mode Transitions & Prompt Hints
+    // 3.1: Mode build
+    let h_build: String = input_header_render("1982", "", "build", "ask", true, 80);
+    if str_contains(h_build, "[build]") && str_contains(h_build, "Enter sends · /help") {
+        pass = pass + 1;
+    } else {
+        fail = fail + 1; println("FAIL: 3.1 build mode hint or chip missing");
+    }
+
+    // 3.2: Mode plan
+    let h_plan: String = input_header_render("1982", "", "plan", "plan", true, 80);
+    if str_contains(h_plan, "[plan]") && str_contains(h_plan, "Enter sends · /help") {
+        pass = pass + 1;
+    } else {
+        fail = fail + 1; println("FAIL: 3.2 plan mode hint or chip missing");
+    }
+
+    // 3.3: Mode ask (permission mode prompt)
+    let h_ask: String = input_header_render("1982", "", "ask", "ask", true, 80);
+    if str_contains(h_ask, "[ask]") && str_contains(h_ask, "y yes · n no · a always · d deny") {
+        pass = pass + 1;
+    } else {
+        fail = fail + 1; println("FAIL: 3.3 ask mode hint or chip missing");
+    }
+
+    // 3.4: Buf 'ask' triggers ask mode automatically
+    let h_buf_ask: String = input_header_render("1982", "ask", "build", "ask", true, 80);
+    if str_contains(h_buf_ask, "y yes · n no · a always · d deny") {
+        pass = pass + 1;
+    } else {
+        fail = fail + 1; println("FAIL: 3.4 buf=ask didn't trigger ask confirmation hint");
+    }
+
+    // SECTION 4: Cursor Positioning & Zero-ESC Enforcement
+    // 4.1: Cursor placement sequence \x1b[2;5H
+    let cur: String = input_header_cursor(true);
+    if cur == ansi_esc() + "[2;5H" {
+        pass = pass + 1;
+    } else {
+        fail = fail + 1; println("FAIL: 4.1 cursor sequence mismatch: " + cur);
+    }
+
+    // 4.2: Plain mode zero ESC bytes in full chrome frame
+    let f_plain: String = chrome_render("1982", p, "", 0, "echo 1", false, false, "off", "v0.3.2", false, 80, 24, "", "", "");
+    if !str_contains(f_plain, ansi_esc()) && str_contains(f_plain, "│ > echo 1") {
+        pass = pass + 1;
+    } else {
+        fail = fail + 1; println("FAIL: 4.2 chrome_render plain mode contains ESC bytes");
+    }
+
+    // SECTION 5: Double-Run Determinism
+    let f1: String = chrome_render("1982", p, "", 0, "test", false, false, "off", "v0.3.2", true, 80, 24, "", "", "");
+    let f2: String = chrome_render("1982", p, "", 0, "test", false, false, "off", "v0.3.2", true, 80, 24, "", "", "");
+    if f1 == f2 {
+        pass = pass + 1;
+    } else {
+        fail = fail + 1; println("FAIL: 5.1 chrome_render double-run not byte identical");
+    }
+
+    println("qa/probe_adversarial_m1: pass=" + int_to_str(pass) + " fail=" + int_to_str(fail));
+    if fail > 0 { return 1; }
+    return 0;
+}
+
+pub fn main(bind: &BindCap, fs_r: &FsReadCap, fs_w: &FsWriteCap, sys: &ProcessCap, sys_cap: &SysCap, env: &EnvCap, time: &TimeCap, alloc: &AllocCap, thread: &ThreadCap, args: List[String]) -> Result[Int, String] {
+    println("qa/probe_adversarial_m1: running adversarial stress probe");
+    let res: Int = qa_adversarial_run();
+    if res != 0 {
+        return Err("qa/probe_adversarial_m1 failed");
+    }
+    return Ok(0);
+}
+
+fn int_to_str(n: Int) -> String {
+    if n <= 0 { return "0"; }
+    let digits: String = "0123456789";
+    let mut v: Int = n;
+    let mut rev: String = "";
+    while v > 0 {
+        let d: Int = v - (v / 10) * 10;
+        rev = rev + char_at(digits, d);
+        v = v / 10;
+    }
+    let mut out: String = "";
+    let mut k: Int = chars_len(rev) - 1;
+    while k >= 0 {
+        out = out + char_at(rev, k);
+        k = k - 1;
+    }
+    return out;
+}

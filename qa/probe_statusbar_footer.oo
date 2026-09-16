@@ -1,0 +1,237 @@
+// # qa/probe_statusbar_footer.oo - Environmental Footer Statusbar Probe
+//
+// Logline: Comprehensive hostile probe asserting 1-row layout, multi-provider rendering, zero-ESC plain mode, and anti-cheat falsification.
+//
+// Setup: Pure in-process probe importing ui/statusbar/statusbar_footer.oo and theme.oo.
+//
+// Beats:
+//   1. Assert 1-row layout, height contract, and corner boundaries.
+//   2. Assert multi-provider rendering (Anthropic, OpenAI, MiniMax) and anti-cheat negative falsification.
+//   3. Assert anti-fallback behavior: unconfigured provider/model must never default to hardcoded minimax.
+//   4. Assert mode and permission badges, transitions (plan, yolo), and CWD representation.
+//   5. Assert telemetry indicators (MCP, LSP, TEAM, version) and offline/disabled state toggles.
+//   6. Assert plain mode zero-ESC byte guarantee under color=false.
+//   7. Assert CWD truncation under deep paths and boundary stability under narrow columns (cols=40).
+//   8. Assert double-run byte-for-byte determinism (Run_1 == Run_2).
+
+import "ui/statusbar/statusbar_footer.oo";
+import "theme.oo";
+
+pub fn qa_statusbar_footer_run() -> Int {
+    let mut pass: Int = 0;
+    let mut fail: Int = 0;
+
+    // 1. Height contract & 1-row layout invariant
+    if statusbar_footer_height() == 1 {
+        pass = pass + 1;
+    } else {
+        fail = fail + 1;
+        println("FAIL: statusbar_footer_height != 1");
+    }
+
+    // 2. Multi-Provider Rendering & Hostile Anti-Cheat Negative Falsification
+    // Case 2A: Anthropic Claude (80 cols, teamwork=true)
+    let f_anthropic: String = statusbar_footer_render("minimax", "anthropic", "claude-3-5-sonnet", "/home/jeryd/Projects/openOODA/tui", "build", "ask", "off", true, true, true, "v0.3.2", true, 80);
+    if count_newlines(f_anthropic) == 1 {
+        pass = pass + 1;
+    } else {
+        fail = fail + 1;
+        println("FAIL: f_anthropic newline count != 1");
+    }
+
+    // Must display genuine provider/model text without hijacking
+    if str_contains(f_anthropic, "anthropic") || str_contains(f_anthropic, "claude") {
+        pass = pass + 1;
+    } else {
+        fail = fail + 1;
+        println("FAIL: f_anthropic missing anthropic or claude identifier");
+    }
+
+    // Anti-cheat: must NOT contain hardcoded minimax or M2.5 when anthropic configured
+    if !str_contains(f_anthropic, "minimax") && !str_contains(f_anthropic, "M2.5") {
+        pass = pass + 1;
+    } else {
+        fail = fail + 1;
+        println("FAIL: f_anthropic contains hardcoded minimax/M2.5 replacement string");
+    }
+
+    // Case 2B: OpenAI GPT (80 cols, teamwork=true)
+    let f_openai: String = statusbar_footer_render("minimax", "openai", "gpt-4o-mini", "/tmp", "plan", "yolo", "medium", true, true, true, "v0.3.2", true, 80);
+    if str_contains(f_openai, "openai") || str_contains(f_openai, "gpt") {
+        pass = pass + 1;
+    } else {
+        fail = fail + 1;
+        println("FAIL: f_openai missing openai or gpt identifier");
+    }
+
+    if !str_contains(f_openai, "minimax") && !str_contains(f_openai, "claude") {
+        pass = pass + 1;
+    } else {
+        fail = fail + 1;
+        println("FAIL: f_openai contains cross-model leaked string");
+    }
+
+    // Case 2C: MiniMax Model (genuine test case)
+    let f_minimax: String = statusbar_footer_render("minimax", "minimax", "MiniMax-M2.5", "/home/jeryd/Projects/openOODA/tui", "build", "ask", "off", true, true, true, "v0.3.2", true, 80);
+    if str_contains(f_minimax, "minimax") && (str_contains(f_minimax, "MiniMax-M2.5") || str_contains(f_minimax, "M2.5")) {
+        pass = pass + 1;
+    } else {
+        fail = fail + 1;
+        println("FAIL: f_minimax missing provider or model name");
+    }
+
+    // 3. Anti-Fallback Facade Assertions (empty model must not default to minimax)
+    // Case 3A: Tier 2 unconfigured model at 80 cols
+    let f_empty_80: String = statusbar_footer_render("1982", "", "", "/home/jeryd", "build", "ask", "off", false, true, true, "v0.3.2", true, 80);
+    if !str_contains(f_empty_80, "minimax") && !str_contains(f_empty_80, "MiniMax") {
+        pass = pass + 1;
+    } else {
+        fail = fail + 1;
+        println("FAIL: f_empty_80 hardcoded minimax fallback detected");
+    }
+
+    // Case 3B: Tier 1 wide unconfigured model at 120 cols
+    let f_empty_wide: String = statusbar_footer_render("1982", "", "", "/home/jeryd", "build", "ask", "off", false, true, true, "v0.3.2", true, 120);
+    if !str_contains(f_empty_wide, "minimax") && !str_contains(f_empty_wide, "MiniMax") {
+        pass = pass + 1;
+    } else {
+        fail = fail + 1;
+        println("FAIL: f_empty_wide hardcoded minimax fallback detected");
+    }
+
+    // 4. Standard Frame Boundaries & Operational Badges
+    if str_contains(f_minimax, "╰─") && str_contains(f_minimax, "─╯") {
+        pass = pass + 1;
+    } else {
+        fail = fail + 1;
+        println("FAIL: f_minimax missing corner borders ╰─ or ─╯");
+    }
+
+    if (str_contains(f_minimax, "[BUILD]") || str_contains(f_minimax, "[build]")) && str_contains(f_minimax, "[ask]") {
+        pass = pass + 1;
+    } else {
+        fail = fail + 1;
+        println("FAIL: f_minimax missing mode badge or perm badge");
+    }
+
+    if str_contains(f_minimax, "openOODA") || str_contains(f_minimax, "tui") {
+        pass = pass + 1;
+    } else {
+        fail = fail + 1;
+        println("FAIL: f_minimax missing CWD path representation");
+    }
+
+    if (str_contains(f_minimax, "MCP:") || str_contains(f_minimax, "mcp")) && (str_contains(f_minimax, "LSP:") || str_contains(f_minimax, "lsp")) {
+        pass = pass + 1;
+    } else {
+        fail = fail + 1;
+        println("FAIL: f_minimax missing MCP or LSP telemetry indicators");
+    }
+
+    if str_contains(f_minimax, "[TEAM]") && str_contains(f_minimax, "v0.3.2") {
+        pass = pass + 1;
+    } else {
+        fail = fail + 1;
+        println("FAIL: f_minimax missing teamwork badge or version");
+    }
+
+    // 5. Telemetry Flags Permutations (offline / disabled states)
+    let f_off: String = statusbar_footer_render("minimax", "minimax", "MiniMax-M2.5", "/home/jeryd/Projects/openOODA/tui", "build", "ask", "off", false, false, false, "v0.3.2", true, 80);
+    if !str_contains(f_off, "[TEAM]") && (str_contains(f_off, "off") || str_contains(f_off, "--") || str_contains(f_off, "offline")) {
+        pass = pass + 1;
+    } else {
+        fail = fail + 1;
+        println("FAIL: f_off telemetry offline state or teamwork exclusion failed");
+    }
+
+    // 6. Plain Mode & Zero-ESC Byte Guarantee
+    let f_plain: String = statusbar_footer_render("1982", "anthropic", "claude-3-5-sonnet", "/home/jeryd/Projects/openOODA/tui", "build", "ask", "off", true, true, true, "v0.3.2", false, 80);
+    if !str_contains(f_plain, ansi_esc()) && count_newlines(f_plain) == 1 && (str_contains(f_plain, "anthropic") || str_contains(f_plain, "claude")) {
+        pass = pass + 1;
+    } else {
+        fail = fail + 1;
+        println("FAIL: f_plain contains ESC bytes or missing content");
+    }
+
+    // 7. CWD Truncation & Deep Path Handling
+    let deep_cwd: String = "/home/jeryd/Projects/openOODA/very/deep/nested/path/structure/that/exceeds/normal/footer/columns";
+    let f_deep: String = statusbar_footer_render("minimax", "minimax", "MiniMax-M2.5", deep_cwd, "build", "ask", "off", true, true, true, "v0.3.2", true, 80);
+    if count_newlines(f_deep) == 1 && (str_contains(f_deep, "...") || str_contains(f_deep, "columns")) {
+        pass = pass + 1;
+    } else {
+        fail = fail + 1;
+        println("FAIL: f_deep multi-line wrap or missing CWD truncation");
+    }
+
+    // 8. Extreme Narrow Column Clamp (cols = 40)
+    let f_40: String = statusbar_footer_render("minimax", "minimax", "MiniMax-M2.5", "/tmp", "build", "ask", "off", false, true, false, "v0.3.2", false, 40);
+    if count_newlines(f_40) == 1 && (str_contains(f_40, "╰─") || str_contains(f_40, "+-")) {
+        pass = pass + 1;
+    } else {
+        fail = fail + 1;
+        println("FAIL: f_40 narrow clamp failed");
+    }
+
+    // 9. Mode Transitions (plan, yolo)
+    let f_plan: String = statusbar_footer_render("minimax", "minimax", "MiniMax-M2.5", "/tmp", "plan", "plan", "medium", false, true, true, "v0.3.2", true, 80);
+    let f_yolo: String = statusbar_footer_render("minimax", "minimax", "MiniMax-M2.5", "/tmp", "build", "yolo", "off", false, true, true, "v0.3.2", true, 80);
+    if (str_contains(f_plan, "PLAN") || str_contains(f_plan, "plan")) && (str_contains(f_yolo, "YOLO") || str_contains(f_yolo, "yolo")) {
+        pass = pass + 1;
+    } else {
+        fail = fail + 1;
+        println("FAIL: mode or perm badge transition failed");
+    }
+
+    // 10. Double-Run Byte-for-Byte Determinism (Run_1 == Run_2)
+    let f_run1: String = statusbar_footer_render("minimax", "anthropic", "claude-3-5-sonnet", "/home/jeryd/Projects/openOODA/tui", "build", "ask", "off", true, true, true, "v0.3.2", true, 80);
+    let f_run2: String = statusbar_footer_render("minimax", "anthropic", "claude-3-5-sonnet", "/home/jeryd/Projects/openOODA/tui", "build", "ask", "off", true, true, true, "v0.3.2", true, 80);
+    if f_run1 == f_run2 {
+        pass = pass + 1;
+    } else {
+        fail = fail + 1;
+        println("FAIL: double-run not byte identical");
+    }
+
+    println("qa/probe_statusbar_footer: pass=" + int_to_str(pass) + " fail=" + int_to_str(fail));
+    if fail > 0 { return 1; }
+    return 0;
+}
+
+pub fn main(bind: &BindCap, fs_r: &FsReadCap, fs_w: &FsWriteCap, sys: &ProcessCap, sys_cap: &SysCap, env: &EnvCap, time: &TimeCap, alloc: &AllocCap, thread: &ThreadCap, args: List[String]) -> Result[Int, String] {
+    println("qa/probe_statusbar_footer: starting probe");
+    let res: Int = qa_statusbar_footer_run();
+    if res != 0 {
+        return Err("qa/probe_statusbar_footer failed");
+    }
+    return Ok(0);
+}
+
+fn count_newlines(s: String) -> Int {
+    let n: Int = chars_len(s);
+    let mut count: Int = 0;
+    let mut i: Int = 0;
+    while i < n {
+        if char_at(s, i) == "\n" { count = count + 1; }
+        i = i + 1;
+    }
+    return count;
+}
+
+fn int_to_str(n: Int) -> String {
+    if n <= 0 { return "0"; }
+    let digits: String = "0123456789";
+    let mut v: Int = n;
+    let mut rev: String = "";
+    while v > 0 {
+        let d: Int = v - (v / 10) * 10;
+        rev = rev + char_at(digits, d);
+        v = v / 10;
+    }
+    let mut out: String = "";
+    let mut k: Int = chars_len(rev) - 1;
+    while k >= 0 {
+        out = out + char_at(rev, k);
+        k = k - 1;
+    }
+    return out;
+}

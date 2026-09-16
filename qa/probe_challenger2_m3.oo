@@ -1,0 +1,213 @@
+// # qa/probe_challenger2_m3.oo - Challenger 2 Hostile Falsification Probe
+//
+// Logline: Comprehensive hostile empirical probe asserting plain-mode zero-ESC invariants, double-run determinism, boundary values, and oversized payloads.
+//
+// Setup: Pure in-process probe importing ui/cards/card_thought.oo, theme.oo, and plugins/registry.oo.
+//
+// Beats:
+//   1. Plain mode invariant: Assert strictly zero ANSI ESC (0x1b) bytes across expanded and collapsed card renders.
+//   2. Double-run byte determinism: Assert Run_1 == Run_2 byte-for-byte on consecutive renders.
+//   3. Extreme boundary stress: cols from 10 to 1000, asserting width clamp [32, 74] and border alignment.
+//   4. Hostile payloads: unclosed tags, corrupted tags, unicode, and oversized (>256 lines) reasoning blocks.
+//   5. Height calculation invariant: card_thought_height matches count_nl across all scenarios.
+
+import "ui/cards/card_thought.oo";
+import "theme.oo";
+import "plugins/registry.oo";
+
+fn count_nl(s: String) -> Int {
+    let n: Int = chars_len(s); let mut c: Int = 0; let mut i: Int = 0;
+    while i < n { if char_at(s, i) == "\n" { c = c + 1; } i = i + 1; }
+    return c;
+}
+
+fn contains_esc(s: String) -> Bool {
+    let esc: String = ansi_esc();
+    return str_contains(s, esc);
+}
+
+fn split_lines_c2(s: String) -> List[String] {
+    let mut out: List[String] = list_new(); let mut cur: String = "";
+    let len: Int = chars_len(s); let mut i: Int = 0;
+    while i < len {
+        let c: String = char_at(s, i);
+        if c == "\n" { out = list_push(out, cur); cur = ""; }
+        else if c != "\r" { cur = cur + c; }
+        i = i + 1;
+    }
+    if cur != "" { out = list_push(out, cur); }
+    return out;
+}
+
+fn make_multiline(lines_count: Int) -> String {
+    let mut s: String = ""; let mut i: Int = 1;
+    while i <= lines_count {
+        s = s + "Reasoning line " + int_to_str(i) + " evaluating branch constraints.\n";
+        i = i + 1;
+    }
+    return s;
+}
+
+pub fn qa_challenger2_m3_run() -> Int {
+    let mut pass: Int = 0; let mut fail: Int = 0; let theme: String = "1982";
+
+    // SECTION 1: Plain Mode Zero-ESC Invariant across all card renders
+    let payloads: List[String] = list_new();
+    let payloads: List[String] = list_push(payloads, "short thought");
+    let payloads: List[String] = list_push(payloads, "multi\nline\nthought\nstream");
+    let payloads: List[String] = list_push(payloads, "Unicode: 🚀 ∑(x_i)=100% · ─│╰╯ · status: OK");
+    let payloads: List[String] = list_push(payloads, "A very long single unbroken word " + u_dashes(120) + " that must wrap properly.");
+
+    let cols_list: List[Int] = list_new();
+    let cols_list: List[Int] = list_push(cols_list, 40);
+    let cols_list: List[Int] = list_push(cols_list, 60);
+    let cols_list: List[Int] = list_push(cols_list, 80);
+    let cols_list: List[Int] = list_push(cols_list, 120);
+
+    let mut pi: Int = 0;
+    while pi < list_len(payloads) {
+        let p: String = list_get(payloads, pi);
+        let mut ci: Int = 0;
+        while ci < list_len(cols_list) {
+            let cols: Int = list_get(cols_list, ci);
+            let ren_exp: String = card_thought(theme, false, p, cols);
+            let ren_coll: String = card_thought_collapsed(theme, false, p, cols);
+            let ren_any: String = card_thought_render(theme, false, p, false, cols);
+
+            if !contains_esc(ren_exp) && !contains_esc(ren_coll) && !contains_esc(ren_any) {
+                pass = pass + 1;
+            } else {
+                fail = fail + 1;
+                println("FAIL S1: plain mode contains ESC bytes for p=" + int_to_str(pi) + " cols=" + int_to_str(cols));
+            }
+            ci = ci + 1;
+        }
+        pi = pi + 1;
+    }
+
+    // SECTION 2: Double-Run Byte-for-Byte Determinism (Run_1 == Run_2)
+    let d_sample: String = "Deterministic thought stream: audit memory layout and verify quota CAS";
+    let run1_c: String = card_thought(theme, true, d_sample, 80);
+    let run2_c: String = card_thought(theme, true, d_sample, 80);
+    let run1_p: String = card_thought(theme, false, d_sample, 80);
+    let run2_p: String = card_thought(theme, false, d_sample, 80);
+    let run1_coll: String = card_thought_collapsed(theme, true, d_sample, 80);
+    let run2_coll: String = card_thought_collapsed(theme, true, d_sample, 80);
+
+    if run1_c == run2_c && run1_p == run2_p && run1_coll == run2_coll {
+        pass = pass + 1;
+    } else {
+        fail = fail + 1;
+        println("FAIL S2: double-run byte equality failed");
+    }
+
+    // SECTION 3: Extreme Boundary Stress (cols = 10, 30, 32, 40, 50, 53, 54, 74, 80, 200, 1000)
+    let boundaries: List[Int] = list_new();
+    let boundaries: List[Int] = list_push(boundaries, 10);
+    let boundaries: List[Int] = list_push(boundaries, 30);
+    let boundaries: List[Int] = list_push(boundaries, 32);
+    let boundaries: List[Int] = list_push(boundaries, 40);
+    let boundaries: List[Int] = list_push(boundaries, 50);
+    let boundaries: List[Int] = list_push(boundaries, 53);
+    let boundaries: List[Int] = list_push(boundaries, 54);
+    let boundaries: List[Int] = list_push(boundaries, 74);
+    let boundaries: List[Int] = list_push(boundaries, 80);
+    let boundaries: List[Int] = list_push(boundaries, 200);
+    let boundaries: List[Int] = list_push(boundaries, 1000);
+
+    let mut bi: Int = 0;
+    while bi < list_len(boundaries) {
+        let b_cols: Int = list_get(boundaries, bi);
+        let ren: String = card_thought(theme, false, "boundary check", b_cols);
+        let lines: List[String] = split_lines_c2(ren);
+        let n_l: Int = list_len(lines);
+        if n_l >= 3 {
+            let top_line: String = list_get(lines, 0);
+            let bot_line: String = list_get(lines, n_l - 1);
+            let top_len: Int = chars_len(top_line);
+            let bot_len: Int = chars_len(bot_line);
+            if top_len == bot_len { pass = pass + 1; }
+            else {
+                fail = fail + 1;
+                println("FAIL S3: border length mismatch at cols=" + int_to_str(b_cols) + ": top=" + int_to_str(top_len) + " bot=" + int_to_str(bot_len));
+            }
+            if b_cols >= 32 {
+                if top_len <= b_cols && bot_len <= b_cols { pass = pass + 1; }
+                else {
+                    fail = fail + 1;
+                    println("FAIL S3: border exceeds b_cols=" + int_to_str(b_cols) + ": top=" + int_to_str(top_len));
+                }
+            } else { pass = pass + 1; }
+        } else { fail = fail + 1; println("FAIL S3: insufficient lines in boundary render"); }
+        bi = bi + 1;
+    }
+
+    // SECTION 4: Hostile Malformed Tags & Oversized (>256 lines) Payload
+    let malformed1: String = "<think>unclosed thought stream";
+    let th_m1: String = extract_think(malformed1);
+    let rest_m1: String = strip_think_preserve(malformed1);
+    if th_m1 == "unclosed thought stream" && rest_m1 == "" { pass = pass + 1; }
+    else { fail = fail + 1; println("FAIL S4.1: unclosed tag recovery failed"); }
+
+    let malformed2: String = "<think>first</think>middle<think>second</think>end";
+    let th_m2: String = extract_think(malformed2);
+    let rest_m2: String = strip_think_preserve(malformed2);
+    if str_contains(th_m2, "first") && str_contains(th_m2, "second") && rest_m2 == "middleend" { pass = pass + 1; }
+    else { fail = fail + 1; println("FAIL S4.2: multiple tag recovery failed"); }
+
+    let empty_th: String = "<think>   \n   \t  </think>content";
+    let th_e: String = extract_think(empty_th);
+    let rest_e: String = strip_think_preserve(empty_th);
+    if th_e == "" && rest_e == "content" { pass = pass + 1; }
+    else { fail = fail + 1; println("FAIL S4.3: whitespace-only think tag handling failed"); }
+
+    // Oversized: 300 lines of reasoning (exceeds 256 repo line limit)
+    let big_thought: String = make_multiline(300);
+    let big_raw: String = "<think>" + big_thought + "</think>Final conclusion.";
+    let big_extracted: String = extract_think(big_raw);
+    let big_stripped: String = strip_think_preserve(big_raw);
+    if str_contains(big_extracted, "Reasoning line 1") && str_contains(big_extracted, "Reasoning line 300") && big_stripped == "Final conclusion." {
+        pass = pass + 1;
+    } else { fail = fail + 1; println("FAIL S4.4: 300-line thought extraction failed"); }
+
+    let ren_big: String = card_thought(theme, false, big_extracted, 80);
+    let h_big_calc: Int = card_thought_height(big_extracted, false, 80);
+    let h_big_actual: Int = count_nl(ren_big);
+    if h_big_calc == h_big_actual && h_big_actual >= 302 { pass = pass + 1; }
+    else {
+        fail = fail + 1;
+        println("FAIL S4.5: 300-line card height invariant mismatch: calc=" + int_to_str(h_big_calc) + " actual=" + int_to_str(h_big_actual));
+    }
+
+    // SECTION 5: Anti-Vacuity & Mutation Verification
+    let h_empty: Int = card_thought_height("", false, 80);
+    let ren_empty: String = card_thought(theme, false, "", 80);
+    if h_empty == 0 && ren_empty == "" { pass = pass + 1; }
+    else { fail = fail + 1; println("FAIL S5.1: empty thought card must produce empty string and height 0"); }
+
+    let h_coll_big: Int = card_thought_height(big_extracted, true, 80);
+    let ren_coll_big: String = card_thought_collapsed(theme, false, big_extracted, 80);
+    if h_coll_big == 1 && count_nl(ren_coll_big) == 1 && str_contains(ren_coll_big, "Thinking [300 lines]") {
+        pass = pass + 1;
+    } else { fail = fail + 1; println("FAIL S5.2: collapsed 300-line card summary mismatch"); }
+
+    println("qa/probe_challenger2_m3: pass=" + int_to_str(pass) + " fail=" + int_to_str(fail));
+    if fail > 0 { return 1; }
+    return 0;
+}
+
+pub fn main(bind: &BindCap, fs_r: &FsReadCap, fs_w: &FsWriteCap, sys: &ProcessCap, sys_cap: &SysCap, env: &EnvCap, time: &TimeCap, alloc: &AllocCap, thread: &ThreadCap, args: List[String]) -> Result[Int, String] {
+    println("qa/probe_challenger2_m3: starting Challenger 2 hostile falsification probe");
+    let res: Int = qa_challenger2_m3_run();
+    if res != 0 { return Err("qa/probe_challenger2_m3 failed"); }
+    return Ok(0);
+}
+
+fn int_to_str(n: Int) -> String {
+    if n <= 0 { return "0"; }
+    let digits: String = "0123456789"; let mut v: Int = n; let mut rev: String = "";
+    while v > 0 { let d: Int = v - (v / 10) * 10; rev = rev + char_at(digits, d); v = v / 10; }
+    let mut out: String = ""; let mut k: Int = chars_len(rev) - 1;
+    while k >= 0 { out = out + char_at(rev, k); k = k - 1; }
+    return out;
+}

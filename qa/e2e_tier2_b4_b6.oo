@@ -1,0 +1,157 @@
+// # qa/e2e_tier2_b4_b6 - E2E Tier 2 Boundaries 4-6 Probe
+//
+// Logline: Boundary value analysis for Statusbar Footer, Telemetry, and Canvas viewport.
+//
+// Setup: Executes compiled ooda-tui with edge heights (12, 80), slash manipulations, and telemetry combinations.
+//
+// Beats:
+//   1. B4 (Statusbar Footer): Evaluates extreme terminal heights, long CWD paths, and fallback providers.
+//   2. B5 (Telemetry): Evaluates offline telemetry, concurrent flags, and /status reporting.
+//   3. B6 (Canvas): Evaluates canvas height clamps, /clear, /compact, and /tools outputs.
+
+import "std/fs/process/process.oo";
+
+pub fn resolve_tui_bin(sys: &ProcessCap) -> String {
+    let r_inst: Result[String, String] = process_exec(sys, "test -x ~/.openooda/bin/ooda-tui");
+    if r_inst.is_ok() { return "~/.openooda/bin/ooda-tui"; }
+    let r_dist: Result[String, String] = process_exec(sys, "test -x ./dist/ooda-tui");
+    if r_dist.is_ok() { return "./dist/ooda-tui"; }
+    return "./dist/ooda-tui";
+}
+
+pub fn run_tier2_b4_b6(sys: &ProcessCap, bin: String) -> Result[Int, String] {
+    let mut pass: Int = 0;
+    let mut fail: Int = 0;
+
+    // B4: Statusbar Footer Boundaries (5 tests)
+    // T2_B4.1: Custom long model name
+    let r_mod: Result[String, String] = process_exec(sys, "printf '/exit\\n' | " + bin + " --model custom-experimental-very-long-model-name-v2 2>&1");
+    if r_mod.is_ok() {
+        pass = pass + 1; println("PASS: T2.1 B4 long model name formats safely");
+    } else { fail = fail + 1; println("FAIL: T2.1 B4 long model name formats safely"); }
+
+    // T2_B4.2: Deep CWD path handling
+    let r_cwd: Result[String, String] = process_exec(sys, "printf '/exit\\n' | " + bin + " --cwd /home/jeryd/Projects/openOODA/tui/qa 2>&1");
+    if r_cwd.is_ok() {
+        pass = pass + 1; println("PASS: T2.2 B4 deep CWD path formats safely");
+    } else { fail = fail + 1; println("FAIL: T2.2 B4 deep CWD path formats safely"); }
+
+    // T2_B4.3: Minimum terminal height LINES=12
+    let r_h12: Result[String, String] = process_exec(sys, "LINES=12 COLUMNS=80 printf '/exit\\n' | " + bin + " 2>&1");
+    if r_h12.is_ok() {
+        pass = pass + 1; println("PASS: T2.3 B4 extreme short height LINES=12 executes cleanly");
+    } else { fail = fail + 1; println("FAIL: T2.3 B4 extreme short height LINES=12 executes cleanly"); }
+
+    // T2_B4.4: Maximum terminal height LINES=80
+    let r_h80: Result[String, String] = process_exec(sys, "LINES=80 COLUMNS=80 printf '/exit\\n' | " + bin + " 2>&1");
+    if r_h80.is_ok() {
+        pass = pass + 1; println("PASS: T2.4 B4 extreme tall height LINES=80 executes cleanly");
+    } else { fail = fail + 1; println("FAIL: T2.4 B4 extreme tall height LINES=80 executes cleanly"); }
+
+    // T2_B4.5: Provider flag muse accepted
+    let r_prov: Result[String, String] = process_exec(sys, "printf '/exit\\n' | " + bin + " --provider muse 2>&1");
+    if r_prov.is_ok() {
+        pass = pass + 1; println("PASS: T2.5 B4 muse provider switch executes cleanly");
+    } else { fail = fail + 1; println("FAIL: T2.5 B4 muse provider switch executes cleanly"); }
+
+    // B5: Telemetry Boundaries (5 tests)
+    // T2_B5.1: Concurrent operational flags --teamwork --yolo
+    let r_flags: Result[String, String] = process_exec(sys, "printf '/exit\\n' | " + bin + " --teamwork --yolo 2>&1");
+    if r_flags.is_ok() {
+        pass = pass + 1; println("PASS: T2.6 B5 concurrent teamwork and yolo flags supported");
+    } else { fail = fail + 1; println("FAIL: T2.6 B5 concurrent teamwork and yolo flags supported"); }
+
+    // T2_B5.2: Slash command /status execution
+    let r_stat: Result[String, String] = process_exec(sys, "printf '/status\\n/exit\\n' | " + bin + " 2>&1");
+    if r_stat.is_ok() {
+        pass = pass + 1; println("PASS: T2.7 B5 /status telemetry query executes cleanly");
+    } else { fail = fail + 1; println("FAIL: T2.7 B5 /status telemetry query executes cleanly"); }
+
+    // T2_B5.3: Slash command /providers execution
+    let r_provs: Result[String, String] = process_exec(sys, "printf '/providers\\n/exit\\n' | " + bin + " 2>&1");
+    if r_provs.is_ok() {
+        pass = pass + 1; println("PASS: T2.8 B5 /providers list query executes cleanly");
+    } else { fail = fail + 1; println("FAIL: T2.8 B5 /providers list query executes cleanly"); }
+
+    // T2_B5.4: OODA_TUI_VERSION override environment variable
+    let r_ver: Result[String, String] = process_exec(sys, "OODA_TUI_VERSION=v0.9.9-test printf '/exit\\n' | " + bin + " 2>&1");
+    if r_ver.is_ok() {
+        pass = pass + 1; println("PASS: T2.9 B5 OODA_TUI_VERSION override handled cleanly");
+    } else { fail = fail + 1; println("FAIL: T2.9 B5 OODA_TUI_VERSION override handled cleanly"); }
+
+    // T2_B5.5: Non-existent provider name in --provider
+    let r_bad_prov: Result[String, String] = process_exec(sys, "printf '/exit\\n' | " + bin + " --provider nonexistent_provider 2>&1");
+    if r_bad_prov.is_ok() {
+        pass = pass + 1; println("PASS: T2.10 B5 unrecognized provider handled safely");
+    } else { fail = fail + 1; println("FAIL: T2.10 B5 unrecognized provider handled safely"); }
+
+    // B6: Canvas Boundaries (5 tests)
+    // T2_B6.1: Canvas minimum height clamp keeps display stable under short rows
+    let r_min_ph: Result[String, String] = process_exec(sys, "LINES=8 printf '/exit\\n' | " + bin + " 2>&1");
+    if r_min_ph.is_ok() {
+        pass = pass + 1; println("PASS: T2.11 B6 canvas minimum height clamp holds under small lines");
+    } else { fail = fail + 1; println("FAIL: T2.11 B6 canvas minimum height clamp holds under small lines"); }
+
+    // T2_B6.2: Slash command /clear execution
+    let r_clr: Result[String, String] = process_exec(sys, "printf '/clear\\n/exit\\n' | " + bin + " 2>&1");
+    if r_clr.is_ok() {
+        pass = pass + 1; println("PASS: T2.12 B6 /clear canvas reset command executes cleanly");
+    } else { fail = fail + 1; println("FAIL: T2.12 B6 /clear canvas reset command executes cleanly"); }
+
+    // T2_B6.3: Slash command /compact execution
+    let r_cpt: Result[String, String] = process_exec(sys, "printf '/compact\\n/exit\\n' | " + bin + " 2>&1");
+    if r_cpt.is_ok() {
+        pass = pass + 1; println("PASS: T2.13 B6 /compact canvas reduction command executes cleanly");
+    } else { fail = fail + 1; println("FAIL: T2.13 B6 /compact canvas reduction command executes cleanly"); }
+
+    // T2_B6.4: Slash command /tools execution
+    let r_tls: Result[String, String] = process_exec(sys, "printf '/tools\\n/exit\\n' | " + bin + " 2>&1");
+    if r_tls.is_ok() {
+        pass = pass + 1; println("PASS: T2.14 B6 /tools card rendering executes cleanly");
+    } else { fail = fail + 1; println("FAIL: T2.14 B6 /tools card rendering executes cleanly"); }
+
+    // T2_B6.5: Slash command /help execution in canvas
+    let r_hlp: Result[String, String] = process_exec(sys, "printf '/help\\n/exit\\n' | " + bin + " 2>&1");
+    if r_hlp.is_ok() {
+        pass = pass + 1; println("PASS: T2.15 B6 /help reference rendering executes cleanly");
+    } else { fail = fail + 1; println("FAIL: T2.15 B6 /help reference rendering executes cleanly"); }
+
+    println("qa/e2e_tier2_b4_b6: pass=" + int_to_str(pass) + " fail=" + int_to_str(fail));
+    if fail > 0 { return Err("qa/e2e_tier2_b4_b6: failures detected"); }
+    return Ok(0);
+}
+
+pub fn main(bind: &BindCap, fs_r: &FsReadCap, fs_w: &FsWriteCap, sys: &ProcessCap, sys_cap: &SysCap, env: &EnvCap, time: &TimeCap, alloc: &AllocCap, thread: &ThreadCap, args: List[String]) -> Result[Int, String] {
+    println("qa/e2e_tier2_b4_b6: starting B4-B6 boundary probe");
+    let bin: String = resolve_tui_bin(sys);
+    println("qa/e2e_tier2_b4_b6: target binary=" + bin);
+
+    // Double-run verification: Run_1 == Run_2
+    let r1: Result[Int, String] = run_tier2_b4_b6(sys, bin);
+    if r1.is_err() { return r1; }
+    let r2: Result[Int, String] = run_tier2_b4_b6(sys, bin);
+    if r2.is_err() { return r2; }
+
+    println("qa/e2e_tier2_b4_b6: PASS (Double-Run verified)");
+    return Ok(0);
+}
+
+fn int_to_str(n: Int) -> String {
+    if n < 0 { return "0"; }
+    if n == 0 { return "0"; }
+    let digits: String = "0123456789";
+    let mut v: Int = n;
+    let mut rev: String = "";
+    while v > 0 {
+        let d: Int = v - (v / 10) * 10;
+        rev = rev + char_at(digits, d);
+        v = v / 10;
+    }
+    let mut out: String = "";
+    let mut k: Int = chars_len(rev) - 1;
+    while k >= 0 {
+        out = out + char_at(rev, k);
+        k = k - 1;
+    }
+    return out;
+}

@@ -11,6 +11,7 @@
 
 import "theme.oo";
 import "pane.oo";
+import "ui/cards/card_thought.oo";
 
 fn pad_r(s: String, w: Int) -> String {
     let mut out: String = s;
@@ -99,6 +100,14 @@ pub fn card_think(theme: String, color: Bool, model: String) -> String {
     return "  " + ansi_fg(color, acc) + "●" + ansi_reset(color) + " " + ansi_fg(color, dim) + "thinking (" + model + ")..." + ansi_reset(color);
 }
 
+pub fn card_thought(theme: String, color: Bool, thoughts: String, cols: Int) -> String {
+    return card_thought_render(theme, color, thoughts, false, cols);
+}
+
+pub fn card_thought_collapsed(theme: String, color: Bool, thoughts: String, cols: Int) -> String {
+    return card_thought_render(theme, color, thoughts, true, cols);
+}
+
 pub fn card_welcome_pane(theme: String, color: Bool, cols: Int, ver: String, mode: String, perm: String, cwd: String, provider: String, model: String, brief: Bool, mcp: Bool) -> Pane {
     let mut p: Pane = pane_new();
     let border: String = theme_color(theme, "borderMuted");
@@ -135,6 +144,9 @@ pub fn card_welcome_pane(theme: String, color: Bool, cols: Int, ver: String, mod
     let brief_st: String = if brief { "AGENTS.md active" } else { "none" };
     let row4: String = "  MCP:  " + mcp_st + "    Spec: " + brief_st;
     p = pane_append(p, format_card_row(theme, color, "muted", row4, w));
+
+    let row_tools: String = if color { "  Tools: read · grep · glob · write · bash · mcp" } else { "  Tools: read grep glob write bash mcp" };
+    p = pane_append(p, format_card_row(theme, color, "dim", row_tools, w));
 
     p = pane_append(p, format_card_row(theme, color, "text", " ", w));
     p = pane_append(p, format_card_row(theme, color, "accent", "  Quick Start:", w));

@@ -197,8 +197,12 @@ pub fn llm_complete_exec(sys: &ProcessCap, fw: &FsWriteCap, ptype0: String, key:
         return Err("curl: " + e);
     }
     let raw: String = match r { Ok(s) => s, Err(_) => "" };
+    let reason: String = extract_json_string(raw, "reasoning_content");
     let mut text: String = extract_json_string(raw, "text");
     if text == "" { text = extract_json_string(raw, "content"); }
-    if text == "" { return Err("empty model response"); }
+    if text == "" && reason == "" { return Err("empty model response"); }
+    if reason != "" && !str_contains(text, "<think>") {
+        text = "<think>" + reason + "</think>" + text;
+    }
     return Ok(text);
 }

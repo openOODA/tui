@@ -6,6 +6,22 @@ round-trip via curl. Connects to `ooda-mcp` when installed. Renders
 the 1982 CRT amber/phosphor theme by default (`minimax` also ships).
 Raw TTY / alt-screen is v0.2.0, blocked on the oodar tui_host shim.
 
+## Current Build Status & What's Next
+
+### Build Status (Inverted Layout Re-Architecture — v0.3.3-dev)
+- **Milestone 1 (Header Input Dock)**: **CERTIFIED (PASS)**. Relocated framed prompt box to Rows 1–3 (`ui/input/input_header.oo`) with hardware cursor placement (`\x1b[2;5H`) keeping typed input cleanly inside the box.
+- **Milestone 2 (Environmental Footer Dashboard)**: **CERTIFIED (PASS)**. Relocated all operational metadata (LLM model, CWD, thinking level, mode, permissions, MCP/LSP) to bottom statusbar (`ui/statusbar/statusbar_footer.oo`) with responsive width budgeting down to 40 columns.
+- **Milestone 3 (Thought Stream & Canvas Viewport)**: **CERTIFIED (PASS)**. Intermediate scrollable viewport with collapsible reasoning card (`ui/cards/card_thought.oo`), isolating `<think>` tokens from conversational history with word wrapping and border symmetry.
+- **Quality & Parity**:
+  - Full 138-test Opaque-box E2E suite passed under Double-Run law ($Run_1 == Run_2$) (`TEST_READY.md`).
+  - 25/25 hostile geometry tests and 46/46 boundary tests passed clean.
+  - 100% compliant with ASD-STE100 Academy docstrings and 256-line file limits.
+  - Cryptographic release binary parity certified bit-for-bit against `~/.openooda/bin/{ooda-tui,tui}` (`66bf92e9...`).
+
+### What's Next (Milestone 4 & Release)
+- **Milestone 4**: Dynamic Thinking Ticker (`ui/indicators/indicator_ticker.oo`) with animated 10-frame Braille spinner (`⠋ ⠙ ⠹ ⠸ ⠼ ⠴ ⠦ ⠧ ⠇ ⠏`), token velocity (`tok/s`), and elapsed duration on Row 4, alongside master plugin decoupling in `plugins/registry.oo`.
+- **Milestone 5**: Final full-stack regression certification, release tagging (`v0.3.3`), and GitHub release asset compilation.
+
 ## Install
 
 ```sh

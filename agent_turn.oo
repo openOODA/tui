@@ -13,6 +13,7 @@ import "repl_state.oo";
 import "llm_exec.oo";
 import "tools/anchor.oo";
 import "card.oo";
+import "ui/cards/card_thought.oo";
 
 fn sys_prompt(st: ReplState) -> String {
     let mut s: String = "You are ooda, a coding agent in cwd " + st.cwd + ".\n";
@@ -25,20 +26,6 @@ fn sys_prompt(st: ReplState) -> String {
     if st.brief != "" { s = s + "BRIEFING:\n" + st.brief + "\n"; }
     if st.plan != "" { s = s + "PLAN: " + st.plan + "\n"; }
     if st.goal != "" { s = s + "GOAL: " + st.goal + "\n"; }
-    return s;
-}
-
-fn strip_think(s: String) -> String {
-    let n: Int = chars_len(s);
-    let tag: String = "</think>";
-    let tn: Int = chars_len(tag);
-    let mut i: Int = 0;
-    while i + tn <= n {
-        if str_slice(s, i, i + tn) == tag {
-            return str_trim(str_slice(s, i + tn, n));
-        }
-        i = i + 1;
-    }
     return s;
 }
 
@@ -140,7 +127,11 @@ fn hop(fs_r: &FsReadCap, fw: &FsWriteCap, sys: &ProcessCap, st: ReplState, ctx: 
             return s;
         }
         let raw: String = match rr { Ok(t) => t, Err(_) => "" };
-        let clean: String = strip_think(raw);
+        let thoughts: String = extract_think(raw);
+        let clean: String = strip_think_preserve(raw);
+        if thoughts != "" {
+            s.output = s.output + card_thought(s.theme, color, thoughts, 80);
+        }
         let idx: Int = find_tool(clean);
         let mut name: String = "";
         let mut args: String = "";

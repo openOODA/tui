@@ -16,6 +16,7 @@ import "./card_diff.oo";
 import "./card_ask.oo";
 import "./card_tool.oo";
 import "./card_say.oo";
+import "./card_thought.oo";
 
 pub fn cards_version() -> String {
     return "0.2.0";
@@ -27,6 +28,7 @@ pub fn cards_register_all(reg: Registry) -> Registry {
     r = registry_register_card(r, card_ask_plugin());
     r = registry_register_card(r, card_tool_plugin());
     r = registry_register_card(r, card_say_plugin());
+    r = registry_register_card(r, card_thought_plugin());
     return r;
 }
 
@@ -42,6 +44,9 @@ pub fn card_render(card_name: String, theme: String, color: Bool, ev: Event) -> 
     }
     if card_name == "card_say" {
         return card_say_from_event(theme, ev, color);
+    }
+    if card_name == "card_thought" {
+        return card_thought_render(theme, color, ev.payload, false, 80);
     }
     return card_say_from_event(theme, ev, color);
 }
@@ -65,10 +70,15 @@ pub fn cards_self_check() -> Bool {
     if !registry_has_card(reg, "card_ask") { return false; }
     if !registry_has_card(reg, "card_tool") { return false; }
     if !registry_has_card(reg, "card_say") { return false; }
+    if !registry_has_card(reg, "card_thought") { return false; }
 
     let ev_say: Event = event_new(1, "line", "assistant", "Hello openOODA", 100);
     let s_say: String = card_render("card_say", "1982", false, ev_say);
     if chars_len(s_say) == 0 { return false; }
+
+    let ev_th: Event = event_new(6, "thought", "assistant", "reasoning steps", 104);
+    let s_th: String = card_render("card_thought", "1982", false, ev_th);
+    if chars_len(s_th) == 0 { return false; }
 
     let ev_diff: Event = event_new(2, "diff", "patch", "+added line\n-removed line", 101);
     let s_diff: String = card_render("card_diff", "1982", false, ev_diff);

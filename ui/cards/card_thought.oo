@@ -1,0 +1,177 @@
+// # ui/cards/card_thought.oo - Model Thinking Stream Card
+//
+// Logline: Formatted collapsible thinking card rendering model reasoning tokens using theme token thinkingText.
+//
+// Setup: Exports card plugin, thinking token extraction, thinking stripper, and responsive card renderers.
+//
+// Beats:
+//   1. CardPlugin registration descriptor for registry integration.
+//   2. Thinking stream extraction and prose preservation functions.
+//   3. Responsive border helpers and newline-aware string splitters.
+//   4. Word wrapping algorithm ensuring body lines stay within card width bounds.
+//   5. Collapsed single-line badge and expanded framed card renderers.
+//   6. Height calculation invariant for intermediate canvas space budgeting.
+
+import "theme.oo";
+import "plugins/registry.oo";
+
+pub fn card_thought_plugin() -> CardPlugin {
+    return CardPlugin { name: "card_thought", description: "Thought stream card", style: "collapsible", enabled: true };
+}
+
+pub fn extract_think(raw: String) -> String {
+    let n: Int = chars_len(raw); let open_tag: String = "<think>"; let close_tag: String = "</think>";
+    let o_len: Int = 7; let c_len: Int = 8; let mut out: String = ""; let mut i: Int = 0;
+    while i < n {
+        if i + o_len <= n && str_slice(raw, i, i + o_len) == open_tag {
+            let start_c: Int = i + o_len; let mut j: Int = start_c; let mut found: Bool = false;
+            while j + c_len <= n { if str_slice(raw, j, j + c_len) == close_tag { found = true; break; } j = j + 1; }
+            let end_c: Int = if found { j } else { n };
+            let piece: String = str_trim(str_slice(raw, start_c, end_c));
+            if piece != "" { if out != "" { out = out + "\n"; } out = out + piece; }
+            i = if found { j + c_len } else { n };
+        } else { i = i + 1; }
+    }
+    return out;
+}
+
+pub fn strip_think_preserve(raw: String) -> String {
+    let n: Int = chars_len(raw); let open_tag: String = "<think>"; let close_tag: String = "</think>";
+    let o_len: Int = 7; let c_len: Int = 8; let mut out: String = ""; let mut i: Int = 0;
+    while i < n {
+        if i + o_len <= n && str_slice(raw, i, i + o_len) == open_tag {
+            let mut j: Int = i + o_len; let mut found: Bool = false;
+            while j + c_len <= n { if str_slice(raw, j, j + c_len) == close_tag { found = true; break; } j = j + 1; }
+            i = if found { j + c_len } else { n };
+        } else if i + c_len <= n && str_slice(raw, i, i + c_len) == close_tag { i = i + c_len; }
+        else { out = out + char_at(raw, i); i = i + 1; }
+    }
+    return str_trim(out);
+}
+
+fn split_lines(s: String) -> List[String] {
+    let mut out: List[String] = list_new(); let mut cur: String = "";
+    let len: Int = chars_len(s); let mut i: Int = 0;
+    while i < len {
+        let c: String = char_at(s, i);
+        if c == "\n" { out = list_push(out, cur); cur = ""; }
+        else if c != "\r" { cur = cur + c; }
+        i = i + 1;
+    }
+    if cur != "" || len == 0 { out = list_push(out, cur); }
+    return out;
+}
+
+fn wrap_line(line: String, max_w: Int) -> List[String] {
+    let mut out: List[String] = list_new(); let mut rem: String = line;
+    let mut w: Int = max_w; if w < 10 { w = 10; }
+    if chars_len(rem) <= w { return list_push(out, rem); }
+    while chars_len(rem) > w {
+        let mut sp: Int = -1; let mut j: Int = w;
+        while j > 0 { if char_at(rem, j) == " " { sp = j; break; } j = j - 1; }
+        if sp > 0 {
+            out = list_push(out, str_slice(rem, 0, sp));
+            let mut next_start: Int = sp + 1; let rem_len: Int = chars_len(rem);
+            while next_start < rem_len && char_at(rem, next_start) == " " { next_start = next_start + 1; }
+            rem = if next_start < rem_len { str_slice(rem, next_start, rem_len) } else { "" };
+        } else {
+            out = list_push(out, str_slice(rem, 0, w));
+            rem = str_slice(rem, w, chars_len(rem));
+        }
+    }
+    if chars_len(rem) > 0 { out = list_push(out, rem); }
+    return out;
+}
+
+fn wrap_thoughts(thoughts: String, max_w: Int) -> List[String] {
+    let raw: List[String] = split_lines(thoughts); let mut out: List[String] = list_new();
+    let n: Int = list_len(raw); let mut i: Int = 0;
+    while i < n {
+        let wr: List[String] = wrap_line(list_get(raw, i), max_w);
+        let nw: Int = list_len(wr); let mut j: Int = 0;
+        while j < nw { out = list_push(out, list_get(wr, j)); j = j + 1; }
+        i = i + 1;
+    }
+    return out;
+}
+
+fn u_dashes(n: Int) -> String {
+    let mut s: String = ""; let mut i: Int = 0;
+    while i < n { s = s + "─"; i = i + 1; }
+    return s;
+}
+
+fn int_to_str(n: Int) -> String {
+    if n <= 0 { return "0"; }
+    let digits: String = "0123456789"; let mut v: Int = n; let mut rev: String = "";
+    while v > 0 { let d: Int = v - (v / 10) * 10; rev = rev + char_at(digits, d); v = v / 10; }
+    let mut out: String = ""; let mut k: Int = chars_len(rev) - 1;
+    while k >= 0 { out = out + char_at(rev, k); k = k - 1; }
+    return out;
+}
+
+fn card_width(cols: Int) -> Int {
+    let mut w: Int = if cols < 54 { cols - 4 } else { cols - 6 };
+    if w < 32 { w = 32; } if w > 74 { w = 74; }
+    return w;
+}
+
+pub fn card_thought_collapsed(theme: String, color: Bool, thoughts: String, cols: Int) -> String {
+    let _: Int = cols;
+    if str_trim(thoughts) == "" { return ""; }
+    let th_color: String = theme_color(theme, "thinkingText");
+    let border: String = theme_color(theme, "borderMuted");
+    let lines: List[String] = wrap_thoughts(thoughts, card_width(cols) - 4);
+    let count: Int = list_len(lines);
+    let count_str: String = if count == 1 { "1 line" } else { int_to_str(count) + " lines" };
+    let text: String = if cols >= 50 { "Thinking [" + count_str + "] (ctrl+o to toggle)" } else { "Thinking [" + count_str + "]" };
+    if !color { return "  ▶ " + text + "\n"; }
+    return "  " + ansi_fg(color, border) + "▶ " + ansi_reset(color) + ansi_fg(color, th_color) + text + ansi_reset(color) + "\n";
+}
+
+pub fn card_thought(theme: String, color: Bool, thoughts: String, cols: Int) -> String {
+    if str_trim(thoughts) == "" { return ""; }
+    let th_color: String = theme_color(theme, "thinkingText");
+    let border: String = theme_color(theme, "borderMuted");
+    let w: Int = card_width(cols);
+    let lines: List[String] = wrap_thoughts(thoughts, w - 4);
+    let count: Int = list_len(lines);
+    let count_str: String = if count == 1 { "1 line" } else { int_to_str(count) + " lines" };
+    let title: String = "Thinking [" + count_str + "]"; let hint: String = if w >= 50 { "(ctrl+o to toggle)" } else { "" };
+    let left_vis: Int = 5 + chars_len(title) + 1;
+    let right_vis: Int = if hint != "" { 1 + chars_len(hint) + 3 } else { 2 };
+    let mut span: Int = w - left_vis - right_vis; if span < 1 { span = 1; }
+
+    let h_part: String = if hint == "" {
+        if !color { "─╮\n" } else { ansi_fg(color, border) + "─╮" + ansi_reset(color) + "\n" }
+    } else {
+        if !color { " " + hint + " ─╮\n" } else { " " + ansi_fg(color, th_color) + hint + ansi_reset(color) + " " + ansi_fg(color, border) + "─╮" + ansi_reset(color) + "\n" }
+    };
+    let top: String = if !color {
+        "  ╭─ " + title + " " + u_dashes(span) + h_part
+    } else {
+        "  " + ansi_fg(color, border) + "╭─ " + ansi_reset(color) + ansi_fg(color, th_color) + title + ansi_reset(color) + " " + ansi_fg(color, border) + u_dashes(span) + ansi_reset(color) + h_part
+    };
+
+    let mut body: String = ""; let n: Int = list_len(lines); let mut i: Int = 0;
+    while i < n {
+        let line: String = list_get(lines, i);
+        if !color { body = body + "  │ " + line + "\n"; }
+        else { body = body + "  " + ansi_fg(color, border) + "│ " + ansi_reset(color) + ansi_fg(color, th_color) + line + ansi_reset(color) + "\n"; }
+        i = i + 1;
+    }
+    let bot: String = if !color { "  ╰" + u_dashes(w - 4) + "╯\n" } else { "  " + ansi_fg(color, border) + "╰" + u_dashes(w - 4) + "╯" + ansi_reset(color) + "\n" };
+    return top + body + bot;
+}
+
+pub fn card_thought_render(theme: String, color: Bool, thoughts: String, collapsed: Bool, cols: Int) -> String {
+    if collapsed { return card_thought_collapsed(theme, color, thoughts, cols); }
+    return card_thought(theme, color, thoughts, cols);
+}
+
+pub fn card_thought_height(thoughts: String, collapsed: Bool, cols: Int) -> Int {
+    if str_trim(thoughts) == "" { return 0; }
+    if collapsed { return 1; }
+    let lines: List[String] = wrap_thoughts(thoughts, card_width(cols) - 4);
+    return list_len(lines) + 2;
+}

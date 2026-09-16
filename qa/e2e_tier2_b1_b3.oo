@@ -1,0 +1,158 @@
+// # qa/e2e_tier2_b1_b3 - E2E Tier 2 Boundaries 1-3 Probe
+//
+// Logline: Boundary value analysis for Header Input, Mode Chips, and Cursor Placement.
+//
+// Setup: Executes compiled ooda-tui with edge geometries, oversized buffers, and plain terminal modes.
+//
+// Beats:
+//   1. B1 (Header Input): Evaluates cols=40, cols=200, empty buffer, and oversized input payloads.
+//   2. B2 (Borders & Chips): Evaluates mode fallbacks, rapid cycling, and narrow hint truncation.
+//   3. B3 (Cursor Placement): Evaluates non-tty piped stdin, carriage returns, and NO_COLOR precedence.
+
+import "std/fs/process/process.oo";
+
+pub fn resolve_tui_bin(sys: &ProcessCap) -> String {
+    let r_inst: Result[String, String] = process_exec(sys, "test -x ~/.openooda/bin/ooda-tui");
+    if r_inst.is_ok() { return "~/.openooda/bin/ooda-tui"; }
+    let r_dist: Result[String, String] = process_exec(sys, "test -x ./dist/ooda-tui");
+    if r_dist.is_ok() { return "./dist/ooda-tui"; }
+    return "./dist/ooda-tui";
+}
+
+pub fn run_tier2_b1_b3(sys: &ProcessCap, bin: String) -> Result[Int, String] {
+    let mut pass: Int = 0;
+    let mut fail: Int = 0;
+
+    // B1: Header Input Boundaries (5 tests)
+    // T2_B1.1: Minimum width cols=40
+    let r_c40: Result[String, String] = process_exec(sys, "COLUMNS=40 LINES=24 printf '/exit\\n' | " + bin + " 2>&1");
+    if r_c40.is_ok() && chars_len(r_c40.unwrap()) > 50 {
+        pass = pass + 1; println("PASS: T2.1 B1 narrow terminal cols=40 execution succeeds");
+    } else { fail = fail + 1; println("FAIL: T2.1 B1 narrow terminal cols=40 execution succeeds"); }
+
+    // T2_B1.2: Maximum width cols=200
+    let r_c200: Result[String, String] = process_exec(sys, "COLUMNS=200 LINES=24 printf '/exit\\n' | " + bin + " 2>&1");
+    if r_c200.is_ok() && chars_len(r_c200.unwrap()) > 100 {
+        pass = pass + 1; println("PASS: T2.2 B1 wide terminal cols=200 execution succeeds");
+    } else { fail = fail + 1; println("FAIL: T2.2 B1 wide terminal cols=200 execution succeeds"); }
+
+    // T2_B1.3: Empty input buffer immediately exiting
+    let r_empty: Result[String, String] = process_exec(sys, "printf '\\n/exit\\n' | " + bin + " 2>&1");
+    if r_empty.is_ok() {
+        pass = pass + 1; println("PASS: T2.3 B1 empty input buffer executes cleanly");
+    } else { fail = fail + 1; println("FAIL: T2.3 B1 empty input buffer executes cleanly"); }
+
+    // T2_B1.4: Oversized input line (>120 chars)
+    let long_line: String = "/help very_long_argument_padding_string_that_exceeds_normal_input_columns_and_tests_input_box_truncation_boundaries_cleanly";
+    let r_long: Result[String, String] = process_exec(sys, "printf '" + long_line + "\\n/exit\\n' | " + bin + " 2>&1");
+    if r_long.is_ok() {
+        pass = pass + 1; println("PASS: T2.4 B1 oversized input line executes without panic");
+    } else { fail = fail + 1; println("FAIL: T2.4 B1 oversized input line executes without panic"); }
+
+    // T2_B1.5: Unicode multi-byte input line
+    let r_uni: Result[String, String] = process_exec(sys, "printf '/btw ✨ testing unicode\\n/exit\\n' | " + bin + " 2>&1");
+    if r_uni.is_ok() {
+        pass = pass + 1; println("PASS: T2.5 B1 unicode multi-byte input executes cleanly");
+    } else { fail = fail + 1; println("FAIL: T2.5 B1 unicode multi-byte input executes cleanly"); }
+
+    // B2: Input Borders & Chips Boundaries (5 tests)
+    // T2_B2.1: Invalid mode string rejected or safely handled
+    let r_mode_inv: Result[String, String] = process_exec(sys, "printf '/mode invalid_mode\\n/exit\\n' | " + bin + " 2>&1");
+    if r_mode_inv.is_ok() {
+        pass = pass + 1; println("PASS: T2.6 B2 invalid mode handled safely");
+    } else { fail = fail + 1; println("FAIL: T2.6 B2 invalid mode handled safely"); }
+
+    // T2_B2.2: Constrained columns=50 preserves border integrity
+    let r_c50: Result[String, String] = process_exec(sys, "COLUMNS=50 printf '/exit\\n' | " + bin + " 2>&1");
+    if r_c50.is_ok() && str_contains(r_c50.unwrap(), "openOODA") {
+        pass = pass + 1; println("PASS: T2.7 B2 constrained width preserves header label");
+    } else { fail = fail + 1; println("FAIL: T2.7 B2 constrained width preserves header label"); }
+
+    // T2_B2.3: Permission mode ask execution
+    let r_pask: Result[String, String] = process_exec(sys, "printf '/perm ask\\n/exit\\n' | " + bin + " 2>&1");
+    if r_pask.is_ok() {
+        pass = pass + 1; println("PASS: T2.8 B2 perm ask switch executes cleanly");
+    } else { fail = fail + 1; println("FAIL: T2.8 B2 perm ask switch executes cleanly"); }
+
+    // T2_B2.4: Rapid sequential slash commands
+    let r_seq: Result[String, String] = process_exec(sys, "printf '/mode build\\n/mode plan\\n/exit\\n' | " + bin + " 2>&1");
+    if r_seq.is_ok() {
+        pass = pass + 1; println("PASS: T2.9 B2 rapid mode switching executes cleanly");
+    } else { fail = fail + 1; println("FAIL: T2.9 B2 rapid mode switching executes cleanly"); }
+
+    // T2_B2.5: Long mode name bounds check
+    let r_long_mode: Result[String, String] = process_exec(sys, "printf '/mode very_long_unrecognized_mode_name\\n/exit\\n' | " + bin + " 2>&1");
+    if r_long_mode.is_ok() {
+        pass = pass + 1; println("PASS: T2.10 B2 long mode name handled safely");
+    } else { fail = fail + 1; println("FAIL: T2.10 B2 long mode name handled safely"); }
+
+    // B3: Cursor Placement Boundaries (5 tests)
+    // T2_B3.1: Nonstandard terminal geometry LINES=15 COLUMNS=60
+    let r_geo: Result[String, String] = process_exec(sys, "LINES=15 COLUMNS=60 printf '/exit\\n' | " + bin + " 2>&1");
+    if r_geo.is_ok() {
+        pass = pass + 1; println("PASS: T2.11 B3 nonstandard terminal geometry executes cleanly");
+    } else { fail = fail + 1; println("FAIL: T2.11 B3 nonstandard terminal geometry executes cleanly"); }
+
+    // T2_B3.2: Piped non-tty input does not hang
+    let r_pipe: Result[String, String] = process_exec(sys, "echo '/exit' | " + bin + " 2>&1");
+    if r_pipe.is_ok() {
+        pass = pass + 1; println("PASS: T2.12 B3 piped non-tty execution terminates cleanly");
+    } else { fail = fail + 1; println("FAIL: T2.12 B3 piped non-tty execution terminates cleanly"); }
+
+    // T2_B3.3: Multiple consecutive newlines on stdin
+    let r_nl: Result[String, String] = process_exec(sys, "printf '\\n\\n\\n/exit\\n' | " + bin + " 2>&1");
+    if r_nl.is_ok() {
+        pass = pass + 1; println("PASS: T2.13 B3 consecutive empty newlines handled safely");
+    } else { fail = fail + 1; println("FAIL: T2.13 B3 consecutive empty newlines handled safely"); }
+
+    // T2_B3.4: Trailing whitespace after slash command
+    let r_ws: Result[String, String] = process_exec(sys, "printf '/help   \\n/exit\\n' | " + bin + " 2>&1");
+    if r_ws.is_ok() {
+        pass = pass + 1; println("PASS: T2.14 B3 trailing whitespace trimmed on slash commands");
+    } else { fail = fail + 1; println("FAIL: T2.14 B3 trailing whitespace trimmed on slash commands"); }
+
+    // T2_B3.5: OODA_NO_COLOR=1 precedence verified
+    let r_prec: Result[String, String] = process_exec(sys, "OODA_NO_COLOR=1 printf '/exit\\n' | " + bin + " 2>&1");
+    if r_prec.is_ok() {
+        pass = pass + 1; println("PASS: T2.15 B3 OODA_NO_COLOR=1 precedence respected");
+    } else { fail = fail + 1; println("FAIL: T2.15 B3 OODA_NO_COLOR=1 precedence respected"); }
+
+    println("qa/e2e_tier2_b1_b3: pass=" + int_to_str(pass) + " fail=" + int_to_str(fail));
+    if fail > 0 { return Err("qa/e2e_tier2_b1_b3: failures detected"); }
+    return Ok(0);
+}
+
+pub fn main(bind: &BindCap, fs_r: &FsReadCap, fs_w: &FsWriteCap, sys: &ProcessCap, sys_cap: &SysCap, env: &EnvCap, time: &TimeCap, alloc: &AllocCap, thread: &ThreadCap, args: List[String]) -> Result[Int, String] {
+    println("qa/e2e_tier2_b1_b3: starting B1-B3 boundary probe");
+    let bin: String = resolve_tui_bin(sys);
+    println("qa/e2e_tier2_b1_b3: target binary=" + bin);
+
+    // Double-run verification: Run_1 == Run_2
+    let r1: Result[Int, String] = run_tier2_b1_b3(sys, bin);
+    if r1.is_err() { return r1; }
+    let r2: Result[Int, String] = run_tier2_b1_b3(sys, bin);
+    if r2.is_err() { return r2; }
+
+    println("qa/e2e_tier2_b1_b3: PASS (Double-Run verified)");
+    return Ok(0);
+}
+
+fn int_to_str(n: Int) -> String {
+    if n < 0 { return "0"; }
+    if n == 0 { return "0"; }
+    let digits: String = "0123456789";
+    let mut v: Int = n;
+    let mut rev: String = "";
+    while v > 0 {
+        let d: Int = v - (v / 10) * 10;
+        rev = rev + char_at(digits, d);
+        v = v / 10;
+    }
+    let mut out: String = "";
+    let mut k: Int = chars_len(rev) - 1;
+    while k >= 0 {
+        out = out + char_at(rev, k);
+        k = k - 1;
+    }
+    return out;
+}

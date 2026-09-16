@@ -1,0 +1,152 @@
+// # ui/input/input_header.oo - Header Input Box Plugin
+//
+// Logline: Render framed prompt input box at screen top with brand, mode chips, and keyboard hints.
+//
+// Setup: Pure terminal renderer for 3-row input header box and CUP cursor placement.
+//
+// Beats:
+//   1. Build responsive horizontal rules and corner glyphs.
+//   2. Render Row 1 top border with brand "openOODA (ooda)", mode chips, and hints.
+//   3. Render Row 2 prompt line with prompt symbol, buffer, and padding.
+//   4. Render Row 3 bottom border and return 3-line string.
+//   5. Position cursor via CUP sequence at Row 2, Column 5.
+
+import "theme.oo";
+
+fn u_dashes(n: Int) -> String {
+    let mut s: String = "";
+    let mut i: Int = 0;
+    while i < n { s = s + "─"; i = i + 1; }
+    return s;
+}
+
+fn pad_spaces(n: Int) -> String {
+    let mut s: String = "";
+    let mut i: Int = 0;
+    while i < n { s = s + " "; i = i + 1; }
+    return s;
+}
+
+pub fn input_header_render(theme: String, buf: String, mode: String, perm: String, color: Bool, cols: Int) -> String {
+    let mut w: Int = cols;
+    if w < 40 { w = 40; }
+
+    let is_ask: Bool = buf == "ask" || mode == "ask";
+    let is_plan: Bool = !is_ask && (mode == "plan" || perm == "plan");
+
+    let accent: String = theme_color(theme, "accent");
+    let muted: String = theme_color(theme, "muted");
+    let text_col: String = theme_color(theme, "text");
+
+    let mut edge: String = theme_color(theme, "borderMuted");
+    if is_ask { edge = theme_color(theme, "error"); }
+
+    let mut hint: String = "Enter sends · /help";
+    if is_ask { hint = "y yes · n no · a always · d deny"; }
+
+    let brand: String = "openOODA (ooda)";
+
+    // Row 1: Top border
+    let mut top_line: String = "";
+    if !color {
+        let mut left_part: String = "╭─ " + brand + " PROMPT ─ [build] [plan] [ask] ";
+        if is_ask {
+            left_part = "╭─ " + brand + " ─ [build] [plan] [ask] ";
+        }
+        let right_part: String = " [" + hint + "]─╮";
+        let used_vis: Int = chars_len(left_part) + chars_len(right_part);
+        let mut span: Int = w - used_vis;
+        if span < 1 { span = 1; }
+        top_line = left_part + u_dashes(span) + right_part + "\n";
+    } else {
+        let mut chip_build: String = "";
+        let mut chip_plan: String = "";
+        let mut chip_ask: String = "";
+
+        if is_ask {
+            chip_build = ansi_fg(color, theme_color(theme, "dim")) + "[build]" + ansi_reset(color);
+            chip_plan = ansi_fg(color, theme_color(theme, "dim")) + "[plan]" + ansi_reset(color);
+            chip_ask = ansi_bold(color) + ansi_fg(color, theme_color(theme, "error")) + "[ask]" + ansi_reset(color);
+        } else if is_plan {
+            chip_build = ansi_fg(color, theme_color(theme, "dim")) + "[build]" + ansi_reset(color);
+            chip_plan = ansi_bold(color) + ansi_fg(color, theme_color(theme, "accent")) + "[plan]" + ansi_reset(color);
+            chip_ask = ansi_fg(color, theme_color(theme, "dim")) + "[ask]" + ansi_reset(color);
+        } else {
+            chip_build = ansi_bold(color) + ansi_fg(color, theme_color(theme, "success")) + "[build]" + ansi_reset(color);
+            chip_plan = ansi_fg(color, theme_color(theme, "dim")) + "[plan]" + ansi_reset(color);
+            chip_ask = ansi_fg(color, theme_color(theme, "dim")) + "[ask]" + ansi_reset(color);
+        }
+
+        let chips_vis: Int = 20;
+        let brand_vis: Int = chars_len(brand);
+        let mut left_vis: Int = 3 + brand_vis + 7 + 3 + chips_vis + 1;
+        if is_ask {
+            left_vis = 3 + brand_vis + 3 + chips_vis + 1;
+        }
+        let right_vis: Int = 2 + chars_len(hint) + 3;
+
+        let mut span: Int = w - left_vis - right_vis;
+        if span < 1 { span = 1; }
+
+        top_line = ansi_fg(color, edge) + "╭─ " + ansi_reset(color);
+        top_line = top_line + ansi_fg(color, accent) + ansi_bold(color) + brand + ansi_reset(color);
+        if !is_ask {
+            top_line = top_line + " " + ansi_fg(color, accent) + ansi_bold(color) + "PROMPT" + ansi_reset(color);
+        }
+        top_line = top_line + ansi_fg(color, edge) + " ─ " + ansi_reset(color);
+        top_line = top_line + chip_build + " " + chip_plan + " " + chip_ask + " ";
+        top_line = top_line + ansi_fg(color, edge) + u_dashes(span) + ansi_reset(color);
+        top_line = top_line + ansi_fg(color, muted) + " [" + hint + "]" + ansi_reset(color);
+        top_line = top_line + ansi_fg(color, edge) + "─╮" + ansi_reset(color) + "\n";
+    }
+
+    // Row 2: Prompt row: │ > <buf> + spaces + │
+    let prefix_vis: Int = 4;
+    let suffix_vis: Int = 1;
+    let mut avail: Int = w - prefix_vis - suffix_vis;
+    if avail < 0 { avail = 0; }
+
+    let b_len: Int = chars_len(buf);
+    let mut disp_buf: String = "";
+    if b_len > avail {
+        disp_buf = str_slice(buf, 0, avail);
+    } else {
+        disp_buf = buf;
+    }
+    let disp_len: Int = chars_len(disp_buf);
+    let mut pad_len: Int = avail - disp_len;
+    if pad_len < 0 { pad_len = 0; }
+    let pad: String = pad_spaces(pad_len);
+
+    let mut prompt_row: String = "";
+    if !color {
+        prompt_row = "│ > " + disp_buf + pad + "│\n";
+    } else {
+        prompt_row = ansi_fg(color, edge) + "│ " + ansi_reset(color);
+        prompt_row = prompt_row + ansi_fg(color, accent) + ansi_bold(color) + "> " + ansi_reset(color);
+        if disp_buf != "" {
+            prompt_row = prompt_row + ansi_fg(color, text_col) + disp_buf + ansi_reset(color);
+        }
+        prompt_row = prompt_row + pad;
+        prompt_row = prompt_row + ansi_fg(color, edge) + "│" + ansi_reset(color) + "\n";
+    }
+
+    // Row 3: Bottom border: ╰──────...──────╯
+    let mut bot_line: String = "";
+    if !color {
+        bot_line = "╰" + u_dashes(w - 2) + "╯\n";
+    } else {
+        bot_line = ansi_fg(color, edge) + "╰" + u_dashes(w - 2) + "╯" + ansi_reset(color) + "\n";
+    }
+
+    return top_line + prompt_row + bot_line;
+}
+
+pub fn input_header_cursor(color: Bool) -> String {
+    if !color { return ""; }
+    return ansi_esc() + "[2;5H";
+}
+
+pub fn input_header_height() -> Int {
+    return 3;
+}
