@@ -33,7 +33,7 @@ fn think_of(st: ReplState) -> String {
 
 fn in_buf(st: ReplState) -> String {
     if st.pending_tool != "" { return "ask"; }
-    return "";
+    return st.mode;
 }
 
 pub fn run_tui_session(fs_r: &FsReadCap, fs_w: &FsWriteCap, sys: &ProcessCap, env: &EnvCap, teamwork: Bool, yolo: Bool, cwd0: String, provider: String, model: String, theme0: String, no_color: Bool, preset: String) -> Int {

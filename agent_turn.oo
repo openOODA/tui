@@ -42,10 +42,19 @@ fn strip_think(s: String) -> String {
     return s;
 }
 
+fn is_known_tool(name: String) -> Bool {
+    if name == "read" { return true; }
+    if name == "write" { return true; }
+    if name == "bash" { return true; }
+    if name == "grep" { return true; }
+    if name == "glob" { return true; }
+    if name == "mcp" { return true; }
+    return false;
+}
+
 fn find_tool(text: String) -> Int {
-    let t: String = str_trim(text);
-    if str_starts_with(t, "TOOL ") { return 0; }
     let n: Int = chars_len(text);
+    if n >= 5 && str_slice(text, 0, 5) == "TOOL " { return 0; }
     let mut i: Int = 0;
     while i + 6 <= n {
         if str_slice(text, i, i + 6) == "\nTOOL " { return i + 1; }
@@ -65,6 +74,8 @@ fn line_at(text: String, start: Int) -> String {
 }
 
 fn parse_name(line: String) -> String {
+    if chars_len(line) < 5 { return ""; }
+    if str_slice(line, 0, 5) != "TOOL " { return ""; }
     let rest: String = str_trim(str_slice(line, 5, chars_len(line)));
     let n: Int = chars_len(rest);
     let mut i: Int = 0;
@@ -77,6 +88,8 @@ fn parse_name(line: String) -> String {
 }
 
 fn parse_args(line: String) -> String {
+    if chars_len(line) < 5 { return ""; }
+    if str_slice(line, 0, 5) != "TOOL " { return ""; }
     let rest: String = str_trim(str_slice(line, 5, chars_len(line)));
     let name: String = parse_name(line);
     return str_trim(str_slice(rest, chars_len(name), chars_len(rest)));
@@ -120,7 +133,6 @@ fn hop(fs_r: &FsReadCap, fw: &FsWriteCap, sys: &ProcessCap, st: ReplState, ctx: 
     let mut ctx2: String = ctx;
     let mut n: Int = 0;
     while n < 8 {
-        println(card_think(s.theme, color, s.model));
         let rr: Result[String, String] = llm_complete_exec(sys, fw, s.ptype, s.key, s.model, s.url, ctx2);
         if rr.is_err() {
             let e: String = match rr { Ok(_) => "", Err(m) => m };
@@ -130,20 +142,30 @@ fn hop(fs_r: &FsReadCap, fw: &FsWriteCap, sys: &ProcessCap, st: ReplState, ctx: 
         let raw: String = match rr { Ok(t) => t, Err(_) => "" };
         let clean: String = strip_think(raw);
         let idx: Int = find_tool(clean);
-        if idx < 0 {
+        let mut name: String = "";
+        let mut args: String = "";
+        let mut body: String = "";
+        if idx >= 0 {
+            let tl: String = line_at(clean, idx);
+            name = parse_name(tl);
+            args = parse_args(tl);
+            body = parse_body(clean, idx);
+        }
+        if idx < 0 || !is_known_tool(name) {
             s.output = s.output + card_say(str_trim(clean)) + "\n";
             s.hist = s.hist + "A: " + str_trim(clean) + "\n";
             return s;
         }
-        let tl: String = line_at(raw, idx);
-        let name: String = parse_name(tl);
-        let args: String = parse_args(tl);
-        let body: String = parse_body(raw, idx);
+        if idx > 0 {
+            let pre: String = str_trim(str_slice(clean, 0, idx));
+            if pre != "" {
+                s.output = s.output + card_say(pre) + "\n";
+            }
+        }
         if deny_plan(s, name) {
             let msg: String = "denied in plan mode";
-            println(card_tool(s.theme, color, "x", name, args, msg));
             s.output = s.output + card_tool(s.theme, color, "x", name, args, msg) + "\n";
-            ctx2 = ctx2 + "\nASSISTANT:\n" + raw + "\nTOOL_RESULT:\n" + msg;
+            ctx2 = ctx2 + "\nASSISTANT:\n" + clean + "\nTOOL_RESULT:\n" + msg;
             n = n + 1;
             continue;
         }
@@ -151,18 +173,15 @@ fn hop(fs_r: &FsReadCap, fw: &FsWriteCap, sys: &ProcessCap, st: ReplState, ctx: 
             s.pending_tool = name;
             s.pending_args = args;
             s.pending_body = body;
-            s.hist = ctx2 + "\nASSISTANT:\n" + raw;
+            s.hist = ctx2 + "\nASSISTANT:\n" + clean;
             let box: String = card_ask(s.theme, color, name, args, "this mutates the tree");
-            println(box);
             s.output = s.output + box + "\n";
             return s;
         }
-        println(card_tool(s.theme, color, "*", name, args, ""));
         let res: String = run_one(fs_r, fw, sys, s, name, args, body);
         let note: String = int_to_str(tool_line_count(res)) + " ln";
-        println(card_tool(s.theme, color, ".", name, args, note));
         s.output = s.output + card_tool(s.theme, color, ".", name, args, note) + "\n";
-        ctx2 = ctx2 + "\nASSISTANT:\n" + raw + "\nTOOL_RESULT:\n" + res;
+        ctx2 = ctx2 + "\nASSISTANT:\n" + clean + "\nTOOL_RESULT:\n" + res;
         n = n + 1;
     }
     s.output = s.output + card_say("(hop cap)") + "\n";
@@ -198,10 +217,8 @@ pub fn agent_resume(fs_r: &FsReadCap, fw: &FsWriteCap, sys: &ProcessCap, st: Rep
     s.pending_args = "";
     s.pending_body = "";
     s.output = "";
-    println(card_tool(s.theme, color, "*", name, args, ""));
     let res: String = run_one(fs_r, fw, sys, s, name, args, body);
     let note: String = int_to_str(tool_line_count(res)) + " ln";
-    println(card_tool(s.theme, color, ".", name, args, note));
     s.output = card_tool(s.theme, color, ".", name, args, note) + "\n";
     let ctx: String = s.hist + "\nTOOL_RESULT:\n" + res;
     return hop(fs_r, fw, sys, s, ctx, color);

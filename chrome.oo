@@ -18,7 +18,7 @@ import "theme.oo";
 pub fn chrome_render(theme: String, pane: Pane, popover_buf: String, popover_idx: Int, input_buf: String, teamwork: Bool, yolo: Bool, thinking: String, version: String, color: Bool, cols: Int, rows: Int, provider: String, model: String, cwd: String) -> String {
     let mut s: String = "";
     if color { s = ansi_esc() + "[2J" + ansi_esc() + "[H"; }
-    let mut ph: Int = rows - 5;
+    let mut ph: Int = rows - 6;
     if popover_buf != "" { ph = ph - 1; }
     if ph < 3 { ph = 3; }
     s = s + header_render(theme, provider, model, cwd, color, cols);

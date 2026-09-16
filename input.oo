@@ -1,13 +1,13 @@
 // # input.oo - Prompt Dock Renderer
 //
-// Logline: Render high-definition open horizontal prompt dock with contextual badges, keyboard hints, and clean prompt row.
+// Logline: Render framed horizontal prompt dock with contextual mode chips, bottom border, and quick tools row.
 //
-// Setup: Terminal surface renderer supporting 24-bit ANSI styling, plain ASCII fallback, and native cooked line editing.
+// Setup: Terminal surface renderer supporting 24-bit ANSI styling, plain ASCII fallback, and cursor placement.
 //
 // Beats:
-//   1. Build responsive horizontal rules and corner glyphs.
-//   2. Render top container divider with contextual title and keyboard hints.
-//   3. Render open prompt row without closing border to prevent line-discipline collisions.
+//   1. Build responsive horizontal rules, corners, and quick tools strip.
+//   2. Render top container divider with contextual mode chip [build|plan|ask] and keyboard hints.
+//   3. Render framed input box with top and bottom borders, and quick tools underneath.
 
 import "theme.oo";
 
@@ -28,22 +28,37 @@ fn u_dashes(n: Int) -> String {
 pub fn input_render(theme: String, buf: String, color: Bool, cols: Int) -> String {
     let accent: String = theme_color(theme, "accent");
     let muted: String = theme_color(theme, "muted");
+    let dim: String = theme_color(theme, "dim");
     let err: String = theme_color(theme, "error");
+    let success: String = theme_color(theme, "success");
+    let border: String = theme_color(theme, "borderMuted");
+
     let ask: Bool = buf == "ask";
-    let mut title: String = "PROMPT";
+    let is_plan: Bool = buf == "plan";
+
+    let mut mode_label: String = "[build]";
+    let mut mode_color: String = success;
+    if is_plan {
+        mode_label = "[plan]";
+        mode_color = accent;
+    } else if ask {
+        mode_label = "[ask]";
+        mode_color = err;
+    }
+
     let mut hint: String = "Enter sends · /help";
-    let mut edge: String = theme_color(theme, "borderMuted");
+    let mut edge: String = border;
     if ask {
-        title = "APPROVAL REQUIRED";
         hint = "y yes · n no · a always · d deny";
         edge = err;
     }
+
     let mut w: Int = cols;
     if w < 40 { w = 40; }
 
     if !color {
         // Plain ASCII fallback for NO_COLOR=1 and TERM=dumb
-        let t_plain: String = " " + title + " ";
+        let t_plain: String = " PROMPT " + mode_label + " ";
         let mut inner_p: Int = w - 2;
         if inner_p < chars_len(t_plain) { inner_p = chars_len(t_plain); }
         let mut left_p: Int = (inner_p - chars_len(t_plain)) / 2;
@@ -51,29 +66,60 @@ pub fn input_render(theme: String, buf: String, color: Bool, cols: Int) -> Strin
         let mut right_p: Int = inner_p - chars_len(t_plain) - left_p;
         if right_p < 1 { right_p = 1; }
         let top_p: String = "+" + dashes(left_p) + t_plain + dashes(right_p) + "+";
-        return top_p + "\n| > ";
+        let mid_p: String = "| > ";
+        let bot_p: String = "+" + dashes(inner_p) + "+";
+        let tools_p: String = "  tools: read · grep · glob · write · bash · mcp";
+        return top_p + "\n" + mid_p + "\n" + bot_p + "\n" + tools_p + "\n";
     }
 
-    // Modern Open-Band Input Dock (No bottom border, cursor sits naturally after | > )
-    let t_str: String = " " + title + " ";
+    // Top border: ╭─ PROMPT [build] ────────────────────────── [Enter sends · /help] ─╮
+    let left_vis_len: Int = 3 + 7 + chars_len(mode_label) + 1;
     let h_str: String = " [" + hint + "] ";
+    let right_vis_len: Int = chars_len(h_str) + 2;
+
     let mut top_line: String = "";
-    if w >= 60 {
-        let span: Int = w - 2 - chars_len(t_str) - chars_len(h_str) - 2;
+    if w >= 55 {
+        let span: Int = w - left_vis_len - right_vis_len;
         let mut mid_dashes: Int = span;
         if mid_dashes < 2 { mid_dashes = 2; }
-        top_line = ansi_fg(color, edge) + "╭─" + ansi_reset(color) + ansi_fg(color, accent) + ansi_bold(color) + t_str + ansi_reset(color) + ansi_fg(color, edge) + u_dashes(mid_dashes) + ansi_fg(color, muted) + h_str + ansi_reset(color) + ansi_fg(color, edge) + "─╮" + ansi_reset(color);
+        top_line = ansi_fg(color, edge) + "╭─ " + ansi_reset(color);
+        top_line = top_line + ansi_fg(color, accent) + ansi_bold(color) + "PROMPT" + ansi_reset(color) + " ";
+        top_line = top_line + ansi_fg(color, mode_color) + ansi_bold(color) + mode_label + ansi_reset(color) + " ";
+        top_line = top_line + ansi_fg(color, edge) + u_dashes(mid_dashes) + ansi_reset(color);
+        top_line = top_line + ansi_fg(color, muted) + h_str + ansi_reset(color);
+        top_line = top_line + ansi_fg(color, edge) + "─╮" + ansi_reset(color);
     } else {
-        let span_sm: Int = w - 2 - chars_len(t_str) - 2;
+        let span_sm: Int = w - left_vis_len - 2;
         let mut dash_sm: Int = span_sm;
         if dash_sm < 2 { dash_sm = 2; }
-        top_line = ansi_fg(color, edge) + "╭─" + ansi_reset(color) + ansi_fg(color, accent) + ansi_bold(color) + t_str + ansi_reset(color) + ansi_fg(color, edge) + u_dashes(dash_sm) + "╮" + ansi_reset(color);
+        top_line = ansi_fg(color, edge) + "╭─ " + ansi_reset(color);
+        top_line = top_line + ansi_fg(color, accent) + ansi_bold(color) + "PROMPT" + ansi_reset(color) + " ";
+        top_line = top_line + ansi_fg(color, mode_color) + ansi_bold(color) + mode_label + ansi_reset(color) + " ";
+        top_line = top_line + ansi_fg(color, edge) + u_dashes(dash_sm) + "╮" + ansi_reset(color);
     }
 
+    // Row 2: Prompt row
     let prompt_row: String = ansi_fg(color, edge) + "│ " + ansi_reset(color) + ansi_fg(color, accent) + ansi_bold(color) + "> " + ansi_reset(color);
-    return top_line + "\n" + prompt_row;
+
+    // Row 3: Bottom border: ╰──────────────────────────────────────────────────────────────────╯
+    let bot_line: String = ansi_fg(color, edge) + "╰" + u_dashes(w - 2) + "╯" + ansi_reset(color);
+
+    // Row 4: Quick tools strip
+    let dot: String = ansi_fg(color, dim) + " · " + ansi_reset(color);
+    let mut tools_line: String = "  " + ansi_fg(color, dim) + "tools: " + ansi_reset(color);
+    tools_line = tools_line + ansi_fg(color, accent) + "read" + ansi_reset(color) + dot;
+    tools_line = tools_line + ansi_fg(color, accent) + "grep" + ansi_reset(color) + dot;
+    tools_line = tools_line + ansi_fg(color, accent) + "glob" + ansi_reset(color) + dot;
+    tools_line = tools_line + ansi_fg(color, accent) + "write" + ansi_reset(color) + dot;
+    tools_line = tools_line + ansi_fg(color, accent) + "bash" + ansi_reset(color) + dot;
+    tools_line = tools_line + ansi_fg(color, accent) + "mcp" + ansi_reset(color);
+
+    // Cursor reposition: Move up 2 lines (to Row 2), carriage return to col 1, move right 4 cols
+    let repos: String = ansi_esc() + "[2A\r" + ansi_esc() + "[4C";
+
+    return top_line + "\n" + prompt_row + "\n" + bot_line + "\n" + tools_line + repos;
 }
 
 pub fn input_height() -> Int {
-    return 2;
+    return 4;
 }
