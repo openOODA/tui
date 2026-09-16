@@ -28,6 +28,20 @@ fn sys_prompt(st: ReplState) -> String {
     return s;
 }
 
+fn strip_think(s: String) -> String {
+    let n: Int = chars_len(s);
+    let tag: String = "</think>";
+    let tn: Int = chars_len(tag);
+    let mut i: Int = 0;
+    while i + tn <= n {
+        if str_slice(s, i, i + tn) == tag {
+            return str_trim(str_slice(s, i + tn, n));
+        }
+        i = i + 1;
+    }
+    return s;
+}
+
 fn find_tool(text: String) -> Int {
     let t: String = str_trim(text);
     if str_starts_with(t, "TOOL ") { return 0; }
@@ -114,10 +128,11 @@ fn hop(fs_r: &FsReadCap, fw: &FsWriteCap, sys: &ProcessCap, st: ReplState, ctx: 
             return s;
         }
         let raw: String = match rr { Ok(t) => t, Err(_) => "" };
-        let idx: Int = find_tool(raw);
+        let clean: String = strip_think(raw);
+        let idx: Int = find_tool(clean);
         if idx < 0 {
-            s.output = s.output + card_say(str_trim(raw)) + "\n";
-            s.hist = s.hist + "A: " + str_trim(raw) + "\n";
+            s.output = s.output + card_say(str_trim(clean)) + "\n";
+            s.hist = s.hist + "A: " + str_trim(clean) + "\n";
             return s;
         }
         let tl: String = line_at(raw, idx);

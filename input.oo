@@ -1,13 +1,13 @@
-// # input.oo - Compose box (line-mode)
+// # input.oo - Prompt Dock Renderer
 //
-// Logline: Draw a three-line open box. Last line is "| > " with no newline so cooked typing sits inside the box.
+// Logline: Render high-definition open horizontal prompt dock with contextual badges, keyboard hints, and clean prompt row.
 //
-// Setup: Last surface in the chrome. No bottom border: a closing rule would push the cursor out.
+// Setup: Terminal surface renderer supporting 24-bit ANSI styling, plain ASCII fallback, and native cooked line editing.
 //
 // Beats:
-//   1. Top rule with a centered title (compose or APPROVE).
-//   2. Hint line with side walls, padded to cols.
-//   3. Prompt "| > " — cursor lives here.
+//   1. Build responsive horizontal rules and corner glyphs.
+//   2. Render top container divider with contextual title and keyboard hints.
+//   3. Render open prompt row without closing border to prevent line-discipline collisions.
 
 import "theme.oo";
 
@@ -18,22 +18,11 @@ fn dashes(n: Int) -> String {
     return s;
 }
 
-fn pad_r(s: String, w: Int) -> String {
-    let mut out: String = s;
-    while chars_len(out) < w { out = out + " "; }
-    if chars_len(out) > w { return str_slice(out, 0, w); }
-    return out;
-}
-
-fn top_rule(title: String, cols: Int) -> String {
-    let t: String = " " + title + " ";
-    let mut inner: Int = cols - 2;
-    if inner < chars_len(t) { inner = chars_len(t); }
-    let mut left: Int = (inner - chars_len(t)) / 2;
-    if left < 1 { left = 1; }
-    let mut right: Int = inner - chars_len(t) - left;
-    if right < 1 { right = 1; }
-    return "+" + dashes(left) + t + dashes(right) + "+";
+fn u_dashes(n: Int) -> String {
+    let mut s: String = "";
+    let mut i: Int = 0;
+    while i < n { s = s + "─"; i = i + 1; }
+    return s;
 }
 
 pub fn input_render(theme: String, buf: String, color: Bool, cols: Int) -> String {
@@ -41,24 +30,50 @@ pub fn input_render(theme: String, buf: String, color: Bool, cols: Int) -> Strin
     let muted: String = theme_color(theme, "muted");
     let err: String = theme_color(theme, "error");
     let ask: Bool = buf == "ask";
-    let mut title: String = "compose";
-    let mut hint: String = " enter sends · /help · /exit";
-    let mut edge: String = accent;
+    let mut title: String = "PROMPT";
+    let mut hint: String = "Enter sends · /help";
+    let mut edge: String = theme_color(theme, "borderMuted");
     if ask {
-        title = "APPROVE";
-        hint = " y yes · n no · a always · d deny";
+        title = "APPROVAL REQUIRED";
+        hint = "y yes · n no · a always · d deny";
         edge = err;
     }
     let mut w: Int = cols;
-    if w < 24 { w = 24; }
-    let top: String = top_rule(title, w);
-    let mid: String = "|" + pad_r(hint, w - 2) + "|";
-    let mut s: String = ansi_fg(color, edge) + top + ansi_reset(color) + "\n";
-    s = s + ansi_fg(color, muted) + mid + ansi_reset(color) + "\n";
-    s = s + ansi_fg(color, edge) + "| > " + ansi_reset(color);
-    return s;
+    if w < 40 { w = 40; }
+
+    if !color {
+        // Plain ASCII fallback for NO_COLOR=1 and TERM=dumb
+        let t_plain: String = " " + title + " ";
+        let mut inner_p: Int = w - 2;
+        if inner_p < chars_len(t_plain) { inner_p = chars_len(t_plain); }
+        let mut left_p: Int = (inner_p - chars_len(t_plain)) / 2;
+        if left_p < 1 { left_p = 1; }
+        let mut right_p: Int = inner_p - chars_len(t_plain) - left_p;
+        if right_p < 1 { right_p = 1; }
+        let top_p: String = "+" + dashes(left_p) + t_plain + dashes(right_p) + "+";
+        return top_p + "\n| > ";
+    }
+
+    // Modern Open-Band Input Dock (No bottom border, cursor sits naturally after | > )
+    let t_str: String = " " + title + " ";
+    let h_str: String = " [" + hint + "] ";
+    let mut top_line: String = "";
+    if w >= 60 {
+        let span: Int = w - 2 - chars_len(t_str) - chars_len(h_str) - 2;
+        let mut mid_dashes: Int = span;
+        if mid_dashes < 2 { mid_dashes = 2; }
+        top_line = ansi_fg(color, edge) + "╭─" + ansi_reset(color) + ansi_fg(color, accent) + ansi_bold(color) + t_str + ansi_reset(color) + ansi_fg(color, edge) + u_dashes(mid_dashes) + ansi_fg(color, muted) + h_str + ansi_reset(color) + ansi_fg(color, edge) + "─╮" + ansi_reset(color);
+    } else {
+        let span_sm: Int = w - 2 - chars_len(t_str) - 2;
+        let mut dash_sm: Int = span_sm;
+        if dash_sm < 2 { dash_sm = 2; }
+        top_line = ansi_fg(color, edge) + "╭─" + ansi_reset(color) + ansi_fg(color, accent) + ansi_bold(color) + t_str + ansi_reset(color) + ansi_fg(color, edge) + u_dashes(dash_sm) + "╮" + ansi_reset(color);
+    }
+
+    let prompt_row: String = ansi_fg(color, edge) + "│ " + ansi_reset(color) + ansi_fg(color, accent) + ansi_bold(color) + "> " + ansi_reset(color);
+    return top_line + "\n" + prompt_row;
 }
 
 pub fn input_height() -> Int {
-    return 3;
+    return 2;
 }

@@ -1,53 +1,104 @@
-// # statusbar.oo - Bottom-of-Screen Status Line
+// # statusbar.oo - Bottom Frame Status Divider
 //
-// Logline: Render the single-line status bar at the bottom of the line-mode chrome. Honors the color: Bool flag from theme_color_session.
+// Logline: Render responsive bottom divider bar with execution modes, active theme, and version telemetry.
 //
-// Setup: One line. Left = mode chips (teamwork, yolo, thinking). Middle = theme. Right = version. Tokens: dim, muted, accent, error, success.
+// Setup: Terminal surface renderer supporting 24-bit ANSI styling, plain ASCII fallback, and column auto-balancing.
 //
 // Beats:
-//   1. statusbar_render(theme, teamwork, yolo, thinking, version, color, cols) returns the SGR-styled single line.
-//   2. Status bar is padded to `cols` characters.
-//   3. Empty mode chips are skipped.
+//   1. Build responsive horizontal rules and corner glyphs.
+//   2. Render permission chip, teamwork indicator, and theme metadata.
+//   3. Auto-balance spacing to terminal column width.
 
 import "theme.oo";
 
+fn u_dashes(n: Int) -> String {
+    let mut s: String = "";
+    let mut i: Int = 0;
+    while i < n { s = s + "─"; i = i + 1; }
+    return s;
+}
+
+fn pad_spaces(n: Int) -> String {
+    let mut s: String = "";
+    let mut i: Int = 0;
+    while i < n { s = s + " "; i = i + 1; }
+    return s;
+}
+
 pub fn statusbar_render(theme: String, teamwork: Bool, yolo: Bool, thinking: String, version: String, color: Bool, cols: Int) -> String {
-    let dim: String = theme_color(theme, "dim");
-    let muted: String = theme_color(theme, "muted");
+    let mut w: Int = cols;
+    if w < 40 { w = 40; }
+
+    let mut mode_text: String = "ASK";
+    if thinking == "WAIT" { mode_text = "ASK"; }
+    else if thinking == "yolo" || yolo { mode_text = "YOLO"; }
+    else if thinking == "plan" { mode_text = "PLAN"; }
+    else if thinking == "allow" { mode_text = "ALLOW"; }
+
+    if !color {
+        // Plain ASCII fallback for NO_COLOR=1 and TERM=dumb
+        let mut s_p: String = "  " + mode_text;
+        let mut used_p: Int = 2 + chars_len(mode_text);
+        if teamwork {
+            s_p = s_p + "  TEAM";
+            used_p = used_p + 6;
+        }
+        let t_part: String = "  theme=" + theme;
+        s_p = s_p + t_part;
+        used_p = used_p + chars_len(t_part);
+
+        let mut rem_p: Int = w - used_p;
+        if version != "" { rem_p = rem_p - chars_len(version) - 2; }
+        if rem_p < 1 { rem_p = 1; }
+        s_p = s_p + pad_spaces(rem_p);
+        if version != "" { s_p = s_p + version; }
+        return s_p + "\n";
+    }
+
+    // Modern High-Definition Bottom Divider
+    let border: String = theme_color(theme, "borderMuted");
     let accent: String = theme_color(theme, "accent");
+    let muted: String = theme_color(theme, "muted");
+    let dim: String = theme_color(theme, "dim");
     let error: String = theme_color(theme, "error");
     let success: String = theme_color(theme, "success");
 
-    let mut s: String = "";
-    if thinking == "WAIT" {
-        s = s + ansi_fg(color, error) + ansi_bold(color) + " ASK " + ansi_reset(color);
-    } else if thinking == "yolo" || yolo {
-        s = s + ansi_fg(color, error) + " YOLO " + ansi_reset(color);
-    } else if thinking == "plan" {
-        s = s + ansi_fg(color, accent) + " PLAN " + ansi_reset(color);
-    } else if thinking == "allow" {
-        s = s + ansi_fg(color, success) + " ALLOW " + ansi_reset(color);
-    } else {
-        s = s + ansi_fg(color, muted) + " ASK " + ansi_reset(color);
-    }
+    let mut m_color: String = "";
+    if mode_text == "YOLO" { m_color = error; }
+    else if mode_text == "PLAN" { m_color = accent; }
+    else if mode_text == "ALLOW" { m_color = success; }
+    else if thinking == "WAIT" { m_color = error; }
+    else { m_color = theme_color(theme, "muted"); }
+
+    let left_mode: String = "[" + mode_text + "]";
+    let mut left_vis: Int = 3 + chars_len(left_mode);
+    if teamwork { left_vis = left_vis + 9; }
+    let theme_str: String = "theme=" + theme;
+    left_vis = left_vis + 3 + chars_len(theme_str);
+
+    let mut right_chip: String = "";
+    if version != "" { right_chip = "[" + version + "]"; }
+    let mut right_vis: Int = 2;
+    if right_chip != "" { right_vis = chars_len(right_chip) + 3; }
+
+    let mut span: Int = w - left_vis - right_vis;
+    if span < 2 { span = 2; }
+
+    let mut s: String = ansi_fg(color, border) + "╰─ " + ansi_reset(color);
+    s = s + ansi_fg(color, m_color) + ansi_bold(color) + left_mode + ansi_reset(color);
     if teamwork {
-        s = s + ansi_fg(color, accent) + " TEAM " + ansi_reset(color);
+        s = s + ansi_fg(color, border) + " ─ " + ansi_reset(color);
+        s = s + ansi_fg(color, accent) + "[TEAM]" + ansi_reset(color);
     }
-    let mut used: Int = chars_len(s);
-    let mid_pad: Int = 2;
-    let mut k1: Int = 0;
-    while k1 < mid_pad { s = s + " "; k1 = k1 + 1; }
-    used = used + mid_pad;
-    s = s + ansi_fg(color, muted) + "theme=" + theme + ansi_reset(color);
-    used = used + chars_len(theme) + 7;
-    let right_pad: Int = 2;
-    let mut remaining: Int = cols - used - right_pad;
-    if version != "" { remaining = remaining - chars_len(version); }
-    if remaining < 1 { remaining = 1; }
-    let mut k2: Int = 0;
-    while k2 < remaining { s = s + " "; k2 = k2 + 1; }
-    if version != "" {
-        s = s + ansi_fg(color, dim) + version + ansi_reset(color);
+    s = s + ansi_fg(color, border) + " ─ " + ansi_reset(color);
+    s = s + ansi_fg(color, muted) + theme_str + ansi_reset(color);
+    s = s + ansi_fg(color, border) + " " + u_dashes(span) + ansi_reset(color);
+    if right_chip != "" {
+        s = s + ansi_fg(color, border) + " " + ansi_reset(color);
+        s = s + ansi_fg(color, dim) + right_chip + ansi_reset(color);
+        s = s + ansi_fg(color, border) + " ─╯" + ansi_reset(color);
+    } else {
+        s = s + ansi_fg(color, border) + "─╯" + ansi_reset(color);
     }
     s = s + "\n";
     return s;

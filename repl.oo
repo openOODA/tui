@@ -63,14 +63,8 @@ pub fn run_tui_session(fs_r: &FsReadCap, fs_w: &FsWriteCap, sys: &ProcessCap, en
     st.brief = agents_load(fs_r, env, st.cwd);
     let color: Bool = theme_color_forced(env, no_color);
     let ver: String = ooda_tui_version();
-    let mut pane: Pane = pane_new();
-    pane = pane_append(pane, "ooda " + ver + "  " + st.mode + "/" + st.perm);
-    pane = pane_append(pane, "cwd " + st.cwd);
-    if st.provider != "" { pane = pane_append(pane, "llm " + st.provider + "/" + st.model); }
-    else { pane = pane_append(pane, "llm off  /login muse|minimax|mistral <key>"); }
-    if st.brief != "" { pane = pane_append(pane, "brief on"); }
-    else { pane = pane_append(pane, "brief off  /init writes AGENTS.md"); }
-    pane = mcp_hello(fs_w, sys, env, pane);
+    let is_mcp: Bool = mcp_check(fs_w, sys, env);
+    let mut pane: Pane = card_welcome_pane(st.theme, color, 80, ver, st.mode, st.perm, st.cwd, st.provider, st.model, st.brief != "", is_mcp);
     let host: Bool = have_tty(sys);
     if host { paint_tty(fs_w, sys, chrome_enter_host()); }
     let mut live: Bool = true;
@@ -132,12 +126,11 @@ fn handle_line(fs_r: &FsReadCap, fs_w: &FsWriteCap, sys: &ProcessCap, env: &EnvC
     if str_starts_with(line, "/") { return slash_line(st, line, ver, sys, fs_w, env, fs_r); }
     if st.provider == "" {
         let mut s: ReplState = st;
-        s.output = card_you(line) + "\n" + card_say("no LLM — /login muse|minimax|mistral <key>");
+        s.output = card_you_styled(st.theme, color, line) + "\n" + card_say_styled(st.theme, color, "no LLM — /login muse|minimax|mistral <key>");
         return s;
     }
-    println(card_you(line));
     let mut s: ReplState = agent_run(fs_r, fs_w, sys, st, line, color);
-    s.output = card_you(line) + "\n" + s.output;
+    s.output = card_you_styled(st.theme, color, line) + "\n" + s.output;
     return s;
 }
 
@@ -197,11 +190,10 @@ fn paint_frame(fw: &FsWriteCap, sys: &ProcessCap, frame: String) {
     if r.is_err() { print(frame); }
 }
 
-fn mcp_hello(fs_w: &FsWriteCap, sys: &ProcessCap, env: &EnvCap, pane: Pane) -> Pane {
+fn mcp_check(fs_w: &FsWriteCap, sys: &ProcessCap, env: &EnvCap) -> Bool {
     let cr: Result[String, String] = env_get(env, "OODACODEX");
     let codex: String = match cr { Ok(s) => s, Err(_) => "" };
     let mcp: McpClient = mcp_new(codex, ".", "");
     let ir: Result[String, String] = mcp_init(mcp, fs_w, sys);
-    if ir.is_err() { return pane_append(pane, "mcp off"); }
-    return pane_append(pane, "mcp on");
+    return ir.is_ok();
 }

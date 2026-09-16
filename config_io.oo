@@ -44,15 +44,21 @@ fn cfg_line_val(line: String, key: String) -> String {
 pub fn config_path(env: &EnvCap) -> String {
     let home: String = env_or_empty(env, "OODA_HOME");
     if home != "" {
-        return path_join(path_join(home, ".config/ooda-tui"), "config.oot");
+        return path_join(path_join(home, ".openooda/tui"), "config.oot");
     }
-    let pwd: String = env_or_empty(env, "PWD");
-    return path_join(pwd, ".ooda-tui.oot");
+    return "/home/jeryd/.openooda/tui/config.oot";
 }
 
 pub fn config_load_flat(fs_r: &FsReadCap, env: &EnvCap) -> FlatCfg {
     let mut cfg: FlatCfg = flat_cfg_new();
-    let path: String = config_path(env);
+    let mut path: String = config_path(env);
+    if !path_exists(fs_r, path) {
+        path = "/home/jeryd/.openooda/tui/config.oot";
+    }
+    if !path_exists(fs_r, path) {
+        let pwd: String = env_or_empty(env, "PWD");
+        path = path_join(pwd, ".ooda-tui.oot");
+    }
     if path_exists(fs_r, path) {
         let openr: Result[FileReader, String] = file_reader_open(fs_r, path);
         let reader: FileReader = match openr { Ok(r) => r, Err(_) => return config_hydrate_flat(cfg, env); };
@@ -108,9 +114,9 @@ fn take_key(out: FlatCfg, env: &EnvCap, ekey: String, prov: String, model: Strin
 
 pub fn config_hydrate_flat(cfg: FlatCfg, env: &EnvCap) -> FlatCfg {
     let mut out: FlatCfg = cfg;
+    out = take_key(out, env, "OODA_MINIMAX_API_KEY", "minimax", "MiniMax-M2.5");
     out = take_key(out, env, "OODA_MUSE_API_KEY", "muse", "muse-spark-1.3");
     out = take_key(out, env, "OODA_MODEL_API_KEY", "muse", "muse-spark-1.3");
-    out = take_key(out, env, "OODA_MINIMAX_API_KEY", "minimax", "MiniMax-M2.5");
     out = take_key(out, env, "OODA_MISTRAL_API_KEY", "mistral", "mistral-large-latest");
     out = take_key(out, env, "OODA_VIBE_API_KEY", "mistral", "mistral-large-latest");
     out = take_key(out, env, "OODA_ANTHROPIC_API_KEY", "anthropic", "claude-sonnet-4-5");

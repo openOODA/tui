@@ -1,18 +1,31 @@
-// # header.oo - Top-of-Screen Status Bar
+// # header.oo - Top-of-Screen Navigation Bar
 //
-// Logline: Render the single-line header that sits above the scrollback pane in the line-mode chrome. Honors the color: Bool flag from theme_color_session.
+// Logline: Render responsive top navigation bar with system identity, model target, and workspace directory.
 //
-// Setup: One line. Left = product title. Middle = provider/model. Right = cwd. Tokens: borderAccent, muted.
+// Setup: Terminal surface renderer supporting 24-bit ANSI styling, plain ASCII fallback, and column auto-balancing.
 //
 // Beats:
-//   1. header_render(theme, provider, model, cwd, color, cols) returns the SGR-styled single line + newline.
-//   2. The header is padded to `cols` characters.
-//   3. Empty provider/model/cwd segments are skipped.
+//   1. Build responsive horizontal rules and corner glyphs.
+//   2. Render branding chip, model badge, and workspace path.
+//   3. Auto-balance spacing to terminal column width.
 
 import "theme.oo";
 
+fn u_dashes(n: Int) -> String {
+    let mut s: String = "";
+    let mut i: Int = 0;
+    while i < n { s = s + "─"; i = i + 1; }
+    return s;
+}
+
+fn pad_spaces(n: Int) -> String {
+    let mut s: String = "";
+    let mut i: Int = 0;
+    while i < n { s = s + " "; i = i + 1; }
+    return s;
+}
+
 pub fn header_render(theme: String, provider: String, model: String, cwd: String, color: Bool, cols: Int) -> String {
-    let left: String = "ooda";
     let mut mid: String = "";
     if provider != "" { mid = mid + provider; }
     if model != "" {
@@ -20,29 +33,65 @@ pub fn header_render(theme: String, provider: String, model: String, cwd: String
         mid = mid + model;
     }
     let right: String = cwd;
-    let accent: String = theme_color(theme, "borderAccent");
+    let mut w: Int = cols;
+    if w < 40 { w = 40; }
+
+    if !color {
+        // Plain ASCII fallback for NO_COLOR=1 and TERM=dumb
+        let left_p: String = "ooda";
+        let mut s_p: String = left_p;
+        let mut used_p: Int = chars_len(left_p);
+        if mid != "" {
+            s_p = s_p + "  [" + mid + "]";
+            used_p = used_p + 4 + chars_len(mid);
+        }
+        let mut rem_p: Int = w - used_p;
+        if right != "" { rem_p = rem_p - chars_len(right) - 2; }
+        if rem_p < 1 { rem_p = 1; }
+        s_p = s_p + pad_spaces(rem_p);
+        if right != "" { s_p = s_p + "[" + right + "]"; }
+        return s_p + "\n";
+    }
+
+    // Modern High-Definition Top Bar
+    let accent: String = theme_color(theme, "accent");
+    let border: String = theme_color(theme, "borderMuted");
     let muted: String = theme_color(theme, "muted");
     let dim: String = theme_color(theme, "dim");
 
-    let mut s: String = ansi_fg(color, accent);
-    s = s + left + ansi_reset(color);
-    let mut used: Int = chars_len(left);
-    if mid != "" {
-        let pad1: Int = 2;
-        let mut k1: Int = 0;
-        while k1 < pad1 { s = s + " "; k1 = k1 + 1; }
-        used = used + pad1;
-        s = s + ansi_fg(color, muted) + mid + ansi_reset(color);
-        used = used + chars_len(mid);
-    }
-    let right_pad: Int = 2;
-    let mut remaining: Int = cols - used - right_pad;
-    if right != "" { remaining = remaining - chars_len(right); }
-    if remaining < 1 { remaining = 1; }
-    let mut k2: Int = 0;
-    while k2 < remaining { s = s + " "; k2 = k2 + 1; }
+    let brand: String = "● openOODA";
+    let mut mid_chip: String = "[offline · /login]";
+    if mid != "" { mid_chip = "[" + mid + "]"; }
+
+    let mut right_chip: String = "";
     if right != "" {
-        s = s + ansi_fg(color, dim) + right + ansi_reset(color);
+        // Compact long cwd if needed
+        let mut c_str: String = right;
+        if chars_len(c_str) > 32 {
+            let clen: Int = chars_len(c_str);
+            c_str = "..." + str_slice(c_str, clen - 29, clen);
+        }
+        right_chip = "[" + c_str + "]";
+    }
+
+    let left_vis: Int = 2 + chars_len(brand) + 3 + chars_len(mid_chip);
+    let mut right_vis: Int = 2;
+    if right_chip != "" { right_vis = chars_len(right_chip) + 3; }
+
+    let mut span: Int = w - left_vis - right_vis;
+    if span < 2 { span = 2; }
+
+    let mut s: String = ansi_fg(color, border) + "╭─ " + ansi_reset(color);
+    s = s + ansi_fg(color, accent) + ansi_bold(color) + brand + ansi_reset(color);
+    s = s + ansi_fg(color, border) + " ─ " + ansi_reset(color);
+    s = s + ansi_fg(color, muted) + mid_chip + ansi_reset(color);
+    s = s + ansi_fg(color, border) + " " + u_dashes(span) + ansi_reset(color);
+    if right_chip != "" {
+        s = s + ansi_fg(color, border) + " " + ansi_reset(color);
+        s = s + ansi_fg(color, dim) + right_chip + ansi_reset(color);
+        s = s + ansi_fg(color, border) + " ─╮" + ansi_reset(color);
+    } else {
+        s = s + ansi_fg(color, border) + "─╮" + ansi_reset(color);
     }
     s = s + "\n";
     return s;
