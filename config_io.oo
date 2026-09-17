@@ -46,14 +46,21 @@ pub fn config_path(env: &EnvCap) -> String {
     if home != "" {
         return path_join(path_join(home, ".openooda/tui"), "config.oot");
     }
-    return "/home/jeryd/.openooda/tui/config.oot";
+    let u_home: String = env_or_empty(env, "HOME");
+    if u_home != "" {
+        return path_join(path_join(u_home, ".openooda/tui"), "config.oot");
+    }
+    return ".ooda-tui.oot";
 }
 
 pub fn config_load_flat(fs_r: &FsReadCap, env: &EnvCap) -> FlatCfg {
     let mut cfg: FlatCfg = flat_cfg_new();
     let mut path: String = config_path(env);
     if !path_exists(fs_r, path) {
-        path = "/home/jeryd/.openooda/tui/config.oot";
+        let u_home: String = env_or_empty(env, "HOME");
+        if u_home != "" {
+            path = path_join(path_join(u_home, ".openooda/tui"), "config.oot");
+        }
     }
     if !path_exists(fs_r, path) {
         let pwd: String = env_or_empty(env, "PWD");

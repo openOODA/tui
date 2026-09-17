@@ -91,7 +91,7 @@ fn mcp_call_file(client: McpClient, request: String, fs_w: &FsWriteCap, sys: &Pr
         let e: String = match wr { Ok(_) => "", Err(msg) => msg };
         return Err("write tmp " + tmp + ": " + e);
     }
-    let cmd: String = "bin=$(command -v ooda-mcp || true); if [ -z \"$bin\" -o ! -x \"$bin\" ]; then dir=$(dirname \"" + client.codex + "\" 2>/dev/null || true); if [ -n \"$dir\" -a -x \"$dir/bin/ooda-mcp\" ]; then bin=\"$dir/bin/ooda-mcp\"; elif [ -x \"$HOME/.openooda/bin/ooda-mcp\" ]; then bin=\"$HOME/.openooda/bin/ooda-mcp\"; elif [ -x \"/home/jeryd/.openooda/bin/ooda-mcp\" ]; then bin=\"/home/jeryd/.openooda/bin/ooda-mcp\"; elif [ -x \"$HOME/.openooda/bin/mcp\" ]; then bin=\"$HOME/.openooda/bin/mcp\"; else bin=\"/home/jeryd/.openooda/bin/mcp\"; fi; fi; OODACODEX=" + client.codex + " \"$bin\" --file " + tmp;
+    let cmd: String = "bin=$(command -v ooda-mcp || true); if [ -z \"$bin\" -o ! -x \"$bin\" ]; then dir=$(dirname \"" + client.codex + "\" 2>/dev/null || true); if [ -n \"$dir\" -a -x \"$dir/bin/ooda-mcp\" ]; then bin=\"$dir/bin/ooda-mcp\"; elif [ -x \"$HOME/.openooda/bin/ooda-mcp\" ]; then bin=\"$HOME/.openooda/bin/ooda-mcp\"; elif [ -x \"$HOME/.openooda/bin/mcp\" ]; then bin=\"$HOME/.openooda/bin/mcp\"; else bin=\"ooda-mcp\"; fi; fi; OODACODEX=" + client.codex + " \"$bin\" --file " + tmp;
     let r: Result[String, String] = process_exec(sys, cmd);
     let _ = process_exec(sys, "rm -f " + tmp);
     return r;

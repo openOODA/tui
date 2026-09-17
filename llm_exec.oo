@@ -130,6 +130,9 @@ pub fn validate_octal_perm(perm: String) -> Result[Int, String] {
 }
 
 pub fn write_secure_temp_file(sys: &ProcessCap, fw: &FsWriteCap, path: String, content: String) -> Result[Int, String] {
+    if str_contains(path, "..") {
+        return Err("SECURITY: path traversal detected in temporary file: " + path);
+    }
     let r_sym: Result[String, String] = process_exec(sys, "test -L " + path);
     if r_sym.is_ok() {
         return Err("SECURITY: symlink trap detected at " + path);

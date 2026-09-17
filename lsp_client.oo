@@ -71,7 +71,7 @@ fn lsp_call(client: LspClient, fs_w: &FsWriteCap, sys: &ProcessCap, request: Str
         let e: String = match wr { Ok(_) => "", Err(m) => m };
         return Err("lsp write: " + e);
     }
-    let mut cmd: String = "bin=$(command -v ooda-lsp || true); if [ -z \"$bin\" -o ! -x \"$bin\" ]; then if [ -x \"$HOME/.openooda/bin/lsp\" ]; then bin=\"$HOME/.openooda/bin/lsp\"; elif [ -x \"/home/jeryd/.openooda/bin/lsp\" ]; then bin=\"/home/jeryd/.openooda/bin/lsp\"; elif [ -x \"$HOME/.openooda/bin/ooda-lsp\" ]; then bin=\"$HOME/.openooda/bin/ooda-lsp\"; else bin=\"lsp\"; fi; fi; \"$bin\" --stdio --oodar-root " + client.oodar_root;
+    let mut cmd: String = "bin=$(command -v ooda-lsp || true); if [ -z \"$bin\" -o ! -x \"$bin\" ]; then if [ -x \"$HOME/.openooda/bin/lsp\" ]; then bin=\"$HOME/.openooda/bin/lsp\"; elif [ -x \"$HOME/.openooda/bin/ooda-lsp\" ]; then bin=\"$HOME/.openooda/bin/ooda-lsp\"; else bin=\"lsp\"; fi; fi; \"$bin\" --stdio --oodar-root " + client.oodar_root;
     if client.stdlib_root != "" { cmd = cmd + " --stdlib-root " + client.stdlib_root; }
     if client.compiler != "" { cmd = cmd + " --compiler " + client.compiler; }
     cmd = cmd + " < " + tmp + " 2>&1 | head -c 65536";

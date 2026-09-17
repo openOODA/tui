@@ -14,7 +14,7 @@ import "./path_guard.oo";
 import "mcp_client.oo";
 
 fn resolve_codex(sys: &ProcessCap) -> String {
-    let r: Result[String, String] = process_exec(sys, "if [ -n \"$OODACODEX\" ]; then echo -n \"$OODACODEX\"; elif [ -f \"$HOME/.openooda/northstar.oot\" ]; then echo -n \"$HOME/.openooda/northstar.oot\"; else echo -n \"/home/jeryd/.openooda/northstar.oot\"; fi");
+    let r: Result[String, String] = process_exec(sys, "if [ -n \"$OODACODEX\" ]; then echo -n \"$OODACODEX\"; elif [ -f \"$HOME/.openooda/northstar.oot\" ]; then echo -n \"$HOME/.openooda/northstar.oot\"; else echo -n \"\"; fi");
     return match r { Ok(s) => str_trim(s), Err(_) => "" };
 }
 

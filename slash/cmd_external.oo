@@ -79,7 +79,7 @@ fn resolve_home(env: &EnvCap) -> String {
         let h2: String = match r2 { Ok(s) => s, Err(_) => "" };
         if h2 != "" { return h2; }
     }
-    return "/home/jeryd";
+    return ".";
 }
 
 fn execute_script(sys: &ProcessCap, path: String, clean_cmd: String, args: String) -> Result[String, String] {
