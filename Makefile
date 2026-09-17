@@ -18,12 +18,14 @@
 #   make no-color    - smoke test NO_COLOR=1 ooda-tui emits zero SGR
 #   make dumb-term   - smoke test TERM=dumb ooda-tui emits zero SGR
 
-# LLVM emit of this graph currently fails (SSA + List[struct]). Prefer a
-# compiler that still has --backend c (oodac_bin.core, or oodac < v0.2.76).
-OODA_C_COMPILER ?= $(firstword $(wildcard $(HOME)/.openooda/bin/oodac.pre_m4.bak $(HOME)/.openooda/bin/oodac_bin.core $(CURDIR)/../oodac/bin/oodac $(HOME)/.openooda/bin/oodac))
+# Sovereign LLVM build using certified oodac compiler
 OODA_COMPILER ?= $(firstword $(wildcard $(HOME)/.openooda/bin/oodac $(CURDIR)/../oodac/bin/oodac $(HOME)/.openooda/bin/oodac_bin.core))
+OODAC_BIN ?= $(OODA_COMPILER)
 OODACODEX ?= $(HOME)/.openooda/northstar.oot
-export OO_LIST_AMBIENT_QUOTA := 1073741824
+export OO_LIST_AMBIENT_QUOTA := 8589934592
+export OODA_NO_JAIL := 1
+export OODAC_BIN := $(OODA_COMPILER)
+export OODA_COMPILER := $(OODA_COMPILER)
 BIN := dist/ooda-tui
 
 .PHONY: all build test e2e parity line-cap file-law academy check qa verify install clean no-color dumb-term token-help
@@ -33,13 +35,10 @@ all: build verify test
 build: $(BIN)
 
 $(BIN): main.oo version.oo anchor.oo config_io.oo mcp_client.oo lsp_client.oo llm.oo llm_exec.oo llm_anthropic.oo llm_openai.oo llm_ollama.oo llm_google.oo llm_custom.oo teamwork.oo session.oo compact.oo plan.oo btw.oo keys.oo theme.oo themes/1982.oo themes/minimax.oo chrome.oo header.oo ui/input/input_header.oo statusbar.oo ui/statusbar/statusbar_footer.oo pane.oo input.oo popover.oo markdown.oo tool_card.oo diff.oo repl.oo repl_state.oo repl_slash.oo tools/sanitize.oo tools/path_guard.oo tools/tool_read.oo tools/tool_write.oo tools/tool_bash.oo tools/tool_grep.oo tools/tool_glob.oo tools/tool_mcp.oo tools/anchor.oo card.oo ui/cards/card_thought.oo agent_turn.oo agents_md.oo core/types.oo core/state.oo core/event_bus.oo core/kernel.oo core/anchor.oo plugins/registry.oo plugins/anchor.oo slash/anchor.oo slash/router.oo slash/common.oo slash/cmd_help.oo slash/cmd_exit.oo slash/cmd_version.oo slash/cmd_providers.oo slash/cmd_provider.oo slash/cmd_model.oo slash/cmd_login.oo slash/cmd_logout.oo slash/cmd_theme.oo slash/cmd_cwd.oo slash/cmd_plan.oo slash/cmd_goal.oo slash/cmd_status.oo slash/cmd_settings.oo slash/cmd_clear.oo slash/cmd_rename.oo slash/cmd_resume.oo slash/cmd_compact.oo slash/cmd_btw.oo slash/cmd_team.oo slash/cmd_init.oo slash/cmd_perm.oo slash/cmd_mode.oo slash/cmd_preset.oo slash/cmd_tools.oo slash/cmd_external.oo
-	@mkdir -p dist .ooda-cache/ooda-tmp
-	@if [ ! -f .ooda-cache/ooda-tmp/oodac_host_rt.c ]; then \
-		printf '%s\n' '// # seed' '//' '// Logline: seed' '//' '// Setup: none' '//' '// Beats:' 'fn main() -> Result[Int, String] { return Ok(0); }' > .ooda-cache/ooda-tmp/seed.oo; \
-		$(OODA_C_COMPILER) build --backend c .ooda-cache/ooda-tmp/seed.oo -o .ooda-cache/ooda-tmp/seed.bin 2>/dev/null || true; \
-	fi
-	OO_LIST_AMBIENT_QUOTA=1073741824 OODACODEX=$(OODACODEX) OODA_STD=$(HOME)/.openooda/std OODA_NO_JAIL=1 $(OODA_C_COMPILER) emit-c --concat main.oo > .ooda-cache/ooda-tmp/tui.c
-	gcc -O0 -g0 -fno-ident -I $(CURDIR)/../oodar $(CURDIR)/../oodar/oodar.c .ooda-cache/ooda-tmp/oodac_host_rt.c .ooda-cache/ooda-tmp/tui.c -lm -ldl -lpthread -o $(BIN)
+	@mkdir -p dist
+	OO_LIST_AMBIENT_QUOTA=8589934592 OODACODEX=$(OODACODEX) OODA_NO_JAIL=1 \
+		OODAC_BIN=$(OODA_COMPILER) OODA_COMPILER=$(OODA_COMPILER) \
+		$(OODA_COMPILER) build --backend llvm main.oo -o $(BIN)
 	@chmod +x $(BIN)
 	@echo "built $(BIN)"
 
