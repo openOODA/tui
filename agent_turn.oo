@@ -11,7 +11,12 @@
 
 import "repl_state.oo";
 import "llm_exec.oo";
-import "tools/anchor.oo";
+import "tools/tool_read.oo";
+import "tools/tool_write.oo";
+import "tools/tool_bash.oo";
+import "tools/tool_grep.oo";
+import "tools/tool_glob.oo";
+import "tools/tool_mcp.oo";
 import "card.oo";
 import "ui/cards/card_thought.oo";
 
@@ -20,6 +25,7 @@ fn sys_prompt(st: ReplState) -> String {
     s = s + "Emit tools as a single block, then stop:\n";
     s = s + "TOOL read <relpath>\nTOOL grep <pattern>\nTOOL glob <pattern>\n";
     s = s + "TOOL bash <command>\nTOOL write <relpath>\n---\nfile body\n---\n";
+    s = s + "TOOL mcp <tool_name> <args_json>\n";
     s = s + "No TOOL line means you are done talking to the user.\n";
     s = s + "Stay inside cwd. Prefer read before write.\n";
     if st.mode == "plan" { s = s + "PLAN MODE: do not write or bash; only read/grep/glob.\n"; }
@@ -96,21 +102,39 @@ fn parse_body(text: String, start: Int) -> String {
     return body;
 }
 
+fn tool_ask_required(name: String) -> Bool {
+    if name == "write" { return true; }
+    if name == "bash" { return true; }
+    return false;
+}
+
 fn deny_plan(st: ReplState, name: String) -> Bool {
     if st.mode != "plan" { return false; }
-    return tool_needs_ask(name);
+    return tool_ask_required(name);
 }
 
 fn should_ask(st: ReplState, name: String) -> Bool {
-    if !tool_needs_ask(name) { return false; }
+    if !tool_ask_required(name) { return false; }
     if st.yolo { return false; }
     if st.perm == "yolo" { return false; }
     if st.perm == "allow" { return false; }
     return true;
 }
 
+fn tool_line_count(s: String) -> Int {
+    let n: Int = chars_len(s); let mut c: Int = 0; let mut i: Int = 0;
+    while i < n { if char_at(s, i) == "\n" { c = c + 1; } i = i + 1; }
+    return c;
+}
+
 fn run_one(fs_r: &FsReadCap, fw: &FsWriteCap, sys: &ProcessCap, st: ReplState, name: String, args: String, body: String) -> String {
-    let r: Result[String, String] = tool_exec(fs_r, fw, sys, st.cwd, name, args, body);
+    let mut r: Result[String, String] = Err("unknown tool: " + name);
+    if name == "read" { r = tool_read(fs_r, st.cwd, args); }
+    else if name == "write" { r = tool_write(fw, st.cwd, args, body); }
+    else if name == "bash" { r = tool_bash(sys, st.cwd, args); }
+    else if name == "grep" { r = tool_grep(sys, st.cwd, args); }
+    else if name == "glob" { r = tool_glob(sys, st.cwd, args); }
+    else if name == "mcp" { r = tool_mcp(fw, sys, st.cwd, args, body); }
     if r.is_err() { return match r { Ok(_) => "", Err(e) => e }; }
     return match r { Ok(s) => s, Err(_) => "" };
 }

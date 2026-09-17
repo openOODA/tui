@@ -8,5 +8,5 @@
 //   1. ooda_tui_version() returns the release tag for this tree.
 
 pub fn ooda_tui_version() -> String {
-    return "v0.3.2";
+    return "v0.3.3";
 }

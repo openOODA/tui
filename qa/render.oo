@@ -102,3 +102,9 @@ fn get_token(s: String, idx: Int) -> String {
     if cur == idx { return out; }
     return "";
 }
+
+pub fn main(bind: &BindCap, fs_r: &FsReadCap, fs_w: &FsWriteCap, sys: &ProcessCap, sys_cap: &SysCap, env: &EnvCap, time: &TimeCap, alloc: &AllocCap, thread: &ThreadCap, args: List[String]) -> Result[Int, String] {
+    let st: Int = qa_render_run();
+    if st != 0 { return Err("qa/render failed"); }
+    return Ok(0);
+}

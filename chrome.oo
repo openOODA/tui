@@ -40,7 +40,7 @@ pub fn chrome_render(theme: String, pane: Pane, popover_buf: String, popover_idx
     }
 
     s = s + input_header_render(theme, h_buf, mode, perm, color, cols);
-    s = s + pane_render(theme, pane, color, cols, ph);
+    s = s + pane_render(theme, pane.lines, color, cols, ph);
     if popover_buf != "" {
         s = s + popover_render(theme, popover_buf, popover_idx, color, cols);
     }

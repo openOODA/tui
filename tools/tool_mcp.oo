@@ -13,9 +13,15 @@
 import "./path_guard.oo";
 import "mcp_client.oo";
 
+fn resolve_codex(sys: &ProcessCap) -> String {
+    let r: Result[String, String] = process_exec(sys, "if [ -n \"$OODACODEX\" ]; then echo -n \"$OODACODEX\"; elif [ -f \"$HOME/.openooda/northstar.oot\" ]; then echo -n \"$HOME/.openooda/northstar.oot\"; else echo -n \"/home/jeryd/.openooda/northstar.oot\"; fi");
+    return match r { Ok(s) => str_trim(s), Err(_) => "" };
+}
+
 pub fn tool_mcp_call(fw: &FsWriteCap, sys: &ProcessCap, cwd: String, tool_name: String, args_json: String) -> Result[String, String] {
     if str_trim(tool_name) == "" { return Err("empty MCP tool name"); }
-    let client: McpClient = mcp_new("", cwd, "");
+    let codex: String = resolve_codex(sys);
+    let client: McpClient = mcp_new(codex, cwd, "");
     let r: Result[String, String] = mcp_call_tool(client, fw, sys, tool_name, args_json);
     let _ = mcp_close(client);
     if r.is_err() {
@@ -29,7 +35,8 @@ pub fn tool_mcp_call(fw: &FsWriteCap, sys: &ProcessCap, cwd: String, tool_name: 
 }
 
 pub fn tool_mcp_list(fw: &FsWriteCap, sys: &ProcessCap, cwd: String) -> Result[String, String] {
-    let client: McpClient = mcp_new("", cwd, "");
+    let codex: String = resolve_codex(sys);
+    let client: McpClient = mcp_new(codex, cwd, "");
     let r: Result[String, String] = mcp_list_tools(client, fw, sys);
     let _ = mcp_close(client);
     if r.is_err() {

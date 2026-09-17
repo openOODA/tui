@@ -34,3 +34,9 @@ fn int_to_str(n: Int) -> String {
     while k >= 0 { out = out + char_at(rev, k); k = k - 1; }
     return out;
 }
+
+pub fn main(bind: &BindCap, fs_r: &FsReadCap, fs_w: &FsWriteCap, sys: &ProcessCap, sys_cap: &SysCap, env: &EnvCap, time: &TimeCap, alloc: &AllocCap, thread: &ThreadCap, args: List[String]) -> Result[Int, String] {
+    let st: Int = qa_theme_color_session_run(env);
+    if st != 0 { return Err("qa/theme_color_session failed"); }
+    return Ok(0);
+}

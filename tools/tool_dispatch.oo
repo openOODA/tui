@@ -1,0 +1,65 @@
+// # tools/anchor.oo - Unified Tool Registry & Dispatch Hub
+//
+// Logline: Central entrypoint re-exporting modular sandboxed tools and unified tool_exec dispatcher.
+//
+// Setup: Aggregates tool_read, tool_write, tool_bash, tool_grep, tool_glob, tool_mcp, and sanitize.
+//
+// Beats:
+//   1. Re-exports all discrete tool modules (read, write, bash, grep, glob, mcp, sanitize, path_guard).
+//   2. Implements tool_exec dispatching to appropriate single-responsibility module.
+//   3. Implements tool_needs_ask permission gate for mutating tools (write, bash).
+//   4. Implements tool_line_count for response size accounting.
+
+import "std/fs/process/process.oo";
+import "./path_guard.oo";
+import "./sanitize.oo";
+import "./tool_read.oo";
+import "./tool_write.oo";
+import "./tool_bash.oo";
+import "./tool_grep.oo";
+import "./tool_glob.oo";
+import "./tool_mcp.oo";
+
+pub fn tools_version() -> String {
+    return "0.2.0";
+}
+
+pub fn tool_exec(fs_r: &FsReadCap, fw: &FsWriteCap, sys: &ProcessCap, cwd: String, name: String, args: String, body: String) -> Result[String, String] {
+    if name == "read" { return tool_read(fs_r, cwd, args); }
+    if name == "write" { return tool_write(fw, cwd, args, body); }
+    if name == "bash" { return tool_bash(sys, cwd, args); }
+    if name == "grep" { return tool_grep(sys, cwd, args); }
+    if name == "glob" { return tool_glob(sys, cwd, args); }
+    if name == "mcp" { return tool_mcp(fw, sys, cwd, args, body); }
+    return Err("unknown tool: " + name);
+}
+
+pub fn tool_needs_ask(name: String) -> Bool {
+    if name == "write" { return true; }
+    if name == "bash" { return true; }
+    return false;
+}
+
+pub fn tool_line_count(s: String) -> Int {
+    return count_nl(s);
+}
+
+pub fn tools_self_check() -> Bool {
+    let r1: Result[String, String] = sanitize_shell_arg("valid_pattern_123");
+    if r1.is_err() { return false; }
+    let r2: Result[String, String] = sanitize_shell_arg("bad;payload");
+    if r2.is_ok() { return false; }
+    let r3: Result[String, String] = sanitize_shell_arg("--flag-injection");
+    if r3.is_ok() { return false; }
+    let r4: Result[String, String] = tool_join(".", "safe/path.oo");
+    if r4.is_err() { return false; }
+    let r5: Result[String, String] = tool_join(".", "../escape.oo");
+    if r5.is_ok() { return false; }
+    if !tool_needs_ask("write") { return false; }
+    if !tool_needs_ask("bash") { return false; }
+    if tool_needs_ask("read") { return false; }
+    if tool_needs_ask("grep") { return false; }
+    if tool_needs_ask("glob") { return false; }
+    if tool_line_count("a\nb\nc") != 3 { return false; }
+    return true;
+}

@@ -81,3 +81,9 @@ fn int_to_str(n: Int) -> String {
     }
     return out;
 }
+
+pub fn main(bind: &BindCap, fs_r: &FsReadCap, fs_w: &FsWriteCap, sys: &ProcessCap, sys_cap: &SysCap, env: &EnvCap, time: &TimeCap, alloc: &AllocCap, thread: &ThreadCap, args: List[String]) -> Result[Int, String] {
+    let st: Int = qa_chrome_run();
+    if st != 0 { return Err("qa/probe_chrome failed"); }
+    return Ok(0);
+}

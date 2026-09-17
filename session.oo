@@ -91,19 +91,19 @@ pub fn session_save(sys: &ProcessCap, env: &EnvCap, s: Session, transcript: Stri
     if r0.is_err() { return Err("mkdir: " + match r0 { Ok(_) => "", Err(e) => e }); }
     let meta: String = "{\"id\":\"" + s.sid + "\",\"name\":\"" + s.name + "\",\"provider\":\"" + s.provider + "\",\"model\":\"" + s.model + "\",\"cwd\":\"" + s.cwd + "\",\"created\":\"" + s.created + "\"}\n";
     let write_meta: String = "cat > " + path_join(dir, "meta.json") + " << 'EOF_META'\n" + meta + "\nEOF_META";
-    let r1: Result<String, String] = process_exec(sys, write_meta);
+    let r1: Result[String, String] = process_exec(sys, write_meta);
     if r1.is_err() { return Err("write meta: " + match r1 { Ok(_) => "", Err(e) => e }); }
     let write_transcript: String = "cat > " + path_join(dir, "transcript.jsonl") + " << 'EOF_TRANSCRIPT'\n" + transcript + "\nEOF_TRANSCRIPT";
-    let r2: Result<String, String> = process_exec(sys, write_transcript);
+    let r2: Result[String, String] = process_exec(sys, write_transcript);
     if r2.is_err() { return Err("write transcript: " + match r2 { Ok(_) => "", Err(e) => e }); }
     if plan != "" {
         let write_plan: String = "cat > " + path_join(dir, "plan.json") + " << 'EOF_PLAN'\n" + plan + "\nEOF_PLAN";
-        let r3: Result<String, String> = process_exec(sys, write_plan);
+        let r3: Result[String, String] = process_exec(sys, write_plan);
         if r3.is_err() { return Err("write plan: " + match r3 { Ok(_) => "", Err(e) => e }); }
     }
     if goal != "" {
         let write_goal: String = "cat > " + path_join(dir, "goal.txt") + " << 'EOF_GOAL'\n" + goal + "\nEOF_GOAL";
-        let r4: Result<String, String> = process_exec(sys, write_goal);
+        let r4: Result[String, String] = process_exec(sys, write_goal);
         if r4.is_err() { return Err("write goal: " + match r4 { Ok(_) => "", Err(e) => e }); }
     }
     return Ok(0);
@@ -173,7 +173,7 @@ pub fn session_rename(sys: &ProcessCap, env: &EnvCap, sid: String, new_name: Str
     let dir: String = session_dir(env, sid);
     let meta_path: String = path_join(dir, "meta.json");
     let cmd: String = "cat " + meta_path + " | sed 's/\"name\":\"[^\"]*\"/\"name\":\"" + new_name + "\"/' > " + meta_path + ".tmp && mv " + meta_path + ".tmp " + meta_path;
-    let r: Result<String, String> = process_exec(sys, cmd);
+    let r: Result[String, String] = process_exec(sys, cmd);
     if r.is_err() { return Err("rename: " + match r { Ok(_) => "", Err(e) => e }); }
     return Ok(0);
 }
@@ -181,7 +181,7 @@ pub fn session_rename(sys: &ProcessCap, env: &EnvCap, sid: String, new_name: Str
 pub fn session_delete(sys: &ProcessCap, env: &EnvCap, sid: String) -> Result[Int, String] {
     let dir: String = session_dir(env, sid);
     let cmd: String = "rm -rf " + dir;
-    let r: Result<String, String> = process_exec(sys, cmd);
+    let r: Result[String, String] = process_exec(sys, cmd);
     if r.is_err() { return Err("delete: " + match r { Ok(_) => "", Err(e) => e }); }
     return Ok(0);
 }
