@@ -97,7 +97,7 @@ pub fn run_tui_session(fs_r: &FsReadCap, fs_w: &FsWriteCap, sys: &ProcessCap, en
                         st = handle_line(fs_r, fs_w, sys, env, st, line, ver, color);
                         pane = apply_out(pane, st);
                         st.output = "";
-                        if st.exiting { live = false; paint = false; }
+                        if st.exiting { live = false; paint = true; }
                     }
                 } else { cur = cur + ch; }
                 ci = ci + 1;
