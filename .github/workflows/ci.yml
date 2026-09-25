@@ -2,9 +2,9 @@ name: ci
 
 on:
   push:
-    branches: [main]
+    branches: [master]
   pull_request:
-    branches: [main]
+    branches: [master]
 
 jobs:
   build:
@@ -57,7 +57,7 @@ jobs:
             "$GH/oodac/releases/download/v0.11.15/oodac-linux-x86_64"
           chmod +x "$HOME/.openooda/bin/oodac"
           curl -fsSL -o "$HOME/.openooda/northstar.oot" \
-            https://raw.githubusercontent.com/openOODA/openOODA/main/northstar.oot
+            https://raw.githubusercontent.com/openOODA/openOODA/master/northstar.oot
           echo "$HOME/.openooda/bin" >> "$GITHUB_PATH"
           test -x "$HOME/.openooda/bin/oodac"
           test -f "$GITHUB_WORKSPACE/std/fs/process/env.oo"
@@ -236,8 +236,8 @@ jobs:
 
   release:
     needs: build
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    uses: openOODA/openOODA/.github/workflows/auto-release.yml@main
+    if: github.ref == 'refs/heads/master' && github.event_name == 'push'
+    uses: openOODA/openOODA/.github/workflows/auto-release.yml@master
     with:
       artifact_pattern: ooda-tui-*
     permissions:
