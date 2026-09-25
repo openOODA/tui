@@ -54,7 +54,7 @@ jobs:
           mkdir -p "$HOME/.openooda/bin" "$HOME/.openooda/lib"
           GH=https://github.com/openOODA
           curl -fsSL -o "$HOME/.openooda/bin/oodac" \
-            "$GH/oodac/releases/download/v0.11.14/oodac-linux-x86_64"
+            "$GH/oodac/releases/download/v0.11.15/oodac-linux-x86_64"
           chmod +x "$HOME/.openooda/bin/oodac"
           curl -fsSL -o "$HOME/.openooda/northstar.oot" \
             https://raw.githubusercontent.com/openOODA/openOODA/main/northstar.oot
