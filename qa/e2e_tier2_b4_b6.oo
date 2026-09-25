@@ -31,7 +31,7 @@ pub fn run_tier2_b4_b6(sys: &ProcessCap, bin: String) -> Result[Int, String] {
     } else { fail = fail + 1; println("FAIL: T2.1 B4 long model name formats safely"); }
 
     // T2_B4.2: Deep CWD path handling
-    let r_cwd: Result[String, String] = process_exec(sys, "printf '/exit\\n' | " + bin + " --cwd /home/jeryd/Projects/openOODA/tui/qa 2>&1");
+    let r_cwd: Result[String, String] = process_exec(sys, "printf '/exit\\n' | " + bin + " --cwd $OODA_TUI_ROOT/qa 2>&1");
     if r_cwd.is_ok() {
         pass = pass + 1; println("PASS: T2.2 B4 deep CWD path formats safely");
     } else { fail = fail + 1; println("FAIL: T2.2 B4 deep CWD path formats safely"); }

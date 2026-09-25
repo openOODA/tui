@@ -93,13 +93,13 @@ pub fn run_tier1_f1_f3(sys: &ProcessCap, bin: String) -> Result[Int, String] {
     } else { fail = fail + 1; println("FAIL: T3.2 F3 line mode prompt handling"); }
 
     // T3.3: --no-color emits zero ESC bytes
-    let r_nc: Result[String, String] = process_exec(sys, "make -C /home/jeryd/Projects/openOODA/tui no-color");
+    let r_nc: Result[String, String] = process_exec(sys, "make -C $OODA_TUI_ROOT no-color");
     if r_nc.is_ok() {
         pass = pass + 1; println("PASS: T3.3 F3 --no-color guarantees zero ESC bytes");
     } else { fail = fail + 1; println("FAIL: T3.3 F3 --no-color guarantees zero ESC bytes"); }
 
     // T3.4: OODA_NO_COLOR=1 emits zero ESC bytes
-    let r_env_nc: Result[String, String] = process_exec(sys, "make -C /home/jeryd/Projects/openOODA/tui dumb-term");
+    let r_env_nc: Result[String, String] = process_exec(sys, "make -C $OODA_TUI_ROOT dumb-term");
     if r_env_nc.is_ok() {
         pass = pass + 1; println("PASS: T3.4 F3 OODA_NO_COLOR=1 guarantees zero ESC bytes");
     } else { fail = fail + 1; println("FAIL: T3.4 F3 OODA_NO_COLOR=1 guarantees zero ESC bytes"); }

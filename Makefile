@@ -105,6 +105,7 @@ e2e: $(BIN)
 	@export OO_LIST_AMBIENT_QUOTA=1073741824; \
 	export OODACODEX=$(OODACODEX); \
 	export OODA_COMPILER=$(OODA_COMPILER); \
+	export OODA_TUI_ROOT=$(CURDIR); \
 	ooda test qa/e2e_tier1_f1_f3.oo && \
 	ooda test qa/e2e_tier1_f4_f6.oo && \
 	ooda test qa/e2e_tier1_f7_f9.oo && \

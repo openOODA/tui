@@ -38,7 +38,7 @@ pub fn run_tier3_pairwise(sys: &ProcessCap, bin: String) -> Result[Int, String] 
     } else { fail = fail + 1; println("FAIL: P2 Header Input + Mode Chips + Canvas integrated"); }
 
     // P3: F3 (Cursor Placement) + F10 (Governance) + F11 (Typecheck)
-    let r_p3: Result[String, String] = process_exec(sys, "make -C /home/jeryd/Projects/openOODA/tui no-color line-cap");
+    let r_p3: Result[String, String] = process_exec(sys, "make -C $OODA_TUI_ROOT no-color line-cap");
     if r_p3.is_ok() {
         pass = pass + 1; println("PASS: P3 Cursor Placement + Governance + Clean Execution");
     } else { fail = fail + 1; println("FAIL: P3 Cursor Placement + Governance + Clean Execution"); }
@@ -84,7 +84,7 @@ pub fn run_tier3_pairwise(sys: &ProcessCap, bin: String) -> Result[Int, String] 
     } else { fail = fail + 1; println("FAIL: P8 Footer Statusbar + Registry + Double-Run integrated"); }
 
     // P9: F5 (Telemetry) + F12 (Binary Parity) + F11 (Clean Test)
-    let r_p9: Result[String, String] = process_exec(sys, "test $(sha256sum " + bin + " | cut -d' ' -f1) = $(sha256sum /home/jeryd/Projects/openOODA/tui/dist/ooda-tui | cut -d' ' -f1)");
+    let r_p9: Result[String, String] = process_exec(sys, "test $(sha256sum " + bin + " | cut -d' ' -f1) = $(sha256sum $OODA_TUI_ROOT/dist/ooda-tui | cut -d' ' -f1)");
     if r_p9.is_ok() {
         pass = pass + 1; println("PASS: P9 Telemetry + Binary Parity + Clean Test integrated");
     } else { fail = fail + 1; println("FAIL: P9 Telemetry + Binary Parity + Clean Test integrated"); }

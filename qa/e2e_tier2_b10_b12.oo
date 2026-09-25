@@ -25,31 +25,31 @@ pub fn run_tier2_b10_b12(sys: &ProcessCap, bin: String) -> Result[Int, String] {
 
     // B10: Line Limit & File Law Boundaries (5 tests)
     // T2_B10.1: Largest .oo file <= 256 lines
-    let r_max: Result[String, String] = process_exec(sys, "max=0; for f in $(find /home/jeryd/Projects/openOODA/tui -name '*.oo'); do n=$(wc -l < \"$f\"); if [ $n -gt $max ]; then max=$n; fi; done; test $max -le 256");
+    let r_max: Result[String, String] = process_exec(sys, "max=0; for f in $(find $OODA_TUI_ROOT -name '*.oo'); do n=$(wc -l < \"$f\"); if [ $n -gt $max ]; then max=$n; fi; done; test $max -le 256");
     if r_max.is_ok() {
         pass = pass + 1; println("PASS: T2.1 B10 largest .oo file strictly <= 256 lines");
     } else { fail = fail + 1; println("FAIL: T2.1 B10 largest .oo file strictly <= 256 lines"); }
 
     // T2_B10.2: All qa/*.oo files <= 256 lines
-    let r_qa_cap: Result[String, String] = process_exec(sys, "bad=0; for f in $(find /home/jeryd/Projects/openOODA/tui/qa -name '*.oo'); do n=$(wc -l < \"$f\"); if [ $n -gt 256 ]; then bad=$((bad+1)); fi; done; test $bad -eq 0");
+    let r_qa_cap: Result[String, String] = process_exec(sys, "bad=0; for f in $(find $OODA_TUI_ROOT/qa -name '*.oo'); do n=$(wc -l < \"$f\"); if [ $n -gt 256 ]; then bad=$((bad+1)); fi; done; test $bad -eq 0");
     if r_qa_cap.is_ok() {
         pass = pass + 1; println("PASS: T2.2 B10 all qa probes satisfy 256-line ceiling");
     } else { fail = fail + 1; println("FAIL: T2.2 B10 all qa probes satisfy 256-line ceiling"); }
 
     // T2_B10.3: Zero .sh scripts in repo
-    let r_sh: Result[String, String] = process_exec(sys, "test -z \"$(find /home/jeryd/Projects/openOODA/tui -name '*.sh' -not -path '*/.git/*')\"");
+    let r_sh: Result[String, String] = process_exec(sys, "test -z \"$(find $OODA_TUI_ROOT -name '*.sh' -not -path '*/.git/*')\"");
     if r_sh.is_ok() {
         pass = pass + 1; println("PASS: T2.3 B10 zero forbidden .sh scripts in repository");
     } else { fail = fail + 1; println("FAIL: T2.3 B10 zero forbidden .sh scripts in repository"); }
 
     // T2_B10.4: Zero .py scripts in repo
-    let r_py: Result[String, String] = process_exec(sys, "test -z \"$(find /home/jeryd/Projects/openOODA/tui -name '*.py' -not -path '*/.git/*')\"");
+    let r_py: Result[String, String] = process_exec(sys, "test -z \"$(find $OODA_TUI_ROOT -name '*.py' -not -path '*/.git/*')\"");
     if r_py.is_ok() {
         pass = pass + 1; println("PASS: T2.4 B10 zero forbidden .py scripts in repository");
     } else { fail = fail + 1; println("FAIL: T2.4 B10 zero forbidden .py scripts in repository"); }
 
     // T2_B10.5: Academy header in all qa probes
-    let r_acad: Result[String, String] = process_exec(sys, "bad=0; for f in $(find /home/jeryd/Projects/openOODA/tui/qa -name '*.oo'); do if ! head -7 \"$f\" | grep -q '// # '; then bad=$((bad+1)); fi; done; test $bad -eq 0");
+    let r_acad: Result[String, String] = process_exec(sys, "bad=0; for f in $(find $OODA_TUI_ROOT/qa -name '*.oo'); do if ! head -7 \"$f\" | grep -q '// # '; then bad=$((bad+1)); fi; done; test $bad -eq 0");
     if r_acad.is_ok() {
         pass = pass + 1; println("PASS: T2.5 B10 all qa probes contain Academy headers");
     } else { fail = fail + 1; println("FAIL: T2.5 B10 all qa probes contain Academy headers"); }
@@ -88,7 +88,7 @@ pub fn run_tier2_b10_b12(sys: &ProcessCap, bin: String) -> Result[Int, String] {
 
     // B12: Binary Parity Boundaries (5 tests)
     // T2_B12.1: dist/ooda-tui size > 50KB
-    let r_sz_dist: Result[String, String] = process_exec(sys, "test $(stat -c%s /home/jeryd/Projects/openOODA/tui/dist/ooda-tui) -gt 50000");
+    let r_sz_dist: Result[String, String] = process_exec(sys, "test $(stat -c%s $OODA_TUI_ROOT/dist/ooda-tui) -gt 50000");
     if r_sz_dist.is_ok() {
         pass = pass + 1; println("PASS: T2.11 B12 dist binary exceeds 50KB threshold");
     } else { fail = fail + 1; println("FAIL: T2.11 B12 dist binary exceeds 50KB threshold"); }
@@ -100,20 +100,20 @@ pub fn run_tier2_b10_b12(sys: &ProcessCap, bin: String) -> Result[Int, String] {
     } else { fail = fail + 1; println("FAIL: T2.12 B12 installed binary exceeds 50KB threshold"); }
 
     // T2_B12.3: File size match between dist and install
-    let r_sz_match: Result[String, String] = process_exec(sys, "test $(stat -c%s /home/jeryd/Projects/openOODA/tui/dist/ooda-tui) -eq $(stat -c%s ~/.openooda/bin/ooda-tui)");
+    let r_sz_match: Result[String, String] = process_exec(sys, "test $(stat -c%s $OODA_TUI_ROOT/dist/ooda-tui) -eq $(stat -c%s ~/.openooda/bin/ooda-tui)");
     if r_sz_match.is_ok() {
         pass = pass + 1; println("PASS: T2.13 B12 byte count between dist and install matches exactly");
     } else { fail = fail + 1; println("FAIL: T2.13 B12 byte count between dist and install matches exactly"); }
 
     // T2_B12.4: Deterministic SHA-256 digest calculation
-    let r_sha1: Result[String, String] = process_exec(sys, "sha256sum /home/jeryd/Projects/openOODA/tui/dist/ooda-tui | cut -d' ' -f1");
-    let r_sha2: Result[String, String] = process_exec(sys, "sha256sum /home/jeryd/Projects/openOODA/tui/dist/ooda-tui | cut -d' ' -f1");
+    let r_sha1: Result[String, String] = process_exec(sys, "sha256sum $OODA_TUI_ROOT/dist/ooda-tui | cut -d' ' -f1");
+    let r_sha2: Result[String, String] = process_exec(sys, "sha256sum $OODA_TUI_ROOT/dist/ooda-tui | cut -d' ' -f1");
     if r_sha1.is_ok() && r_sha2.is_ok() && r_sha1.unwrap() == r_sha2.unwrap() {
         pass = pass + 1; println("PASS: T2.14 B12 consecutive SHA-256 calculations are deterministic");
     } else { fail = fail + 1; println("FAIL: T2.14 B12 consecutive SHA-256 calculations are deterministic"); }
 
     // T2_B12.5: Parity holds under plain environment
-    let r_par_plain: Result[String, String] = process_exec(sys, "NO_COLOR=1 test $(sha256sum /home/jeryd/Projects/openOODA/tui/dist/ooda-tui | cut -d' ' -f1) = $(sha256sum ~/.openooda/bin/ooda-tui | cut -d' ' -f1)");
+    let r_par_plain: Result[String, String] = process_exec(sys, "NO_COLOR=1 test $(sha256sum $OODA_TUI_ROOT/dist/ooda-tui | cut -d' ' -f1) = $(sha256sum ~/.openooda/bin/ooda-tui | cut -d' ' -f1)");
     if r_par_plain.is_ok() {
         pass = pass + 1; println("PASS: T2.15 B12 binary parity holds under plain environment");
     } else { fail = fail + 1; println("FAIL: T2.15 B12 binary parity holds under plain environment"); }

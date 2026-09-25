@@ -25,31 +25,31 @@ pub fn run_tier1_f10_f12(sys: &ProcessCap, bin: String) -> Result[Int, String] {
 
     // F10: Governance & Line Limits (5 tests)
     // T10.1: make line-cap holds
-    let r_lc: Result[String, String] = process_exec(sys, "make -C /home/jeryd/Projects/openOODA/tui line-cap");
+    let r_lc: Result[String, String] = process_exec(sys, "make -C $OODA_TUI_ROOT line-cap");
     if r_lc.is_ok() && str_contains(r_lc.unwrap(), "PASS: 256-line cap holds") {
         pass = pass + 1; println("PASS: T10.1 F10 256-line cap holds across repository");
     } else { fail = fail + 1; println("FAIL: T10.1 F10 256-line cap holds across repository"); }
 
     // T10.2: make academy docstrings hold
-    let r_acad: Result[String, String] = process_exec(sys, "make -C /home/jeryd/Projects/openOODA/tui academy");
+    let r_acad: Result[String, String] = process_exec(sys, "make -C $OODA_TUI_ROOT academy");
     if r_acad.is_ok() && str_contains(r_acad.unwrap(), "PASS: academy headers hold") {
         pass = pass + 1; println("PASS: T10.2 F10 academy 4-element docstrings hold");
     } else { fail = fail + 1; println("FAIL: T10.2 F10 academy 4-element docstrings hold"); }
 
     // T10.3: make file-law holds
-    let r_fl: Result[String, String] = process_exec(sys, "make -C /home/jeryd/Projects/openOODA/tui file-law");
+    let r_fl: Result[String, String] = process_exec(sys, "make -C $OODA_TUI_ROOT file-law");
     if r_fl.is_ok() && str_contains(r_fl.unwrap(), "PASS: file law holds") {
         pass = pass + 1; println("PASS: T10.3 F10 file law holds (zero forbidden extensions)");
     } else { fail = fail + 1; println("FAIL: T10.3 F10 file law holds (zero forbidden extensions)"); }
 
     // T10.4: qa/anchor.oo exists and is non-empty
-    let r_anc: Result[String, String] = process_exec(sys, "test -s /home/jeryd/Projects/openOODA/tui/qa/anchor.oo");
+    let r_anc: Result[String, String] = process_exec(sys, "test -s $OODA_TUI_ROOT/qa/anchor.oo");
     if r_anc.is_ok() {
         pass = pass + 1; println("PASS: T10.4 F10 qa anchor graph exists");
     } else { fail = fail + 1; println("FAIL: T10.4 F10 qa anchor graph exists"); }
 
     // T10.5: No stray temp files in tree
-    let r_stray: Result[String, String] = process_exec(sys, "find /home/jeryd/Projects/openOODA/tui -name '*~' -o -name '*.swp'");
+    let r_stray: Result[String, String] = process_exec(sys, "find $OODA_TUI_ROOT -name '*~' -o -name '*.swp'");
     if r_stray.is_ok() && chars_len(r_stray.unwrap()) == 0 {
         pass = pass + 1; println("PASS: T10.5 F10 zero stray backup files in repository");
     } else { fail = fail + 1; println("FAIL: T10.5 F10 zero stray backup files in repository"); }
@@ -88,7 +88,7 @@ pub fn run_tier1_f10_f12(sys: &ProcessCap, bin: String) -> Result[Int, String] {
 
     // F12: Cryptographic Binary Parity (5 tests)
     // T12.1: dist/ooda-tui exists and executable
-    let r_dist: Result[String, String] = process_exec(sys, "test -x /home/jeryd/Projects/openOODA/tui/dist/ooda-tui");
+    let r_dist: Result[String, String] = process_exec(sys, "test -x $OODA_TUI_ROOT/dist/ooda-tui");
     if r_dist.is_ok() {
         pass = pass + 1; println("PASS: T12.1 F12 dist/ooda-tui binary exists");
     } else { fail = fail + 1; println("FAIL: T12.1 F12 dist/ooda-tui binary exists"); }
@@ -100,19 +100,19 @@ pub fn run_tier1_f10_f12(sys: &ProcessCap, bin: String) -> Result[Int, String] {
     } else { fail = fail + 1; println("FAIL: T12.2 F12 installed ooda-tui binary exists"); }
 
     // T12.3: Bit-for-bit SHA-256 digest match
-    let r_sha: Result[String, String] = process_exec(sys, "d=$(sha256sum /home/jeryd/Projects/openOODA/tui/dist/ooda-tui | cut -d' ' -f1); i=$(sha256sum ~/.openooda/bin/ooda-tui | cut -d' ' -f1); test \"$d\" = \"$i\"");
+    let r_sha: Result[String, String] = process_exec(sys, "d=$(sha256sum $OODA_TUI_ROOT/dist/ooda-tui | cut -d' ' -f1); i=$(sha256sum ~/.openooda/bin/ooda-tui | cut -d' ' -f1); test \"$d\" = \"$i\"");
     if r_sha.is_ok() {
         pass = pass + 1; println("PASS: T12.3 F12 bit-for-bit SHA-256 binary parity holds");
     } else { fail = fail + 1; println("FAIL: T12.3 F12 bit-for-bit SHA-256 binary parity holds"); }
 
     // T12.4: ~/.openooda/bin/tui matches dist/ooda-tui
-    let r_tui: Result[String, String] = process_exec(sys, "d=$(sha256sum /home/jeryd/Projects/openOODA/tui/dist/ooda-tui | cut -d' ' -f1); t=$(sha256sum ~/.openooda/bin/tui | cut -d' ' -f1); test \"$d\" = \"$t\"");
+    let r_tui: Result[String, String] = process_exec(sys, "d=$(sha256sum $OODA_TUI_ROOT/dist/ooda-tui | cut -d' ' -f1); t=$(sha256sum ~/.openooda/bin/tui | cut -d' ' -f1); test \"$d\" = \"$t\"");
     if r_tui.is_ok() {
         pass = pass + 1; println("PASS: T12.4 F12 tui alias matches release binary bit-for-bit");
     } else { fail = fail + 1; println("FAIL: T12.4 F12 tui alias matches release binary bit-for-bit"); }
 
     // T12.5: Parity matches between release binary and execution path
-    let r_par: Result[String, String] = process_exec(sys, "test $(sha256sum " + bin + " | cut -d' ' -f1) = $(sha256sum /home/jeryd/Projects/openOODA/tui/dist/ooda-tui | cut -d' ' -f1)");
+    let r_par: Result[String, String] = process_exec(sys, "test $(sha256sum " + bin + " | cut -d' ' -f1) = $(sha256sum $OODA_TUI_ROOT/dist/ooda-tui | cut -d' ' -f1)");
     if r_par.is_ok() {
         pass = pass + 1; println("PASS: T12.5 F12 release binary matches execution path digest");
     } else { fail = fail + 1; println("FAIL: T12.5 F12 release binary matches execution path digest"); }
