@@ -40,6 +40,12 @@ jobs:
           repository: openOODA/cli
           path: cli
 
+      - name: Checkout oodac
+        uses: actions/checkout@v4
+        with:
+          repository: openOODA/oodac
+          path: oodac
+
       - name: Install toolchain
         run: |
           set -euo pipefail
