@@ -12,8 +12,8 @@
 import "std/fs/process/process.oo";
 
 pub fn resolve_tui_bin(sys: &ProcessCap) -> String {
-    let r_inst: Result[String, String] = process_exec(sys, "test -x ~/.openooda/bin/ooda-tui");
-    if r_inst.is_ok() { return "~/.openooda/bin/ooda-tui"; }
+    let r_inst: Result[String, String] = process_exec(sys, "test -x $OODA_HOME/.openooda/bin/ooda-tui");
+    if r_inst.is_ok() { return "$OODA_HOME/.openooda/bin/ooda-tui"; }
     let r_dist: Result[String, String] = process_exec(sys, "test -x ./dist/ooda-tui");
     if r_dist.is_ok() { return "./dist/ooda-tui"; }
     return "./dist/ooda-tui";
@@ -93,20 +93,20 @@ pub fn run_tier1_f10_f12(sys: &ProcessCap, bin: String) -> Result[Int, String] {
         pass = pass + 1; println("PASS: T12.1 F12 dist/ooda-tui binary exists");
     } else { fail = fail + 1; println("FAIL: T12.1 F12 dist/ooda-tui binary exists"); }
 
-    // T12.2: ~/.openooda/bin/ooda-tui exists and executable
-    let r_inst: Result[String, String] = process_exec(sys, "test -x ~/.openooda/bin/ooda-tui");
+    // T12.2: $OODA_HOME/.openooda/bin/ooda-tui exists and executable
+    let r_inst: Result[String, String] = process_exec(sys, "test -x $OODA_HOME/.openooda/bin/ooda-tui");
     if r_inst.is_ok() {
         pass = pass + 1; println("PASS: T12.2 F12 installed ooda-tui binary exists");
     } else { fail = fail + 1; println("FAIL: T12.2 F12 installed ooda-tui binary exists"); }
 
     // T12.3: Bit-for-bit SHA-256 digest match
-    let r_sha: Result[String, String] = process_exec(sys, "d=$(sha256sum $OODA_TUI_ROOT/dist/ooda-tui | cut -d' ' -f1); i=$(sha256sum ~/.openooda/bin/ooda-tui | cut -d' ' -f1); test \"$d\" = \"$i\"");
+    let r_sha: Result[String, String] = process_exec(sys, "d=$(sha256sum $OODA_TUI_ROOT/dist/ooda-tui | cut -d' ' -f1); i=$(sha256sum $OODA_HOME/.openooda/bin/ooda-tui | cut -d' ' -f1); test \"$d\" = \"$i\"");
     if r_sha.is_ok() {
         pass = pass + 1; println("PASS: T12.3 F12 bit-for-bit SHA-256 binary parity holds");
     } else { fail = fail + 1; println("FAIL: T12.3 F12 bit-for-bit SHA-256 binary parity holds"); }
 
-    // T12.4: ~/.openooda/bin/tui matches dist/ooda-tui
-    let r_tui: Result[String, String] = process_exec(sys, "d=$(sha256sum $OODA_TUI_ROOT/dist/ooda-tui | cut -d' ' -f1); t=$(sha256sum ~/.openooda/bin/tui | cut -d' ' -f1); test \"$d\" = \"$t\"");
+    // T12.4: $OODA_HOME/.openooda/bin/tui matches dist/ooda-tui
+    let r_tui: Result[String, String] = process_exec(sys, "d=$(sha256sum $OODA_TUI_ROOT/dist/ooda-tui | cut -d' ' -f1); t=$(sha256sum $OODA_HOME/.openooda/bin/tui | cut -d' ' -f1); test \"$d\" = \"$t\"");
     if r_tui.is_ok() {
         pass = pass + 1; println("PASS: T12.4 F12 tui alias matches release binary bit-for-bit");
     } else { fail = fail + 1; println("FAIL: T12.4 F12 tui alias matches release binary bit-for-bit"); }

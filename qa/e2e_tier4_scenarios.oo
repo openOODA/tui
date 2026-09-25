@@ -17,8 +17,8 @@ import "plugins/registry.oo";
 import "ui/indicators/indicator_dots.oo";
 
 pub fn resolve_tui_bin(sys: &ProcessCap) -> String {
-    let r_inst: Result[String, String] = process_exec(sys, "test -x ~/.openooda/bin/ooda-tui");
-    if r_inst.is_ok() { return "~/.openooda/bin/ooda-tui"; }
+    let r_inst: Result[String, String] = process_exec(sys, "test -x $OODA_HOME/.openooda/bin/ooda-tui");
+    if r_inst.is_ok() { return "$OODA_HOME/.openooda/bin/ooda-tui"; }
     let r_dist: Result[String, String] = process_exec(sys, "test -x ./dist/ooda-tui");
     if r_dist.is_ok() { return "./dist/ooda-tui"; }
     return "./dist/ooda-tui";
@@ -59,7 +59,7 @@ pub fn run_tier4_scenarios(sys: &ProcessCap, bin: String) -> Result[Int, String]
     } else { fail = fail + 1; println("FAIL: S5 Plain Mode / Dumb Terminal zero ESC workflow succeeded"); }
 
     // Scenario 6: Full Governance & Cryptographic Binary Parity (F10, F11, F12)
-    let r_s6: Result[String, String] = process_exec(sys, "test $(sha256sum $OODA_TUI_ROOT/dist/ooda-tui | cut -d' ' -f1) = $(sha256sum ~/.openooda/bin/ooda-tui | cut -d' ' -f1)");
+    let r_s6: Result[String, String] = process_exec(sys, "test $(sha256sum $OODA_TUI_ROOT/dist/ooda-tui | cut -d' ' -f1) = $(sha256sum $OODA_HOME/.openooda/bin/ooda-tui | cut -d' ' -f1)");
     if r_s6.is_ok() {
         pass = pass + 1; println("PASS: S6 Full Governance & Cryptographic Parity workflow succeeded");
     } else { fail = fail + 1; println("FAIL: S6 Full Governance & Cryptographic Parity workflow succeeded"); }

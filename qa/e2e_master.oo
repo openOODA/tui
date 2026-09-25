@@ -2,7 +2,7 @@
 //
 // Logline: Unified opaque-box test runner executing all 138 test cases across Tiers 1-4 with Double-Run verification.
 //
-// Setup: Spawns both dist/ooda-tui and ~/.openooda/bin/ooda-tui under &ProcessCap and aggregates proofs.
+// Setup: Spawns both dist/ooda-tui and $OODA_HOME/.openooda/bin/ooda-tui under &ProcessCap and aggregates proofs.
 //
 // Beats:
 //   1. Resolve release binary and verify cryptographic parity.

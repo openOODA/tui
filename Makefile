@@ -106,6 +106,7 @@ e2e: $(BIN)
 	export OODACODEX=$(OODACODEX); \
 	export OODA_COMPILER=$(OODA_COMPILER); \
 	export OODA_TUI_ROOT=$(CURDIR); \
+	export OODA_HOME=$(HOME); \
 	ooda test qa/e2e_tier1_f1_f3.oo && \
 	ooda test qa/e2e_tier1_f4_f6.oo && \
 	ooda test qa/e2e_tier1_f7_f9.oo && \

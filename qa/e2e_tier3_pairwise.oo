@@ -14,8 +14,8 @@ import "plugins/registry.oo";
 import "ui/indicators/indicator_dots.oo";
 
 pub fn resolve_tui_bin(sys: &ProcessCap) -> String {
-    let r_inst: Result[String, String] = process_exec(sys, "test -x ~/.openooda/bin/ooda-tui");
-    if r_inst.is_ok() { return "~/.openooda/bin/ooda-tui"; }
+    let r_inst: Result[String, String] = process_exec(sys, "test -x $OODA_HOME/.openooda/bin/ooda-tui");
+    if r_inst.is_ok() { return "$OODA_HOME/.openooda/bin/ooda-tui"; }
     let r_dist: Result[String, String] = process_exec(sys, "test -x ./dist/ooda-tui");
     if r_dist.is_ok() { return "./dist/ooda-tui"; }
     return "./dist/ooda-tui";

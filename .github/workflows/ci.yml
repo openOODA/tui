@@ -217,6 +217,7 @@ jobs:
           export OODA_STD="$GITHUB_WORKSPACE/std"
           export OODA_NO_JAIL=1
           export OODA_TUI_ROOT="$GITHUB_WORKSPACE/tui"
+          export OODA_HOME="$HOME"
           export PATH="$HOME/.openooda/bin:$PATH"
           make install
           make e2e
