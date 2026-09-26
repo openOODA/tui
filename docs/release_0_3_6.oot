@@ -1,0 +1,32 @@
+# Release notes: v0.3.6
+
+File: tui/docs/release_0_3_6.oot
+
+The work screen you type with. Version 0.3.6 is a hardening release:
+no new big features, but safer paths, cleaner exits, and a fresher
+build chain. Tagged `v0.3.6`.
+
+## What changed since v0.3.3
+
+- Portable install paths. The screen no longer assumes fixed home
+  folder spots. It follows your setup instead.
+- No hardcoded user paths. A guard refuses paths that try to escape
+  the workspace. Nasty `..` tricks fail closed.
+- Clean exits for batch and pipe runs. Waiting output is flushed
+  before quit, so scripted runs lose nothing.
+- Build chain v0.11.15 with tiered runtime libraries. The 138-case
+  end-to-end gate runs in the build with portable paths.
+
+## What stayed the same
+
+- The three-zone layout: prompt dock on top, thought canvas in the
+  middle, status dashboard at the bottom.
+- The 138-case end-to-end suite under the double-run rule: run it
+  twice, both runs must agree.
+- Themes, slash commands, and the editor/AI helper connections.
+
+## Upgrade
+
+Re-run the setup script. Your settings carry over. If the screen
+misbehaves after upgrade, quit fully and start it once more before
+reporting trouble.

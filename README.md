@@ -1,14 +1,15 @@
 # ooda-tui
 
-A generic coding harness with openOODA-aware defaults. v0.1.3 is
-line-mode chrome with slash commands, config load, and a real LLM
-round-trip via curl. Connects to `ooda-mcp` when installed. Renders
-the 1982 CRT amber/phosphor theme by default (`minimax` also ships).
-Raw TTY / alt-screen is v0.2.0, blocked on the oodar tui_host shim.
+A generic coding harness with openOODA-aware defaults. Current release
+is v0.3.6: framed prompt dock on top, scrollable thought canvas in the
+middle, live status dashboard at the bottom, slash commands, config
+load, and real LLM round-trips via curl. Connects to `ooda-mcp` and
+`ooda-lsp` when installed. Renders the 1982 CRT amber/phosphor theme
+by default (`minimax` also ships).
 
 ## Current Build Status & What's Next
 
-### Build Status (Inverted Layout Re-Architecture — v0.3.3-dev)
+### Build Status (Inverted Layout Re-Architecture — v0.3.6)
 - **Milestone 1 (Header Input Dock)**: **CERTIFIED (PASS)**. Relocated framed prompt box to Rows 1–3 (`ui/input/input_header.oo`) with hardware cursor placement (`\x1b[2;5H`) keeping typed input cleanly inside the box.
 - **Milestone 2 (Environmental Footer Dashboard)**: **CERTIFIED (PASS)**. Relocated all operational metadata (LLM model, CWD, thinking level, mode, permissions, MCP/LSP) to bottom statusbar (`ui/statusbar/statusbar_footer.oo`) with responsive width budgeting down to 40 columns.
 - **Milestone 3 (Thought Stream & Canvas Viewport)**: **CERTIFIED (PASS)**. Intermediate scrollable viewport with collapsible reasoning card (`ui/cards/card_thought.oo`), isolating `<think>` tokens from conversational history with word wrapping and border symmetry.
@@ -18,9 +19,12 @@ Raw TTY / alt-screen is v0.2.0, blocked on the oodar tui_host shim.
   - 100% compliant with ASD-STE100 Academy docstrings and 256-line file limits.
   - Cryptographic release binary parity certified bit-for-bit against `~/.openooda/bin/{ooda-tui,tui}` (`66bf92e9...`).
 
-### What's Next (Milestone 4 & Release)
-- **Milestone 4**: Dynamic Thinking Ticker (`ui/indicators/indicator_ticker.oo`) with animated 10-frame Braille spinner (`⠋ ⠙ ⠹ ⠸ ⠼ ⠴ ⠦ ⠧ ⠇ ⠏`), token velocity (`tok/s`), and elapsed duration on Row 4, alongside master plugin decoupling in `plugins/registry.oo`.
-- **Milestone 5**: Final full-stack regression certification, release tagging (`v0.3.3`), and GitHub release asset compilation.
+- **Milestone 4 (Thinking Ticker & Plugin Kernel)**: **DONE**. Shipped under different names: the stream indicator (`ui/indicators/indicator_stream.oo`: live tok/sec, token count, elapsed time, pulse animation) plus the telemetry gauge (`ui/indicators/indicator_telemetry.oo`), on the decoupled plugin kernel (`plugins/registry.oo`). In place since v0.3.0; this status line corrects the old roadmap text.
+- **Milestones 5–6 (Hardening & Release v0.3.6)**: **DONE**. Portable install paths, no hardcoded user paths, path traversal guard, batch/pipe output flush on exit, toolchain v0.11.15. Tagged `v0.3.6`. See `docs/release_0_3_6.oot`.
+
+### What's Next
+- Keep the release notes current on every version bump (notes live in `docs/`).
+- Next feature work is unplanned: propose it via the org feature request form before building.
 
 ## Install
 
