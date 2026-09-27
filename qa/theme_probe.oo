@@ -10,6 +10,7 @@
 
 import "themes/1982.oo";
 import "theme.oo";
+import "std/core/text/num_buffer.oo";
 
 pub fn main(bind: &BindCap, fs_r: &FsReadCap, fs_w: &FsWriteCap, sys: &ProcessCap, sys_cap: &SysCap, env: &EnvCap, time: &TimeCap, alloc: &AllocCap, thread: &ThreadCap, args: List[String]) -> Result[Int, String] {
     println("qa/theme_probe: starting theme render probe");

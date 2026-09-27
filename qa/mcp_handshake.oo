@@ -10,6 +10,7 @@
 //   3. mcp_call_tool envelope includes the tool name.
 
 import "mcp_client.oo";
+import "std/core/text/num_buffer.oo";
 
 pub fn main(bind: &BindCap, fs_r: &FsReadCap, fs_w: &FsWriteCap, sys: &ProcessCap, sys_cap: &SysCap, env: &EnvCap, time: &TimeCap, alloc: &AllocCap, thread: &ThreadCap, args: List[String]) -> Result[Int, String] {
     println("qa/mcp_handshake: starting MCP probe");

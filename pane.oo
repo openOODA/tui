@@ -11,6 +11,7 @@
 //   4. pane_clear(p) empties the buffer.
 
 import "theme.oo";
+import "std/core/text/num_buffer.oo";
 
 type Pane = struct {
     lines: List[String],
@@ -95,24 +96,4 @@ fn int_pad_left(n: Int, width: Int) -> String {
     while pad > 0 { s = s + " "; pad = pad - 1; }
     s = s + raw;
     return s;
-}
-
-fn int_to_str(n: Int) -> String {
-    if n < 0 { return "0"; }
-    if n == 0 { return "0"; }
-    let digits: String = "0123456789";
-    let mut v: Int = n;
-    let mut rev: String = "";
-    while v > 0 {
-        let d: Int = v - (v / 10) * 10;
-        rev = rev + char_at(digits, d);
-        v = v / 10;
-    }
-    let mut out: String = "";
-    let mut k: Int = chars_len(rev) - 1;
-    while k >= 0 {
-        out = out + char_at(rev, k);
-        k = k - 1;
-    }
-    return out;
 }

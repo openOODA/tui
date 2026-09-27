@@ -13,6 +13,7 @@
 import "ui/cards/card_thought.oo";
 import "theme.oo";
 import "plugins/registry.oo";
+import "std/core/text/num_buffer.oo";
 
 fn count_nl(s: String) -> Int {
     let n: Int = chars_len(s); let mut c: Int = 0; let mut i: Int = 0;
@@ -186,13 +187,4 @@ pub fn main(bind: &BindCap, fs_r: &FsReadCap, fs_w: &FsWriteCap, sys: &ProcessCa
     let res: Int = qa_adversarial_m3_run();
     if res != 0 { return Err("qa/probe_adversarial_m3 failed"); }
     return Ok(0);
-}
-
-fn int_to_str(n: Int) -> String {
-    if n <= 0 { return "0"; }
-    let digits: String = "0123456789"; let mut v: Int = n; let mut rev: String = "";
-    while v > 0 { let d: Int = v - (v / 10) * 10; rev = rev + char_at(digits, d); v = v / 10; }
-    let mut out: String = ""; let mut k: Int = chars_len(rev) - 1;
-    while k >= 0 { out = out + char_at(rev, k); k = k - 1; }
-    return out;
 }

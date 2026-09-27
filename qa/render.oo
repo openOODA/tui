@@ -10,6 +10,7 @@
 //   3. Print pass/fail count.
 
 import "theme.oo";
+import "std/core/text/num_buffer.oo";
 
 pub fn qa_render_run() -> Int {
     let tokens: String = "accent\1border\1borderAccent\1borderMuted\1success\1error\1warning\1muted\1dim\1text\1thinkingText\1selectedBg\1scrollbarTrack\1scrollbarThumb\1userMessageBg\1userMessageText\1customMessageBg\1customMessageText\1customMessageLabel\1toolPendingBg\1toolSuccessBg\1toolErrorBg\1toolTitle\1toolOutput\1mdHeading\1mdLink\1mdLinkUrl\1mdCode\1mdCodeBlock\1mdCodeBlockBorder\1mdListBullet\1toolDiffAdded\1toolDiffRemoved\1toolDiffContext\1syntaxComment\1syntaxKeyword\1syntaxFunction\1syntaxVariable\1syntaxString\1syntaxNumber\1syntaxType\1syntaxOperator\1syntaxPunctuation\1thinkingOff\1thinkingMinimal\1thinkingLow\1thinkingMedium\1thinkingHigh\1thinkingXhigh\1thinkingMax\1bashMode";
@@ -50,26 +51,6 @@ fn starts_with(s: String, prefix: String) -> Bool {
 fn bool_str(b: Bool) -> String {
     if b { return "true"; }
     return "false";
-}
-
-fn int_to_str(n: Int) -> String {
-    if n < 0 { return "0"; }
-    if n == 0 { return "0"; }
-    let digits: String = "0123456789";
-    let mut v: Int = n;
-    let mut rev: String = "";
-    while v > 0 {
-        let d: Int = v - (v / 10) * 10;
-        rev = rev + char_at(digits, d);
-        v = v / 10;
-    }
-    let mut out: String = "";
-    let mut k: Int = chars_len(rev) - 1;
-    while k >= 0 {
-        out = out + char_at(rev, k);
-        k = k - 1;
-    }
-    return out;
 }
 
 fn count_tokens(s: String) -> Int {

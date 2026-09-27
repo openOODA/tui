@@ -16,6 +16,7 @@
 import "std/fs/process/env.oo";
 import "std/fs/process/process.oo";
 import "std/fs/file/path.oo";
+import "std/core/text/num_buffer.oo";
 
 type Session = struct {
     sid: String,
@@ -26,42 +27,18 @@ type Session = struct {
     created: String
 };
 
-pub fn session_new_sid() -> String {
-    let n: Int = time_now();
+pub fn session_new_sid(time: &TimeCap) -> String {
+    let n: Int = now_ms(time);
     let s1: String = int_to_hex(n);
-    if chars_len(s1) >= 4 { return str_slice(s1, 0, 4); }
-    return s1 + "0000";
+    let len: Int = chars_len(s1);
+    if len >= 4 { return str_slice(s1, len - 4, len); }
+    let mut pad: String = s1;
+    while chars_len(pad) < 4 { pad = "0" + pad; }
+    return pad;
 }
 
-// Local time_now stub: openOODA std exposes &TimeCap but no zero-arg
-// time_now() function. session_new_sid() doesn't carry &TimeCap, so we
-// return 0 here. The session system is not exercised by v0.1.x chrome;
-// SIDs that all hash to "0000" are accepted as a known limitation.
-fn time_now() -> Int {
-    return 0;
-}
-
-// Local int_to_hex stub: openOODA std has int_to_hex in std/core/text/num_buffer.oo
-// but it is not auto-imported into tui/. Returns lowercase hex for the
-// 0..255 range (matches the input range from time_now() returning 0).
-fn int_to_hex(n: Int) -> String {
-    if n == 0 { return "0"; }
-    let hex: String = "0123456789abcdef";
-    let mut v: Int = n;
-    let mut rev: String = "";
-    while v > 0 {
-        let d: Int = v - (v / 16) * 16;
-        rev = rev + char_at(hex, d);
-        v = v / 16;
-    }
-    let mut out: String = "";
-    let mut k: Int = chars_len(rev) - 1;
-    while k >= 0 { out = out + char_at(rev, k); k = k - 1; }
-    return out;
-}
-
-pub fn session_create(name: String, provider: String, model: String, cwd: String) -> Session {
-    return Session { sid: session_new_sid(), name: name, provider: provider, model: model, cwd: cwd, created: "now" };
+pub fn session_create(name: String, provider: String, model: String, cwd: String, time: &TimeCap) -> Session {
+    return Session { sid: session_new_sid(time), name: name, provider: provider, model: model, cwd: cwd, created: int_to_str(now_ms(time)) };
 }
 
 pub fn session_dir(env: &EnvCap, sid: String) -> String {

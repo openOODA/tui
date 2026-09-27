@@ -14,6 +14,7 @@ import "std/fs/file/path.oo";
 import "std/fs/file/file_writer.oo";
 import "std/fs/process/process.oo";
 import "version.oo";
+import "std/core/text/num_buffer.oo";
 
 type McpClient = struct {
     codex: String,
@@ -33,23 +34,6 @@ pub fn mcp_close(client: McpClient) -> Result[Int, String] {
 // Local int_to_str stub: openOODA std has int_to_str but it is not
 // auto-imported into tui/. Local-only Int range (0..999) is enough for
 // JSON-RPC message ids.
-fn int_to_str(n: Int) -> String {
-    if n < 0 { return "0"; }
-    if n == 0 { return "0"; }
-    let digits: String = "0123456789";
-    let mut v: Int = n;
-    let mut rev: String = "";
-    while v > 0 {
-        let d: Int = v - (v / 10) * 10;
-        rev = rev + char_at(digits, d);
-        v = v / 10;
-    }
-    let mut out: String = "";
-    let mut k: Int = chars_len(rev) - 1;
-    while k >= 0 { out = out + char_at(rev, k); k = k - 1; }
-    return out;
-}
-
 fn mcp_next_id(client: McpClient) -> Int {
     let mut c: McpClient = client;
     let id: Int = c.request_counter + 1;
