@@ -73,7 +73,8 @@ jobs:
           export OO_LIST_AMBIENT_QUOTA=1073741824
           export OODACODEX="$HOME/.openooda/northstar.oot"
           export OODA_COMPILER="$HOME/.openooda/bin/oodac"
-          export OODA_STD="$GITHUB_WORKSPACE/std"
+          # NOTE: no OODA_STD — oodac ignores it. std/ imports resolve by
+          # workspace path walk (oodac ast/load_import_parse.oo).
           export OODA_NO_JAIL=1
           "$OODA_COMPILER" build ooda/main.oo -o "$HOME/.openooda/bin/ooda"
           chmod +x "$HOME/.openooda/bin/ooda"
@@ -144,7 +145,6 @@ jobs:
           export OO_LIST_AMBIENT_QUOTA=1073741824
           export OODACODEX="$HOME/.openooda/northstar.oot"
           export OODA_COMPILER="$HOME/.openooda/bin/oodac"
-          export OODA_STD="$GITHUB_WORKSPACE/std"
           export OODA_NO_JAIL=1
           unset OODA_FS_READDIR OODA_FS_WRITEDIR || true
           mkdir -p dist .ooda-cache/ooda-tmp
@@ -194,7 +194,6 @@ jobs:
           export OO_LIST_AMBIENT_QUOTA=1073741824
           export OODACODEX="$HOME/.openooda/northstar.oot"
           export OODA_COMPILER="$HOME/.openooda/bin/oodac"
-          export OODA_STD="$GITHUB_WORKSPACE/std"
           export OODA_STD_ROOT="$GITHUB_WORKSPACE/std"
           export OODA_NO_JAIL=1
           # Only the v0.1.3 live-path probes. Scaffold leftovers still
@@ -212,7 +211,6 @@ jobs:
           export OO_LIST_AMBIENT_QUOTA=1073741824
           export OODACODEX="$HOME/.openooda/northstar.oot"
           export OODA_COMPILER="$HOME/.openooda/bin/oodac"
-          export OODA_STD="$GITHUB_WORKSPACE/std"
           export OODA_NO_JAIL=1
           export OODA_TUI_ROOT="$GITHUB_WORKSPACE/tui"
           export OODA_HOME="$HOME"
