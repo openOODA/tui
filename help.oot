@@ -1,4 +1,4 @@
-# OODA-TUI - Help
+# TUI - Help
 
 File: help.oot
 
@@ -8,7 +8,7 @@ Write and bash ask first unless `/perm yolo` or `--yolo`.
 ## Usage
 
 ```
-ooda-tui [--teamwork] [--yolo] [--cwd PATH]
+tui [--teamwork] [--yolo] [--cwd PATH]
          [--provider NAME] [--model NAME] [--theme NAME]
          [--no-color] [--token <sub> ...] [--help] [--version]
 ```

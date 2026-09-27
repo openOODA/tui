@@ -1,4 +1,4 @@
-# ooda-tui
+# tui
 
 A generic coding harness with openOODA-aware defaults. Current release
 is v0.3.6: framed prompt dock on top, scrollable thought canvas in the
@@ -17,7 +17,7 @@ by default (`minimax` also ships).
   - Full 138-test Opaque-box E2E suite passed under Double-Run law ($Run_1 == Run_2$) (`TEST_READY.md`).
   - 25/25 hostile geometry tests and 46/46 boundary tests passed clean.
   - 100% compliant with ASD-STE100 Academy docstrings and 256-line file limits.
-  - Cryptographic release binary parity certified bit-for-bit against `~/.openooda/bin/{ooda-tui,tui}` (`66bf92e9...`).
+  - Release binary parity: installed `~/.openooda/bin/tui` matches `dist/tui` (see `make parity`).
 
 - **Milestone 4 (Thinking Ticker & Plugin Kernel)**: **DONE**. Shipped under different names: the stream indicator (`ui/indicators/indicator_stream.oo`: live tok/sec, token count, elapsed time, pulse animation) plus the telemetry gauge (`ui/indicators/indicator_telemetry.oo`), on the decoupled plugin kernel (`plugins/registry.oo`). In place since v0.3.0; this status line corrects the old roadmap text.
 - **Milestones 5–6 (Hardening & Release v0.3.6)**: **DONE**. Portable install paths, no hardcoded user paths, path traversal guard, batch/pipe output flush on exit, toolchain v0.11.15. Tagged `v0.3.6`. See `docs/release_0_3_6.oot`.
@@ -32,17 +32,17 @@ by default (`minimax` also ships).
 curl -fsSL https://openooda.org/install.sh | bash
 ```
 
-The installer places `ooda-tui` in `~/.openooda/bin/` (path is added
-to your shell rc). `ooda-mcp` and `ooda-lsp` must also be installed for
+The installer places `tui` in `~/.openooda/bin/` (path is added
+to your shell rc). `mcp` and `lsp` must also be installed for
 the harness to connect to its tool surface.
 
 ## Usage
 
 ```sh
-ooda-tui
-ooda-tui --teamwork
-ooda-tui --provider anthropic --model claude-sonnet-4.5
-ooda-tui --cwd ~/Projects/myapp --yolo
+tui
+tui --teamwork
+tui --provider anthropic --model claude-sonnet-4.5
+tui --cwd ~/Projects/myapp --yolo
 ```
 
 ## Slash commands
@@ -100,12 +100,12 @@ Per-session state lives in
 
 ```sh
 export OODA_COMPILER="$HOME/.openooda/bin/oodac"
-ooda build main.oo -o dist/ooda-tui
+ooda build main.oo -o dist/tui
 ```
 
 ## The Polyrepo
 
-`ooda-tui` is one of 13 repos in the openOODA polyrepo.
+`tui` is one of 13 repos in the openOODA polyrepo.
 
 | Repo | Purpose |
 |------|---------|
@@ -121,7 +121,7 @@ ooda build main.oo -o dist/ooda-tui
 | [openOODA/mcp](https://github.com/openOODA/mcp) | MCP server |
 | [openOODA/bb](https://github.com/openOODA/bb) | Flight recorder and crash autopsy |
 | [openOODA/website](https://github.com/openOODA/website) | Website source |
-| [openOODA/ooda-tui](https://github.com/openOODA/ooda-tui) | This repo |
+| [openOODA/tui](https://github.com/openOODA/tui) | This repo |
 
 ## License
 

@@ -1,22 +1,22 @@
-# ooda-tui v0.3.2 Makefile
+# tui v0.3.2 Makefile
 #
 # Agent loop: read/grep/glob/write/bash, ask/allow/yolo, AGENTS.md.
 #
 # Usage:
-#   make build       - compile main.oo to dist/ooda-tui
+#   make build       - compile main.oo to dist/tui
 #   make test        - run the binary's --help and --version
-#   make parity      - verify sha256 matches dist/ooda-tui
+#   make parity      - verify sha256 matches dist/tui
 #   make line-cap    - enforce 256-line cap on every .oo and .oot
 #   make file-law    - reject forbidden file extensions
 #   make academy     - verify every .oo has the 4-element Academy header
 #   make check       - run oodac check on every .oo outside qa/
 #   make qa          - run all qa/*.oo probes
 #   make verify      - run all of the above checks
-#   make install     - copy dist/ooda-tui to ~/.openooda/bin/
+#   make install     - copy dist/tui to ~/.openooda/bin/
 #   make clean       - remove build artifacts
 #   make all         - build + verify + test
-#   make no-color    - smoke test NO_COLOR=1 ooda-tui emits zero SGR
-#   make dumb-term   - smoke test TERM=dumb ooda-tui emits zero SGR
+#   make no-color    - smoke test NO_COLOR=1 tui emits zero SGR
+#   make dumb-term   - smoke test TERM=dumb tui emits zero SGR
 
 # Sovereign LLVM build using certified oodac compiler
 OODA_COMPILER ?= $(firstword $(wildcard $(HOME)/.openooda/bin/oodac $(CURDIR)/../oodac/bin/oodac $(HOME)/.openooda/bin/oodac_bin.core))
@@ -26,7 +26,7 @@ export OO_LIST_AMBIENT_QUOTA := 8589934592
 export OODA_NO_JAIL := 1
 export OODAC_BIN := $(OODA_COMPILER)
 export OODA_COMPILER := $(OODA_COMPILER)
-BIN := dist/ooda-tui
+BIN := dist/tui
 
 .PHONY: all build test e2e parity line-cap file-law academy check qa verify install clean no-color dumb-term token-help
 
@@ -61,8 +61,8 @@ test: $(BIN)
 	@echo '/exit' | ./$(BIN) --preset zen > /dev/null && echo "PASS" || echo "FAIL"
 
 parity: install
-	@dist_sum=$$(sha256sum dist/ooda-tui | cut -d' ' -f1); \
-	inst_sum=$$(sha256sum $(HOME)/.openooda/bin/ooda-tui | cut -d' ' -f1); \
+	@dist_sum=$$(sha256sum dist/tui | cut -d' ' -f1); \
+	inst_sum=$$(sha256sum $(HOME)/.openooda/bin/tui | cut -d' ' -f1); \
 	if [ "$$dist_sum" = "$$inst_sum" ]; then \
 		echo "PASS: binary parity $$dist_sum"; \
 	else \
@@ -175,11 +175,11 @@ verify: line-cap file-law academy check
 
 install: $(BIN)
 	@mkdir -p $(HOME)/.openooda/bin $(HOME)/.openooda/tui
-	@cp $(BIN) $(HOME)/.openooda/bin/ooda-tui
 	@cp $(BIN) $(HOME)/.openooda/bin/tui
 	@cp help.oot $(HOME)/.openooda/tui/help.oot
-	@chmod +x $(HOME)/.openooda/bin/ooda-tui $(HOME)/.openooda/bin/tui
-	@echo "installed $(HOME)/.openooda/bin/{ooda-tui,tui}"
+	@chmod +x $(HOME)/.openooda/bin/tui
+	@rm -f $(HOME)/.openooda/bin/ooda-tui
+	@echo "installed $(HOME)/.openooda/bin/tui (removed stale ooda-tui alias)"
 
 no-color: $(BIN)
 	@sgr=$$(echo '/exit' | ./$(BIN) --no-color 2>&1 | python3 -c "import sys; print(sys.stdin.buffer.read().count(bytes([0x1b])))"); \

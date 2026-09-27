@@ -2,7 +2,7 @@
 //
 // Logline: Parse all 10 flags, error cases, env contract. Verifies main.oo's argv parser.
 //
-// Setup: Spawns the built ooda-tui binary as a subprocess and asserts argv behavior.
+// Setup: Spawns the built tui binary as a subprocess and asserts argv behavior.
 //
 // Beats:
 //   1. Construct synthetic argv with each of the 10 flags and assert parsing.
@@ -17,7 +17,7 @@ fn run_oot(sys: &ProcessCap, bin: String, args: String) -> Result[String, String
 }
 
 pub fn main(bind: &BindCap, fs_r: &FsReadCap, fs_w: &FsWriteCap, sys: &ProcessCap, sys_cap: &SysCap, env: &EnvCap, time: &TimeCap, alloc: &AllocCap, thread: &ThreadCap, args: List[String]) -> Result[Int, String] {
-    let bin: String = "./dist/ooda-tui";
+    let bin: String = "./dist/tui";
     println("qa/argv: starting argv probe");
     let r1: Result[String, String] = run_oot(sys, bin, "--help");
     if r1.is_err() { println("FAIL: --help"); return Err("--help failed"); }

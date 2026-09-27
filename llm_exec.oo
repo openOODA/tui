@@ -173,8 +173,8 @@ pub fn llm_complete_exec(sys: &ProcessCap, fw: &FsWriteCap, ptype0: String, key:
     }
     if url == "" { return Err("no url for provider " + ptype); }
     let body: String = build_body(ptype, model, prompt);
-    let tmp: String = "/tmp/ooda-tui-llm.json";
-    let hdr: String = "/tmp/ooda-tui-llm.hdr";
+    let tmp: String = "/tmp/tui-llm.json";
+    let hdr: String = "/tmp/tui-llm.hdr";
 
     let w_body: Result[Int, String] = write_secure_temp_file(sys, fw, tmp, body);
     if w_body.is_err() {

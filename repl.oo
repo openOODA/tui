@@ -62,7 +62,7 @@ pub fn run_tui_session(fs_r: &FsReadCap, fs_w: &FsWriteCap, sys: &ProcessCap, en
     if st.provider != "" && st.url == "" { st.url = provider_default_url(st.provider); }
     st.brief = agents_load(fs_r, env, st.cwd);
     let color: Bool = theme_color_forced(env, no_color);
-    let ver: String = ooda_tui_version();
+    let ver: String = tui_version();
     let is_mcp: Bool = mcp_check(fs_w, sys, env);
     let mut pane: Pane = card_welcome_pane(st.theme, color, 80, ver, st.mode, st.perm, st.cwd, st.provider, st.model, st.brief != "", is_mcp);
     let host: Bool = have_tty(sys);
@@ -178,15 +178,15 @@ fn tty_geo(sys: &ProcessCap) -> List[Int] {
 }
 
 fn paint_tty(fw: &FsWriteCap, sys: &ProcessCap, frame: String) {
-    let wr: Result[Void, String] = write_file(fw, "/tmp/.ooda-tui-frame", frame);
+    let wr: Result[Void, String] = write_file(fw, "/tmp/.tui-frame", frame);
     if wr.is_err() { return; }
-    let _: Result[String, String] = process_exec(sys, "cat /tmp/.ooda-tui-frame >/dev/tty 2>/dev/null");
+    let _: Result[String, String] = process_exec(sys, "cat /tmp/.tui-frame >/dev/tty 2>/dev/null");
 }
 
 fn paint_frame(fw: &FsWriteCap, sys: &ProcessCap, frame: String) {
-    let wr: Result[Void, String] = write_file(fw, "/tmp/.ooda-tui-frame", frame);
+    let wr: Result[Void, String] = write_file(fw, "/tmp/.tui-frame", frame);
     if wr.is_err() { print(frame); return; }
-    let r: Result[String, String] = process_exec(sys, "cat /tmp/.ooda-tui-frame >/dev/tty 2>/dev/null");
+    let r: Result[String, String] = process_exec(sys, "cat /tmp/.tui-frame >/dev/tty 2>/dev/null");
     if r.is_err() { print(frame); }
 }
 

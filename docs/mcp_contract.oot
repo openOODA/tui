@@ -47,7 +47,7 @@ Content-Length: <N>\r\n
     "protocolVersion": "2024-11-05",
     "capabilities": {},
     "clientInfo": {
-      "name": "ooda-tui",
+      "name": "tui",
       "version": "v0.1.3"
     },
     "tier": "standard"

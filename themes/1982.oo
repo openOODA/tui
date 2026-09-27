@@ -1,6 +1,6 @@
 // # 1982 - CRT Amber/Phosphor Theme
 //
-// Logline: The default theme for ooda-tui. Hand-transcribed from ~/.pi/agent/themes/1982.json. Amber monitor + phosphor green + CGA accents on near-black.
+// Logline: The default theme for tui. Hand-transcribed from ~/.pi/agent/themes/1982.json. Amber monitor + phosphor green + CGA accents on near-black.
 //
 // Setup: Exports a theme_1982() function returning a Theme record. Consumed by theme.oo loader.
 //

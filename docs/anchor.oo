@@ -1,6 +1,6 @@
 // # docs - Anchor for Agents
 //
-// Logline: ASD-STE100 specifications for the ooda-tui TUI in .oot form.
+// Logline: ASD-STE100 specifications for the tui TUI in .oot form.
 //
 // Setup: Pure structural file. .oot files contain markdown per rules.oot 1.14; they are documentation, not code, so they are NOT imported.
 //

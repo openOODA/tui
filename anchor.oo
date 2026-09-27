@@ -28,6 +28,6 @@ import "tools/anchor.oo";
 
 import "version.oo";
 
-pub fn ooda_tui_anchor_version() -> String {
-    return ooda_tui_version();
+pub fn tui_anchor_version() -> String {
+    return tui_version();
 }

@@ -66,7 +66,7 @@ fn lsp_did_change_request(uri: String, version: Int, text: String) -> String { r
 fn lsp_diagnostics_request(id: Int, uri: String) -> String { return "{\"jsonrpc\":\"2.0\",\"id\":" + int_to_str(id) + ",\"method\":\"textDocument/diagnostic\",\"params\":{\"textDocument\":{\"uri\":\"" + lsp_escape(uri) + "\"}}}"; }
 
 fn lsp_call(client: LspClient, fs_w: &FsWriteCap, sys: &ProcessCap, request: String) -> Result[String, String] {
-    let tmp: String = "/tmp/ooda-tui-lsp-" + int_to_str(lsp_next_id(client)) + ".req";
+    let tmp: String = "/tmp/tui-lsp-" + int_to_str(lsp_next_id(client)) + ".req";
     let wr: Result[Void, String] = write_file(fs_w, tmp, request);
     if wr.is_err() {
         let e: String = match wr { Ok(_) => "", Err(m) => m };

@@ -36,7 +36,7 @@ pub fn slash_register_all(reg: Registry) -> Registry {
     let mut r: Registry = reg;
     r = registry_register_slash(r, make_slash_plugin("help", "Display available commands and tools", "/help"));
     r = registry_register_slash(r, make_slash_plugin("exit", "Terminate active TUI session", "/exit"));
-    r = registry_register_slash(r, make_slash_plugin("version", "Display ooda-tui binary version", "/version"));
+    r = registry_register_slash(r, make_slash_plugin("version", "Display tui binary version", "/version"));
     r = registry_register_slash(r, make_slash_plugin("providers", "List available LLM providers", "/providers"));
     r = registry_register_slash(r, make_slash_plugin("provider", "Query or switch active LLM provider", "/provider [name]"));
     r = registry_register_slash(r, make_slash_plugin("model", "Query or switch active LLM model", "/model [provider:model]"));

@@ -5,9 +5,9 @@
 // Setup: In-process. Uses chrome.oo + header.oo + pane.oo + input.oo + statusbar.oo.
 //
 // Beats:
-//   1. Render at 80x24 with color=true; must contain "ooda-tui", ">" prompt, "theme=", and a real ESC[2J.
+//   1. Render at 80x24 with color=true; must contain "ooda", ">" prompt, "theme=", and a real ESC[2J.
 //   2. Render at 120x40 with color=true; same markers + "theme=minimax".
-//   3. Render at 80x24 with color=false; "ooda-tui" + "theme=" and zero ESC bytes.
+//   3. Render at 80x24 with color=false; "ooda" + "theme=" and zero ESC bytes.
 //   4. Double-run: render twice with color=true, assert byte-equal.
 
 import "chrome.oo";

@@ -1,4 +1,4 @@
-# TEST READY: openOODA TUI (`ooda-tui`) 4-Tier E2E Verification Suite
+# TEST READY: openOODA TUI (`tui`) 4-Tier E2E Verification Suite
 
 - **Status**: READY FOR VERIFICATION & AUDIT
 - **Author**: E2E Test Writer (`teamwork_preview_test_writer`)
@@ -12,7 +12,7 @@
 
 ## 1. Declaration of Readiness
 
-The comprehensive, opaque-box, 4-tier E2E verification test suite for the openOODA TUI (`ooda-tui`) re-architecture has been fully implemented, verified, and validated against openOODA repository laws.
+The comprehensive, opaque-box, 4-tier E2E verification test suite for the openOODA TUI (`tui`) re-architecture has been fully implemented, verified, and validated against openOODA repository laws.
 
 The test suite satisfies all requirements set forth in:
 - `ORIGINAL_REQUEST.md` (R1: Header Input Box, R2: Footer Statusbar, R3: Intermediate Canvas & Thought Stream, R4: Dynamic Thinking Ticker, R5: Plugin Architecture & Governance)
@@ -39,8 +39,8 @@ The test suite satisfies all requirements set forth in:
 ## 3. Cryptographic Binary Parity Certification
 
 All tests execute against the exact bit-for-bit release binaries installed in the environment:
-- **Build Target**: `/home/jeryd/Projects/openOODA/tui/dist/ooda-tui`
-- **Installed Path**: `/home/jeryd/.openooda/bin/ooda-tui`
+- **Build Target**: `/home/jeryd/Projects/openOODA/tui/dist/tui`
+- **Installed Path**: `/home/jeryd/.openooda/bin/tui`
 - **Binary Alias**: `/home/jeryd/.openooda/bin/tui`
 - **Verified SHA-256 Digest**: `469a24effb280b0e25ed6674dff9daf0ea906805fc2242bcef9d88e6fdfa383a`
 - **Parity Status**: Bit-identical (`PASS: binary parity 469a24effb280b0e25ed6674dff9daf0ea906805fc2242bcef9d88e6fdfa383a`).

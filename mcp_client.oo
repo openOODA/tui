@@ -69,7 +69,7 @@ fn escape_json(s: String) -> String {
 }
 
 fn mcp_call_file(client: McpClient, request: String, fs_w: &FsWriteCap, sys: &ProcessCap) -> Result[String, String] {
-    let tmp: String = "/tmp/ooda-tui-mcp-" + int_to_str(mcp_next_id(client)) + ".json";
+    let tmp: String = "/tmp/tui-mcp-" + int_to_str(mcp_next_id(client)) + ".json";
     let wr: Result[Void, String] = write_file(fs_w, tmp, request);
     if wr.is_err() {
         let e: String = match wr { Ok(_) => "", Err(msg) => msg };
@@ -82,7 +82,7 @@ fn mcp_call_file(client: McpClient, request: String, fs_w: &FsWriteCap, sys: &Pr
 }
 
 pub fn mcp_init(client: McpClient, fs_w: &FsWriteCap, sys: &ProcessCap) -> Result[String, String] {
-    let req: String = build_init_request(mcp_next_id(client), "ooda-tui", ooda_tui_version());
+    let req: String = build_init_request(mcp_next_id(client), "tui", tui_version());
     let r: Result[String, String] = mcp_call_file(client, req, fs_w, sys);
     if r.is_err() {
         let e: String = match r { Ok(_) => "", Err(m) => m };

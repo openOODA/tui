@@ -1,6 +1,6 @@
 // # examples - Anchor for Agents
 //
-// Logline: Sample artifacts for the ooda-tui harness - config templates and session layouts.
+// Logline: Sample artifacts for the tui harness - config templates and session layouts.
 //
 // Setup: Pure structural file. .oot files contain markdown per rules.oot 1.14; they are documentation, not code, so they are NOT imported.
 //

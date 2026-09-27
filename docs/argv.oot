@@ -2,7 +2,7 @@
 
 File: docs/argv.oot
 
-The 10 startup flags accepted by `ooda-tui`. Flags set initial state;
+The 10 startup flags accepted by `tui`. Flags set initial state;
 runtime control flows through slash commands and keybindings.
 
 ## Flags

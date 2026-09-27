@@ -41,8 +41,8 @@ fn run_token_one_shot(fs_r: &FsReadCap, sys: &ProcessCap, env: &EnvCap, time: &T
 }
 
 fn print_fallback_help() {
-    println("ooda-tui " + ooda_tui_version());
-    println("Usage: ooda-tui [--teamwork] [--yolo] [--cwd PATH] [--preset NAME] [--no-color]");
+    println("tui " + tui_version());
+    println("Usage: tui [--teamwork] [--yolo] [--cwd PATH] [--preset NAME] [--no-color]");
     println("                [--provider NAME] [--model NAME] [--theme NAME]");
     println("                [--token <sub> ...] [--help] [--version]");
     println("Flags:");
@@ -56,7 +56,7 @@ fn print_fallback_help() {
     println("  --theme <name>     override default theme for this run");
     println("  --token <sub>      headless token telemetry (status, report, ...)");
     println("  --help             print this help text");
-    println("  --version          print ooda-tui version");
+    println("  --version          print tui version");
     println("Slash (inside the TUI): /help /login /model /theme /status /exit");
 }
 
@@ -84,8 +84,8 @@ fn print_help(fs_r: &FsReadCap, env: &EnvCap, codex_dir: String) -> Result[Int, 
 
 fn print_version(env: &EnvCap) -> Result[Int, String] {
     let vr: Result[String, String] = env_get(env, "OODA_TUI_VERSION");
-    let v: String = match vr { Ok(s) => s, Err(_) => ooda_tui_version() };
-    println("ooda-tui " + v);
+    let v: String = match vr { Ok(s) => s, Err(_) => tui_version() };
+    println("tui " + v);
     return Ok(0);
 }
 

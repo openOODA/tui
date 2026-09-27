@@ -1,6 +1,6 @@
 // # audit - Anchor for Agents
 //
-// Logline: Historical audits of the ooda-tui harness repo. v0.1 ships empty; future audits land here.
+// Logline: Historical audits of the tui harness repo. v0.1 ships empty; future audits land here.
 //
 // Setup: Pure structural file. Convention: audit/YYYY-MM-DD-<scope>.oot per rules.oot 1.14.
 //

@@ -2,7 +2,7 @@
 //
 // Logline: Unified opaque-box test runner executing all 138 test cases across Tiers 1-4 with Double-Run verification.
 //
-// Setup: Spawns both dist/ooda-tui and $OODA_HOME/.openooda/bin/ooda-tui under &ProcessCap and aggregates proofs.
+// Setup: Spawns both dist/tui and $OODA_HOME/.openooda/bin/tui under &ProcessCap and aggregates proofs.
 //
 // Beats:
 //   1. Resolve release binary and verify cryptographic parity.
@@ -26,7 +26,7 @@ import "qa/e2e_tier4_scenarios.oo";
 
 pub fn run_full_e2e_suite(sys: &ProcessCap, bin: String) -> Result[Int, String] {
     println("=================================================");
-    println("openOODA TUI (ooda-tui) 4-Tier E2E Master Suite");
+    println("openOODA TUI (tui) 4-Tier E2E Master Suite");
     println("Target Binary: " + bin);
     println("=================================================");
 

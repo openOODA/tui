@@ -1,6 +1,6 @@
 // # ui/themes/theme_1982.oo - CRT Amber/Phosphor Theme Plugin
 //
-// Logline: 47-token CRT amber and phosphor palette for ooda-tui terminal styling.
+// Logline: 47-token CRT amber and phosphor palette for tui terminal styling.
 //
 // Setup: Exports theme_1982_token(token) and theme_1982_name() with pure hex color lookups.
 //

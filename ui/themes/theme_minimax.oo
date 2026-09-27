@@ -1,6 +1,6 @@
 // # ui/themes/theme_minimax.oo - Minimax Dark Neutral Theme Plugin
 //
-// Logline: 47-token dark neutral and amber accent palette for ooda-tui terminal styling.
+// Logline: 47-token dark neutral and amber accent palette for tui terminal styling.
 //
 // Setup: Exports theme_minimax_token(token) and theme_minimax_name() with pure hex color lookups.
 //

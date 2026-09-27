@@ -1,6 +1,6 @@
 // # minimax - Dark Neutral + Amber Accent Theme
 //
-// Logline: A second theme for ooda-tui, modeled on minimax Code's visual identity. Near-black background, neutral grays for chrome, amber accent for emphasis.
+// Logline: A second theme for tui, modeled on minimax Code's visual identity. Near-black background, neutral grays for chrome, amber accent for emphasis.
 //
 // Setup: Exports theme_minimax_token() and theme_minimax_name(). Consumed by theme.oo loader via `import "themes/minimax.oo";`.
 //

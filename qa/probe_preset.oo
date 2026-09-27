@@ -2,10 +2,10 @@
 //
 // Logline: Verify workflow presets (kernel, frontend, audit, zen) and fail-closed rejection on invalid presets.
 //
-// Setup: Spawns ooda-tui under &ProcessCap with --preset flags and asserts configuration and exit codes.
+// Setup: Spawns tui under &ProcessCap with --preset flags and asserts configuration and exit codes.
 //
 // Beats:
-//   1. Resolve ooda-tui release or build binary path.
+//   1. Resolve tui release or build binary path.
 //   2. Assert --preset without argument fails closed (exit code 2).
 //   3. Assert --preset with invalid preset name fails closed (exit code 2).
 //   4. Assert valid presets (kernel, frontend, audit, zen) execute cleanly with /exit piped.
@@ -15,11 +15,11 @@ import "std/fs/process/process.oo";
 import "std/core/text/num_buffer.oo";
 
 fn resolve_bin(sys: &ProcessCap) -> String {
-    let r_inst: Result[String, String] = process_exec(sys, "test -x ~/.openooda/bin/ooda-tui");
-    if r_inst.is_ok() { return "~/.openooda/bin/ooda-tui"; }
-    let r_dist: Result[String, String] = process_exec(sys, "test -x ./dist/ooda-tui");
-    if r_dist.is_ok() { return "./dist/ooda-tui"; }
-    return "ooda-tui";
+    let r_inst: Result[String, String] = process_exec(sys, "test -x ~/.openooda/bin/tui");
+    if r_inst.is_ok() { return "~/.openooda/bin/tui"; }
+    let r_dist: Result[String, String] = process_exec(sys, "test -x ./dist/tui");
+    if r_dist.is_ok() { return "./dist/tui"; }
+    return "tui";
 }
 
 fn test_preset_run(sys: &ProcessCap, bin: String) -> Result[Int, String] {

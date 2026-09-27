@@ -2,7 +2,7 @@
 //
 // Logline: Top-level smoke test. Verifies the binary builds, runs --help, --version, and basic flag combinations.
 //
-// Setup: Spawns dist/ooda-tui with various argv and asserts the output.
+// Setup: Spawns dist/tui with various argv and asserts the output.
 //
 // Beats:
 //   1. --help prints help text.
@@ -17,16 +17,16 @@ pub fn main(bind: &BindCap, fs_r: &FsReadCap, fs_w: &FsWriteCap, sys: &ProcessCa
     println("qa/smoke: starting end-to-end smoke");
     let mut pass: Int = 0;
     let mut fail: Int = 0;
-    let r1: Result[String, String] = process_exec(sys, "./dist/ooda-tui --help");
+    let r1: Result[String, String] = process_exec(sys, "./dist/tui --help");
     if r1.is_ok() { pass = pass + 1; println("PASS: --help"); }
     else { fail = fail + 1; println("FAIL: --help"); }
-    let r2: Result[String, String] = process_exec(sys, "./dist/ooda-tui --version");
+    let r2: Result[String, String] = process_exec(sys, "./dist/tui --version");
     if r2.is_ok() { pass = pass + 1; println("PASS: --version"); }
     else { fail = fail + 1; println("FAIL: --version"); }
-    let r3: Result[String, String] = process_exec(sys, "OODACODEX=/tmp/openOODA/northstar.oot ./dist/ooda-tui --teamwork --yolo");
+    let r3: Result[String, String] = process_exec(sys, "OODACODEX=/tmp/openOODA/northstar.oot ./dist/tui --teamwork --yolo");
     if r3.is_ok() { pass = pass + 1; println("PASS: teamwork+yolo ready banner"); }
     else { fail = fail + 1; println("FAIL: teamwork+yolo"); }
-    let r4: Result[String, String] = process_exec(sys, "./dist/ooda-tui --bogus");
+    let r4: Result[String, String] = process_exec(sys, "./dist/tui --bogus");
     if r4.is_ok() { fail = fail + 1; println("FAIL: bogus flag should error"); }
     else { pass = pass + 1; println("PASS: bogus flag errors"); }
     println("qa/smoke: pass=" + int_to_str(pass) + " fail=" + int_to_str(fail));

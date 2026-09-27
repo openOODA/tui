@@ -2,7 +2,7 @@
 //
 // Logline: Comprehensive opaque-box verification of Header Input Box, Mode Chips, and Cursor Placement.
 //
-// Setup: Executes compiled ooda-tui release binaries under &ProcessCap and verifies ANSI and surface tokens.
+// Setup: Executes compiled tui release binaries under &ProcessCap and verifies ANSI and surface tokens.
 //
 // Beats:
 //   1. F1 (Header Input Relocation): Top rows 1-3 render framed box, replacing static header.
@@ -13,11 +13,11 @@ import "std/fs/process/process.oo";
 import "std/core/text/num_buffer.oo";
 
 pub fn resolve_tui_bin(sys: &ProcessCap) -> String {
-    let r_inst: Result[String, String] = process_exec(sys, "test -x $OODA_HOME/.openooda/bin/ooda-tui");
-    if r_inst.is_ok() { return "$OODA_HOME/.openooda/bin/ooda-tui"; }
-    let r_dist: Result[String, String] = process_exec(sys, "test -x ./dist/ooda-tui");
-    if r_dist.is_ok() { return "./dist/ooda-tui"; }
-    return "./dist/ooda-tui";
+    let r_inst: Result[String, String] = process_exec(sys, "test -x $OODA_HOME/.openooda/bin/tui");
+    if r_inst.is_ok() { return "$OODA_HOME/.openooda/bin/tui"; }
+    let r_dist: Result[String, String] = process_exec(sys, "test -x ./dist/tui");
+    if r_dist.is_ok() { return "./dist/tui"; }
+    return "./dist/tui";
 }
 
 pub fn run_tier1_f1_f3(sys: &ProcessCap, bin: String) -> Result[Int, String] {

@@ -150,7 +150,7 @@ jobs:
           mkdir -p dist .ooda-cache/ooda-tmp
           "$OODA_COMPILER" check main.oo
 
-      - name: Build ooda-tui (LLVM)
+      - name: Build tui (LLVM)
         working-directory: tui
         run: |
           set -euo pipefail
@@ -159,13 +159,11 @@ jobs:
           export OODA_COMPILER="$HOME/.openooda/bin/oodac"
           export OODA_NO_JAIL=1
           mkdir -p dist
-          "$OODA_COMPILER" build --backend llvm main.oo -o dist/ooda-tui
-          chmod +x dist/ooda-tui
-          cp dist/ooda-tui dist/ooda-tui-linux-x86_64
-          cp dist/ooda-tui dist/tui-linux-x86_64
-          sha256sum dist/ooda-tui              | awk '{print $1}' > dist/ooda-tui.sha256
-          sha256sum dist/ooda-tui-linux-x86_64 | awk '{print $1}' > dist/ooda-tui-linux-x86_64.sha256
-          sha256sum dist/tui-linux-x86_64      | awk '{print $1}' > dist/tui-linux-x86_64.sha256
+          "$OODA_COMPILER" build --backend llvm main.oo -o dist/tui
+          chmod +x dist/tui
+          cp dist/tui dist/tui-linux-x86_64
+          sha256sum dist/tui                | awk '{print $1}' > dist/tui.sha256
+          sha256sum dist/tui-linux-x86_64   | awk '{print $1}' > dist/tui-linux-x86_64.sha256
           ls -la dist/
 
       - name: Smoke test (--help, --version, --unknown-flag, --token, --no-color)
@@ -174,18 +172,18 @@ jobs:
           set -e
           export OODACODEX="$HOME/.openooda/northstar.oot"
           export OODA_NO_JAIL=1
-          ./dist/ooda-tui --help > /tmp/tui-help.txt
-          grep -q "ooda-tui" /tmp/tui-help.txt
-          ./dist/ooda-tui --version | grep -q "ooda-tui"
+          ./dist/tui --help > /tmp/tui-help.txt
+          grep -q "^tui " /tmp/tui-help.txt
+          ./dist/tui --version | grep -q "^tui "
           set +e
-          ./dist/ooda-tui --unknown-flag >/dev/null 2>&1
+          ./dist/tui --unknown-flag >/dev/null 2>&1
           rc=$?
           set -e
           test "$rc" -eq 2
-          ./dist/ooda-tui --token 2>/dev/null | grep -q subcommands
-          printf '/exit\n' | ./dist/ooda-tui --no-color > /tmp/tui-nc.txt 2>&1 || true
+          ./dist/tui --token 2>/dev/null | grep -q subcommands
+          printf '/exit\n' | ./dist/tui --no-color > /tmp/tui-nc.txt 2>&1 || true
           python3 -c "import pathlib; t=pathlib.Path('/tmp/tui-nc.txt').read_bytes(); assert t.count(bytes([0x1b]))==0, t.count(bytes([0x1b]))"
-          printf '/help\n/exit\n' | ./dist/ooda-tui --no-color > /tmp/tui-help-slash.txt 2>&1 || true
+          printf '/help\n/exit\n' | ./dist/tui --no-color > /tmp/tui-help-slash.txt 2>&1 || true
           grep -q "commands:" /tmp/tui-help-slash.txt
           echo "PASS: smoke holds"
 
@@ -225,12 +223,10 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ooda-tui-linux
+          name: tui-linux
           path: |
-            tui/dist/ooda-tui
-            tui/dist/ooda-tui.sha256
-            tui/dist/ooda-tui-linux-x86_64
-            tui/dist/ooda-tui-linux-x86_64.sha256
+            tui/dist/tui
+            tui/dist/tui.sha256
             tui/dist/tui-linux-x86_64
             tui/dist/tui-linux-x86_64.sha256
 
@@ -239,6 +235,6 @@ jobs:
     if: github.ref == 'refs/heads/master' && github.event_name == 'push'
     uses: openOODA/openOODA/.github/workflows/auto-release.yml@master
     with:
-      artifact_pattern: ooda-tui-*
+      artifact_pattern: tui-*
     permissions:
       contents: write
