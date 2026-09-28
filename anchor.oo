@@ -7,7 +7,7 @@
 // Beats:
 //   1. Decoupled micro-kernel core/ and master plugins/ subsystems alongside root modules (main.oo, repl.oo, llm_exec.oo, config_io.oo).
 //   2. token/ holds the 13 cmd_*.oo files moved from ooda/token/ per rules.oot 1.14 split (Phase 5).
-//   3. themes/ holds the default theme (1982.oo) and any future themes.
+//   3. themes/ holds the default theme (theme_1982.oo, user-facing name "1982") and any future themes.
 //   4. qa/ has the hostile probes and double-run tests.
 //   5. docs/ has the ASD-STE100 specs in .oot form.
 //   6. audit/ has the historical audits (v0.1 ships with the anchor only).

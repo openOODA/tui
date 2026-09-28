@@ -10,6 +10,8 @@
 //   3. Return the Theme record.
 
 // Source hex codes from ~/.pi/agent/themes/1982.json (read 2026-09-12).
+// NOTE: oodac merges same-named private fns across co-compiled modules;
+// keep this file's t_/v_ names unique vs sibling themes (see minimax mm_).
 fn v_amber() -> String { return "#FFB000"; }
 fn v_amber_dim() -> String { return "#B37A00"; }
 fn v_phosphor() -> String { return "#33FF33"; }

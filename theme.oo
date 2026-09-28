@@ -13,7 +13,7 @@
 //   6. theme_render_cell(color, fg, bg, attr) returns the SGR prefix for one cell.
 
 import "std/fs/process/env.oo";
-import "themes/1982.oo";
+import "themes/theme_1982.oo";
 import "themes/minimax.oo";
 import "std/core/text/num_buffer.oo";
 
@@ -134,9 +134,13 @@ fn hex_digit_val(c: String) -> Int {
 }
 
 // Parse two hex digits at hex[hi],hex[lo] into a 0..255 byte.
+// Short/truncated input degrades to 0 per missing digit (never OOB).
 fn hex_pair(hex: String, hi: Int, lo: Int) -> Int {
-    let h: Int = hex_digit_val(char_at(hex, hi));
-    let l: Int = hex_digit_val(char_at(hex, lo));
+    let n: Int = chars_len(hex);
+    let mut h: Int = 0;
+    let mut l: Int = 0;
+    if hi < n { h = hex_digit_val(char_at(hex, hi)); }
+    if lo < n { l = hex_digit_val(char_at(hex, lo)); }
     return h * 16 + l;
 }
 

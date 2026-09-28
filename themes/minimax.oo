@@ -10,138 +10,140 @@
 //   3. Return the theme name "minimax".
 
 // Source hex codes. Hand-tuned dark neutral with amber accent.
-fn v_amber() -> String { return "#E0A040"; }
-fn v_amber_dim() -> String { return "#A07020"; }
-fn v_neutral_text() -> String { return "#E5E5E5"; }
-fn v_neutral_muted() -> String { return "#9A9A9A"; }
-fn v_neutral_dim() -> String { return "#5A5A5A"; }
-fn v_neutral_bg() -> String { return "#0E0E10"; }
-fn v_panel_bg() -> String { return "#1A1A1D"; }
-fn v_user_bg() -> String { return "#16161A"; }
-fn v_tool_pending() -> String { return "#1A1A22"; }
-fn v_tool_success() -> String { return "#10161A"; }
-fn v_tool_error() -> String { return "#1F1014"; }
-fn v_accent_blue() -> String { return "#7AB8FF"; }
-fn v_accent_red() -> String { return "#E07060"; }
-fn v_accent_green() -> String { return "#7AC888"; }
+// NOTE: private fns use the mm_ prefix because oodac merges same-named
+// private fns across co-compiled modules; themes/ must keep them unique.
+fn mm_v_amber() -> String { return "#E0A040"; }
+fn mm_v_amber_dim() -> String { return "#A07020"; }
+fn mm_v_neutral_text() -> String { return "#E5E5E5"; }
+fn mm_v_neutral_muted() -> String { return "#9A9A9A"; }
+fn mm_v_neutral_dim() -> String { return "#5A5A5A"; }
+fn mm_v_neutral_bg() -> String { return "#0E0E10"; }
+fn mm_v_panel_bg() -> String { return "#1A1A1D"; }
+fn mm_v_user_bg() -> String { return "#16161A"; }
+fn mm_v_tool_pending() -> String { return "#1A1A22"; }
+fn mm_v_tool_success() -> String { return "#10161A"; }
+fn mm_v_tool_error() -> String { return "#1F1014"; }
+fn mm_v_accent_blue() -> String { return "#7AB8FF"; }
+fn mm_v_accent_red() -> String { return "#E07060"; }
+fn mm_v_accent_green() -> String { return "#7AC888"; }
 
 // Core UI tokens
-fn t_accent() -> String { return v_amber(); }
-fn t_border() -> String { return v_neutral_dim(); }
-fn t_border_accent() -> String { return v_amber(); }
-fn t_border_muted() -> String { return v_neutral_dim(); }
-fn t_success() -> String { return v_accent_green(); }
-fn t_error() -> String { return v_accent_red(); }
-fn t_warning() -> String { return v_amber(); }
-fn t_muted() -> String { return v_neutral_muted(); }
-fn t_dim() -> String { return v_neutral_dim(); }
-fn t_text() -> String { return v_neutral_text(); }
-fn t_thinking_text() -> String { return v_neutral_muted(); }
+fn mm_t_accent() -> String { return mm_v_amber(); }
+fn mm_t_border() -> String { return mm_v_neutral_dim(); }
+fn mm_t_border_accent() -> String { return mm_v_amber(); }
+fn mm_t_border_muted() -> String { return mm_v_neutral_dim(); }
+fn mm_t_success() -> String { return mm_v_accent_green(); }
+fn mm_t_error() -> String { return mm_v_accent_red(); }
+fn mm_t_warning() -> String { return mm_v_amber(); }
+fn mm_t_muted() -> String { return mm_v_neutral_muted(); }
+fn mm_t_dim() -> String { return mm_v_neutral_dim(); }
+fn mm_t_text() -> String { return mm_v_neutral_text(); }
+fn mm_t_thinking_text() -> String { return mm_v_neutral_muted(); }
 
 // Backgrounds and content tokens
-fn t_selected_bg() -> String { return v_panel_bg(); }
-fn t_scrollbar_track() -> String { return v_neutral_dim(); }
-fn t_scrollbar_thumb() -> String { return v_amber_dim(); }
-fn t_user_message_bg() -> String { return v_user_bg(); }
-fn t_user_message_text() -> String { return v_neutral_text(); }
-fn t_custom_message_bg() -> String { return v_panel_bg(); }
-fn t_custom_message_text() -> String { return v_neutral_text(); }
-fn t_custom_message_label() -> String { return v_amber(); }
-fn t_tool_pending_bg() -> String { return v_tool_pending(); }
-fn t_tool_success_bg() -> String { return v_tool_success(); }
-fn t_tool_error_bg() -> String { return v_tool_error(); }
-fn t_tool_title() -> String { return v_amber(); }
-fn t_tool_output() -> String { return v_neutral_muted(); }
+fn mm_t_selected_bg() -> String { return mm_v_panel_bg(); }
+fn mm_t_scrollbar_track() -> String { return mm_v_neutral_dim(); }
+fn mm_t_scrollbar_thumb() -> String { return mm_v_amber_dim(); }
+fn mm_t_user_message_bg() -> String { return mm_v_user_bg(); }
+fn mm_t_user_message_text() -> String { return mm_v_neutral_text(); }
+fn mm_t_custom_message_bg() -> String { return mm_v_panel_bg(); }
+fn mm_t_custom_message_text() -> String { return mm_v_neutral_text(); }
+fn mm_t_custom_message_label() -> String { return mm_v_amber(); }
+fn mm_t_tool_pending_bg() -> String { return mm_v_tool_pending(); }
+fn mm_t_tool_success_bg() -> String { return mm_v_tool_success(); }
+fn mm_t_tool_error_bg() -> String { return mm_v_tool_error(); }
+fn mm_t_tool_title() -> String { return mm_v_amber(); }
+fn mm_t_tool_output() -> String { return mm_v_neutral_muted(); }
 
 // Markdown tokens
-fn t_md_heading() -> String { return v_amber(); }
-fn t_md_link() -> String { return v_accent_blue(); }
-fn t_md_link_url() -> String { return v_neutral_dim(); }
-fn t_md_code() -> String { return v_accent_green(); }
-fn t_md_code_block() -> String { return v_neutral_text(); }
-fn t_md_code_block_border() -> String { return v_amber_dim(); }
-fn t_md_list_bullet() -> String { return v_amber(); }
+fn mm_t_md_heading() -> String { return mm_v_amber(); }
+fn mm_t_md_link() -> String { return mm_v_accent_blue(); }
+fn mm_t_md_link_url() -> String { return mm_v_neutral_dim(); }
+fn mm_t_md_code() -> String { return mm_v_accent_green(); }
+fn mm_t_md_code_block() -> String { return mm_v_neutral_text(); }
+fn mm_t_md_code_block_border() -> String { return mm_v_amber_dim(); }
+fn mm_t_md_list_bullet() -> String { return mm_v_amber(); }
 
 // Tool diff tokens
-fn t_tool_diff_added() -> String { return v_accent_green(); }
-fn t_tool_diff_removed() -> String { return v_accent_red(); }
-fn t_tool_diff_context() -> String { return v_neutral_muted(); }
+fn mm_t_tool_diff_added() -> String { return mm_v_accent_green(); }
+fn mm_t_tool_diff_removed() -> String { return mm_v_accent_red(); }
+fn mm_t_tool_diff_context() -> String { return mm_v_neutral_muted(); }
 
 // Syntax tokens
-fn t_syntax_comment() -> String { return v_neutral_muted(); }
-fn t_syntax_keyword() -> String { return v_amber(); }
-fn t_syntax_function() -> String { return v_accent_blue(); }
-fn t_syntax_variable() -> String { return v_neutral_text(); }
-fn t_syntax_string() -> String { return v_accent_green(); }
-fn t_syntax_number() -> String { return v_accent_red(); }
-fn t_syntax_type() -> String { return v_accent_blue(); }
-fn t_syntax_operator() -> String { return v_amber(); }
-fn t_syntax_punctuation() -> String { return v_neutral_muted(); }
+fn mm_t_syntax_comment() -> String { return mm_v_neutral_muted(); }
+fn mm_t_syntax_keyword() -> String { return mm_v_amber(); }
+fn mm_t_syntax_function() -> String { return mm_v_accent_blue(); }
+fn mm_t_syntax_variable() -> String { return mm_v_neutral_text(); }
+fn mm_t_syntax_string() -> String { return mm_v_accent_green(); }
+fn mm_t_syntax_number() -> String { return mm_v_accent_red(); }
+fn mm_t_syntax_type() -> String { return mm_v_accent_blue(); }
+fn mm_t_syntax_operator() -> String { return mm_v_amber(); }
+fn mm_t_syntax_punctuation() -> String { return mm_v_neutral_muted(); }
 
 // Thinking level tokens
-fn t_thinking_off() -> String { return v_neutral_dim(); }
-fn t_thinking_minimal() -> String { return v_neutral_muted(); }
-fn t_thinking_low() -> String { return v_accent_green(); }
-fn t_thinking_medium() -> String { return v_accent_green(); }
-fn t_thinking_high() -> String { return v_amber_dim(); }
-fn t_thinking_xhigh() -> String { return v_amber(); }
-fn t_thinking_max() -> String { return v_accent_red(); }
-fn t_bash_mode() -> String { return v_accent_green(); }
+fn mm_t_thinking_off() -> String { return mm_v_neutral_dim(); }
+fn mm_t_thinking_minimal() -> String { return mm_v_neutral_muted(); }
+fn mm_t_thinking_low() -> String { return mm_v_accent_green(); }
+fn mm_t_thinking_medium() -> String { return mm_v_accent_green(); }
+fn mm_t_thinking_high() -> String { return mm_v_amber_dim(); }
+fn mm_t_thinking_xhigh() -> String { return mm_v_amber(); }
+fn mm_t_thinking_max() -> String { return mm_v_accent_red(); }
+fn mm_t_bash_mode() -> String { return mm_v_accent_green(); }
 
 // Theme record. Returns the hex code for any of the 47 semantic tokens.
 pub fn theme_minimax_token(token: String) -> String {
-    if token == "accent" { return t_accent(); }
-    if token == "border" { return t_border(); }
-    if token == "borderAccent" { return t_border_accent(); }
-    if token == "borderMuted" { return t_border_muted(); }
-    if token == "success" { return t_success(); }
-    if token == "error" { return t_error(); }
-    if token == "warning" { return t_warning(); }
-    if token == "muted" { return t_muted(); }
-    if token == "dim" { return t_dim(); }
-    if token == "text" { return t_text(); }
-    if token == "thinkingText" { return t_thinking_text(); }
-    if token == "selectedBg" { return t_selected_bg(); }
-    if token == "scrollbarTrack" { return t_scrollbar_track(); }
-    if token == "scrollbarThumb" { return t_scrollbar_thumb(); }
-    if token == "userMessageBg" { return t_user_message_bg(); }
-    if token == "userMessageText" { return t_user_message_text(); }
-    if token == "customMessageBg" { return t_custom_message_bg(); }
-    if token == "customMessageText" { return t_custom_message_text(); }
-    if token == "customMessageLabel" { return t_custom_message_label(); }
-    if token == "toolPendingBg" { return t_tool_pending_bg(); }
-    if token == "toolSuccessBg" { return t_tool_success_bg(); }
-    if token == "toolErrorBg" { return t_tool_error_bg(); }
-    if token == "toolTitle" { return t_tool_title(); }
-    if token == "toolOutput" { return t_tool_output(); }
-    if token == "mdHeading" { return t_md_heading(); }
-    if token == "mdLink" { return t_md_link(); }
-    if token == "mdLinkUrl" { return t_md_link_url(); }
-    if token == "mdCode" { return t_md_code(); }
-    if token == "mdCodeBlock" { return t_md_code_block(); }
-    if token == "mdCodeBlockBorder" { return t_md_code_block_border(); }
-    if token == "mdListBullet" { return t_md_list_bullet(); }
-    if token == "toolDiffAdded" { return t_tool_diff_added(); }
-    if token == "toolDiffRemoved" { return t_tool_diff_removed(); }
-    if token == "toolDiffContext" { return t_tool_diff_context(); }
-    if token == "syntaxComment" { return t_syntax_comment(); }
-    if token == "syntaxKeyword" { return t_syntax_keyword(); }
-    if token == "syntaxFunction" { return t_syntax_function(); }
-    if token == "syntaxVariable" { return t_syntax_variable(); }
-    if token == "syntaxString" { return t_syntax_string(); }
-    if token == "syntaxNumber" { return t_syntax_number(); }
-    if token == "syntaxType" { return t_syntax_type(); }
-    if token == "syntaxOperator" { return t_syntax_operator(); }
-    if token == "syntaxPunctuation" { return t_syntax_punctuation(); }
-    if token == "thinkingOff" { return t_thinking_off(); }
-    if token == "thinkingMinimal" { return t_thinking_minimal(); }
-    if token == "thinkingLow" { return t_thinking_low(); }
-    if token == "thinkingMedium" { return t_thinking_medium(); }
-    if token == "thinkingHigh" { return t_thinking_high(); }
-    if token == "thinkingXhigh" { return t_thinking_xhigh(); }
-    if token == "thinkingMax" { return t_thinking_max(); }
-    if token == "bashMode" { return t_bash_mode(); }
-    return t_text();
+    if token == "accent" { return mm_t_accent(); }
+    if token == "border" { return mm_t_border(); }
+    if token == "borderAccent" { return mm_t_border_accent(); }
+    if token == "borderMuted" { return mm_t_border_muted(); }
+    if token == "success" { return mm_t_success(); }
+    if token == "error" { return mm_t_error(); }
+    if token == "warning" { return mm_t_warning(); }
+    if token == "muted" { return mm_t_muted(); }
+    if token == "dim" { return mm_t_dim(); }
+    if token == "text" { return mm_t_text(); }
+    if token == "thinkingText" { return mm_t_thinking_text(); }
+    if token == "selectedBg" { return mm_t_selected_bg(); }
+    if token == "scrollbarTrack" { return mm_t_scrollbar_track(); }
+    if token == "scrollbarThumb" { return mm_t_scrollbar_thumb(); }
+    if token == "userMessageBg" { return mm_t_user_message_bg(); }
+    if token == "userMessageText" { return mm_t_user_message_text(); }
+    if token == "customMessageBg" { return mm_t_custom_message_bg(); }
+    if token == "customMessageText" { return mm_t_custom_message_text(); }
+    if token == "customMessageLabel" { return mm_t_custom_message_label(); }
+    if token == "toolPendingBg" { return mm_t_tool_pending_bg(); }
+    if token == "toolSuccessBg" { return mm_t_tool_success_bg(); }
+    if token == "toolErrorBg" { return mm_t_tool_error_bg(); }
+    if token == "toolTitle" { return mm_t_tool_title(); }
+    if token == "toolOutput" { return mm_t_tool_output(); }
+    if token == "mdHeading" { return mm_t_md_heading(); }
+    if token == "mdLink" { return mm_t_md_link(); }
+    if token == "mdLinkUrl" { return mm_t_md_link_url(); }
+    if token == "mdCode" { return mm_t_md_code(); }
+    if token == "mdCodeBlock" { return mm_t_md_code_block(); }
+    if token == "mdCodeBlockBorder" { return mm_t_md_code_block_border(); }
+    if token == "mdListBullet" { return mm_t_md_list_bullet(); }
+    if token == "toolDiffAdded" { return mm_t_tool_diff_added(); }
+    if token == "toolDiffRemoved" { return mm_t_tool_diff_removed(); }
+    if token == "toolDiffContext" { return mm_t_tool_diff_context(); }
+    if token == "syntaxComment" { return mm_t_syntax_comment(); }
+    if token == "syntaxKeyword" { return mm_t_syntax_keyword(); }
+    if token == "syntaxFunction" { return mm_t_syntax_function(); }
+    if token == "syntaxVariable" { return mm_t_syntax_variable(); }
+    if token == "syntaxString" { return mm_t_syntax_string(); }
+    if token == "syntaxNumber" { return mm_t_syntax_number(); }
+    if token == "syntaxType" { return mm_t_syntax_type(); }
+    if token == "syntaxOperator" { return mm_t_syntax_operator(); }
+    if token == "syntaxPunctuation" { return mm_t_syntax_punctuation(); }
+    if token == "thinkingOff" { return mm_t_thinking_off(); }
+    if token == "thinkingMinimal" { return mm_t_thinking_minimal(); }
+    if token == "thinkingLow" { return mm_t_thinking_low(); }
+    if token == "thinkingMedium" { return mm_t_thinking_medium(); }
+    if token == "thinkingHigh" { return mm_t_thinking_high(); }
+    if token == "thinkingXhigh" { return mm_t_thinking_xhigh(); }
+    if token == "thinkingMax" { return mm_t_thinking_max(); }
+    if token == "bashMode" { return mm_t_bash_mode(); }
+    return mm_t_text();
 }
 
 pub fn theme_minimax_name() -> String {

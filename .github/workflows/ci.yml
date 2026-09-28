@@ -40,6 +40,18 @@ jobs:
           repository: openOODA/cli
           path: cli
 
+      - name: Checkout lsp
+        uses: actions/checkout@v4
+        with:
+          repository: openOODA/lsp
+          path: lsp
+
+      - name: Checkout mcp
+        uses: actions/checkout@v4
+        with:
+          repository: openOODA/mcp
+          path: mcp
+
       - name: Checkout oodac
         uses: actions/checkout@v4
         with:
@@ -67,7 +79,7 @@ jobs:
       - name: Build oodar libs
         run: make -C oodar/scripts -f Makefile modular
 
-      - name: Build ooda and cli drivers
+      - name: Build ooda, cli, lsp, mcp drivers
         run: |
           set -euo pipefail
           export OO_LIST_AMBIENT_QUOTA=1073741824
@@ -80,6 +92,10 @@ jobs:
           chmod +x "$HOME/.openooda/bin/ooda"
           "$OODA_COMPILER" build cli/main.oo -o "$HOME/.openooda/bin/cli"
           chmod +x "$HOME/.openooda/bin/cli"
+          "$OODA_COMPILER" build lsp/cli/main.oo -o "$HOME/.openooda/bin/lsp"
+          chmod +x "$HOME/.openooda/bin/lsp"
+          "$OODA_COMPILER" build mcp/cli/main.oo -o "$HOME/.openooda/bin/mcp"
+          chmod +x "$HOME/.openooda/bin/mcp"
           "$HOME/.openooda/bin/ooda" version
 
       - name: 256-line cap check (rules.oot §1.8)
@@ -187,22 +203,30 @@ jobs:
           grep -q "commands:" /tmp/tui-help-slash.txt
           echo "PASS: smoke holds"
 
-      - name: QA probes (compile only)
+      - name: QA probes (check all, execute runnable)
         working-directory: tui
         run: |
-          set -e
+          set -euo pipefail
           export OO_LIST_AMBIENT_QUOTA=1073741824
           export OODACODEX="$HOME/.openooda/northstar.oot"
           export OODA_COMPILER="$HOME/.openooda/bin/oodac"
           export OODA_STD_ROOT="$GITHUB_WORKSPACE/std"
           export OODA_NO_JAIL=1
-          # Only the v0.1.3 live-path probes. Scaffold leftovers still
-          # reference int_to_str without a local stub (oodac v0.2.66).
-          for f in qa/probe_chrome.oo qa/probe_slash.oo qa/theme_color_session.oo qa/render.oo qa/theme_swap.oo; do
+          export OODA_TUI_ROOT="$GITHUB_WORKSPACE/tui"
+          export OODA_HOME="$HOME"
+          export PATH="$HOME/.openooda/bin:$PATH"
+          for f in qa/*.oo; do
             echo "checking $f"
             "$OODA_COMPILER" check "$f" || exit 1
           done
           echo "PASS: qa probes compile"
+          # Execute every runnable probe. e2e_tier* run under `make e2e`;
+          # anchor.oo is structural (no main). dist/tui was built above.
+          for f in qa/probe_*.oo qa/theme_color_session.oo qa/theme_probe.oo qa/theme_swap.oo qa/render.oo qa/smoke.oo qa/negative.oo qa/argv.oo qa/llm_mock.oo qa/lsp_init.oo qa/mcp_handshake.oo qa/multi_provider.oo qa/e2e_master.oo; do
+            echo "testing $f"
+            ooda test "$f" || exit 1
+          done
+          echo "PASS: qa probes execute"
 
       - name: E2E suite (138 tests, double-run)
         working-directory: tui

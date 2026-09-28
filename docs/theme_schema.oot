@@ -55,4 +55,4 @@ Bash mode (1): bashMode.
 
 The default theme. Hand-transcribed from
 `~/.pi/agent/themes/1982.json`. CRT amber/phosphor palette on
-near-black background. See `themes/1982.oo`.
+near-black background. See `themes/theme_1982.oo` (user-facing name "1982").
