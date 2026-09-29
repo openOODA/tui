@@ -8,7 +8,6 @@
 //   1. agents_load reads the first existing briefing file, clipped.
 //   2. agents_init writes cwd/AGENTS.md if missing.
 
-import "std/fs/file/path.oo";
 import "std/fs/process/env.oo";
 
 fn clip_brief(s: String) -> String {

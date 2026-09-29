@@ -7,7 +7,6 @@
 // Beats:
 //   1. theme_color_session(env) is callable and returns a Bool (true OR false).
 
-import "std/fs/process/env.oo";
 import "theme.oo";
 
 pub fn qa_theme_color_session_run(env: &EnvCap) -> Int {

@@ -11,7 +11,6 @@
 //   4. Receive textDocument/publishDiagnostics for inline diagnostics.
 //   5. Exposed: lsp_init, lsp_open, lsp_change, lsp_diagnostics, lsp_close.
 
-import "std/fs/file/path.oo";
 import "std/fs/process/process.oo";
 import "std/core/text/num_buffer.oo";
 

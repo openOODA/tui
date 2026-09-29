@@ -10,7 +10,6 @@
 //   3. Serialize and write to <file>.snap via write_file.
 //   4. Emit a versioned JSON envelope confirming the write.
 
-import "std/app/agent/token/jsonl_strict.oo";
 import "std/app/agent/token/token_telemetry.oo";
 import "std/app/agent/token/ledger_persist.oo";
 import "std/app/agent/token/json_envelope.oo";

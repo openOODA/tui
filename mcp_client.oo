@@ -10,8 +10,6 @@
 //   3. Each call is one-shot; no persistent connection. Slow but works without bidirectional pipes.
 //   4. Failures: -32601 (log), -32602 (surface), -32603 (surface + retry).
 
-import "std/fs/file/path.oo";
-import "std/fs/file/file_writer.oo";
 import "std/fs/process/process.oo";
 import "version.oo";
 import "std/core/text/num_buffer.oo";

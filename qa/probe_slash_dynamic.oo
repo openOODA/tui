@@ -14,7 +14,6 @@
 //   7. Assert deterministic cleanup of test fixtures across double-run cycles.
 
 import "std/fs/process/process.oo";
-import "std/fs/process/env.oo";
 import "repl_state.oo";
 import "repl_slash.oo";
 import "slash/anchor.oo";

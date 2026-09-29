@@ -13,8 +13,6 @@
 //   6. S6 (Full Governance & Parity Certification): Bit-for-bit parity and openOODA repo laws.
 
 import "std/fs/process/process.oo";
-import "plugins/registry.oo";
-import "ui/indicators/indicator_dots.oo";
 import "std/core/text/num_buffer.oo";
 
 pub fn resolve_tui_bin(sys: &ProcessCap) -> String {

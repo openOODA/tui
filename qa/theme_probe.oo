@@ -8,7 +8,6 @@
 //   1. For each of the 47 semantic tokens, call theme_color("1982", token) and assert it returns a hex string starting with "#".
 //   2. Verify all 19 vars from 1982.json are present.
 
-import "themes/theme_1982.oo";
 import "theme.oo";
 import "std/core/text/num_buffer.oo";
 

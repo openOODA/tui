@@ -12,10 +12,8 @@
 //   5. Emits trailing cursor placement sequence (ESC[2;5H in color mode) at frame end.
 
 import "ui/input/input_header.oo";
-import "header.oo";
 import "pane.oo";
 import "popover.oo";
-import "statusbar.oo";
 import "ui/statusbar/statusbar_footer.oo";
 import "theme.oo";
 

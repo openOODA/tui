@@ -10,7 +10,6 @@
 //   3. Reads file contents via read_file.
 //   4. Returns clipped content up to 8000 characters.
 
-import "std/fs/file/path.oo";
 import "./path_guard.oo";
 
 pub fn tool_read(fs_r: &FsReadCap, cwd: String, rel: String) -> Result[String, String] {

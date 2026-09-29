@@ -13,7 +13,6 @@
 
 import "ui/cards/card_thought.oo";
 import "theme.oo";
-import "plugins/registry.oo";
 import "std/core/text/num_buffer.oo";
 
 fn count_nl(s: String) -> Int {

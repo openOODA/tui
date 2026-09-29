@@ -10,7 +10,6 @@
 //   3. Implements tool_needs_ask permission gate for mutating tools (write, bash).
 //   4. Implements tool_line_count for response size accounting.
 
-import "std/fs/process/process.oo";
 import "./path_guard.oo";
 import "./sanitize.oo";
 import "./tool_read.oo";
