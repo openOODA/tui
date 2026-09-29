@@ -265,7 +265,7 @@ jobs:
   release:
     needs: build
     if: github.ref == 'refs/heads/master' && github.event_name == 'push'
-    uses: openOODA/openOODA/.github/workflows/auto-release.yml@master
+    uses: openOODA/openOODA/.github/workflows/auto-release.yml@v2.10.44
     with:
       artifact_pattern: tui-*
     permissions:
