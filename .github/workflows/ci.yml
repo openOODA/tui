@@ -220,9 +220,10 @@ jobs:
             "$OODA_COMPILER" check "$f" || exit 1
           done
           echo "PASS: qa probes compile"
-          # Execute every runnable probe. e2e_tier* run under `make e2e`;
-          # anchor.oo is structural (no main). dist/tui was built above.
-          for f in qa/probe_*.oo qa/theme_color_session.oo qa/theme_probe.oo qa/theme_swap.oo qa/render.oo qa/smoke.oo qa/negative.oo qa/argv.oo qa/llm_mock.oo qa/lsp_init.oo qa/mcp_handshake.oo qa/multi_provider.oo qa/e2e_master.oo; do
+          # Execute every runnable probe. e2e_tier* and e2e_master run under
+          # `make e2e` (post-install: tier parity checks need the installed
+          # binary); anchor.oo is structural (no main). dist/tui was built above.
+          for f in qa/probe_*.oo qa/theme_color_session.oo qa/theme_probe.oo qa/theme_swap.oo qa/render.oo qa/smoke.oo qa/negative.oo qa/argv.oo qa/llm_mock.oo qa/lsp_init.oo qa/mcp_handshake.oo qa/multi_provider.oo; do
             echo "testing $f"
             ooda test "$f" || exit 1
           done

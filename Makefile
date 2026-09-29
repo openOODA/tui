@@ -117,6 +117,7 @@ e2e: $(BIN)
 	ooda test qa/e2e_tier2_b10_b12.oo && \
 	ooda test qa/e2e_tier3_pairwise.oo && \
 	ooda test qa/e2e_tier4_scenarios.oo && \
+	ooda test qa/e2e_master.oo && \
 	echo "=== ALL 138 E2E TESTS PASSED (Double-Run Verified) ==="
 
 academy:
