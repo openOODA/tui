@@ -113,7 +113,8 @@ pub fn run_tier1_f1_f3(sys: &ProcessCap, bin: String) -> Result[Int, String] {
 
     println("qa/e2e_tier1_f1_f3: pass=" + int_to_str(pass) + " fail=" + int_to_str(fail));
     if fail > 0 { return Err("qa/e2e_tier1_f1_f3: failures detected"); }
-    return Ok(0);
+    if pass != 15 { return Err("qa/e2e_tier1_f1_f3: expected 15 tests, ran " + int_to_str(pass)); }
+    return Ok(pass);
 }
 
 pub fn main(bind: &BindCap, fs_r: &FsReadCap, fs_w: &FsWriteCap, sys: &ProcessCap, sys_cap: &SysCap, env: &EnvCap, time: &TimeCap, alloc: &AllocCap, thread: &ThreadCap, args: List[String]) -> Result[Int, String] {
@@ -126,7 +127,10 @@ pub fn main(bind: &BindCap, fs_r: &FsReadCap, fs_w: &FsWriteCap, sys: &ProcessCa
     if r1.is_err() { return r1; }
     let r2: Result[Int, String] = run_tier1_f1_f3(sys, bin);
     if r2.is_err() { return r2; }
+    let c1: Int = match r1 { Ok(n) => n, Err(_) => 0 - 1 };
+    let c2: Int = match r2 { Ok(n) => n, Err(_) => 0 - 2 };
+    if c1 != c2 { return Err("qa/e2e_tier1_f1_f3: double-run count drift run1=" + int_to_str(c1) + " run2=" + int_to_str(c2)); }
 
-    println("qa/e2e_tier1_f1_f3: PASS (Double-Run verified)");
-    return Ok(0);
+    println("qa/e2e_tier1_f1_f3: PASS (Double-Run verified, " + int_to_str(c1) + " tests x2)");
+    return Ok(c1);
 }
