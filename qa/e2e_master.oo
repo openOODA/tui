@@ -53,6 +53,10 @@ fn run_tier(p: &ProcessCap, oodac: String, path: String, want: Int) -> Result[In
     let r: Result[String, String] = sys_exec(p, tmp_bin);
     let _del: Result[String, String] = sys_exec(p, "rm", "-f", tmp_bin);
     if r.is_err() {
+        let eo: String = match r { Ok(_) => "", Err(m) => m };
+        println("--- captured output of " + path + " ---");
+        println(eo);
+        println("--- end output ---");
         return Err("tier failed (nonzero exit) " + path);
     }
     let out: String = match r { Ok(s) => s, Err(_) => "" };
