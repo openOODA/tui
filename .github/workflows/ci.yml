@@ -65,11 +65,20 @@ jobs:
           sudo apt-get install -y -qq clang llvm
           mkdir -p "$HOME/.openooda/bin" "$HOME/.openooda/lib"
           GH=https://github.com/openOODA
+          # Pinned toolchain: hash-verified before chmod (a replaced release
+          # asset fails closed). Bump version + hash together, deliberately.
+          OODAC_SHA256="0ac6f321bf0b7eea20bf3b827df849557de2d3a1b869888edcbd17e81a8244e5"
           curl -fsSL -o "$HOME/.openooda/bin/oodac" \
             "$GH/oodac/releases/download/v0.11.31/oodac-linux-x86_64"
+          echo "$OODAC_SHA256  $HOME/.openooda/bin/oodac" | sha256sum -c -
           chmod +x "$HOME/.openooda/bin/oodac"
+          # northstar pinned to a commit (master-floating fetched whatever was
+          # newest); hash assert guards transport. Bump both together.
+          NORTHSTAR_SHA="adfd86a19e4e471c4e82578c6696fe4a08b4100e"
+          NORTHSTAR_SHA256="eb3e36e9154220418f9d37dce2414ebaf3d39f7755967e6114ad1670be704ea3"
           curl -fsSL -o "$HOME/.openooda/northstar.oot" \
-            https://raw.githubusercontent.com/openOODA/openOODA/master/northstar.oot
+            "https://raw.githubusercontent.com/openOODA/openOODA/${NORTHSTAR_SHA}/northstar.oot"
+          echo "$NORTHSTAR_SHA256  $HOME/.openooda/northstar.oot" | sha256sum -c -
           echo "$HOME/.openooda/bin" >> "$GITHUB_PATH"
           test -x "$HOME/.openooda/bin/oodac"
           test -f "$GITHUB_WORKSPACE/std/fs/process/env.oo"
