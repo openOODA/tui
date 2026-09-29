@@ -126,11 +126,3 @@ ooda build main.oo -o dist/tui
 ## License
 
 Apache-2.0. See [LICENSE](LICENSE) for full text.
-
----
-
-<div align="center">
-
-[![Necrometer](necrometer.svg)](https://necrometer.dev/?u=openOODA)
-
-</div>
