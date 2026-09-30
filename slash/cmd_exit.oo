@@ -9,6 +9,9 @@
 //   2. Emit exit status message to session output.
 
 
+import "repl_state.oo";
+import "slash/common.oo";
+
 pub fn cmd_exit_run(st: ReplState) -> ReplState {
     let mut s: ReplState = st;
     s.exiting = true;

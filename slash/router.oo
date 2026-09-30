@@ -11,6 +11,8 @@
 //   4. Dispatch to matching built-in command handler.
 //   5. Fall back to dynamic external script runner if command unhandled.
 
+import "repl_state.oo";
+
 import "slash/common.oo";
 import "slash/cmd_help.oo";
 import "slash/cmd_exit.oo";

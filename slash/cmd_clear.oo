@@ -9,6 +9,8 @@
 //   2. Set clear control token for terminal renderer.
 
 
+import "repl_state.oo";
+
 pub fn cmd_clear_run(st: ReplState) -> ReplState {
     let mut s: ReplState = st;
     s.hist = "";

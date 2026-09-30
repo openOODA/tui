@@ -10,6 +10,8 @@
 //   3. Register all 25 discrete slash commands into Master Typed Registry.
 //   4. In-process validation: slash_self_check exercising core routing behavior.
 
+import "repl_state.oo";
+
 import "plugins/registry.oo";
 import "slash/router.oo";
 

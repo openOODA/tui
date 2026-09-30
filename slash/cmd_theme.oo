@@ -11,6 +11,9 @@
 //   4. Persist updated configuration to disk.
 
 
+import "repl_state.oo";
+import "slash/common.oo";
+
 pub fn cmd_theme_run(st: ReplState, args: String, fw: &FsWriteCap, env: &EnvCap) -> ReplState {
     if args == "" { return slash_say(st, "theme: " + st.theme); }
     if args != "1982" && args != "minimax" { return slash_say(st, "unknown theme: " + args); }
