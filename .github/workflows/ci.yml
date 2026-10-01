@@ -172,7 +172,7 @@ jobs:
           export OODA_TUI_ROOT="$GITHUB_WORKSPACE/tui"
           export OODA_HOME="$HOME"
           export PATH="$HOME/.openooda/bin:$PATH"
-          for f in qa/*.oo; do
+          for f in $(find qa -name "*.oo"); do
             echo "checking $f"
             "$OODA_COMPILER" check "$f" || exit 1
           done
@@ -180,7 +180,7 @@ jobs:
           # Execute every runnable probe. e2e_tier* and e2e_master run under
           # `make e2e` (post-install: tier parity checks need the installed
           # binary); anchor.oo is structural (no main). dist/tui was built above.
-          for f in qa/probe_*.oo qa/theme_color_session.oo qa/theme_probe.oo qa/theme_swap.oo qa/render.oo qa/smoke.oo qa/negative.oo qa/argv.oo qa/llm_mock.oo qa/lsp_init.oo qa/mcp_handshake.oo qa/multi_provider.oo; do
+          for f in $(find qa -name "*.oo" -not -path "*/e2e/*" -not -name "anchor.oo" -not -name "suite.oo"); do
             echo "testing $f"
             ooda test "$f" || exit 1
           done
