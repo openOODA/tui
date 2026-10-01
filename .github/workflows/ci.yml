@@ -107,61 +107,9 @@ jobs:
           chmod +x "$HOME/.openooda/bin/mcp"
           "$HOME/.openooda/bin/ooda" version
 
-      - name: 256-line cap check (rules.oot §1.8)
+      - name: Structural verification (rules.oot §1.8/§1.11/§1.14)
         working-directory: tui
-        run: |
-          set -e
-          violations=0
-          for f in $(find . -name "*.oo" -o -name "*.oot"); do
-            lines=$(wc -l < "$f")
-            if [ "$lines" -gt 256 ]; then
-              echo "FAIL: $f has $lines lines (> 256)"
-              violations=$((violations + 1))
-            fi
-          done
-          if [ "$violations" -gt 0 ]; then
-            echo "FAIL: $violations files exceed 256-line cap"
-            exit 1
-          fi
-          echo "PASS: 256-line cap holds"
-
-      - name: File-type ban check (rules.oot §1.14)
-        working-directory: tui
-        run: |
-          set -e
-          forbidden="py js ts rb pl json sh"
-          for ext in $forbidden; do
-            found=$(find . -name "*.$ext" -not -path "./.git/*" | grep -v "^./README.md$" || true)
-            if [ -n "$found" ]; then
-              echo "FAIL: forbidden file type .$ext found:"
-              echo "$found"
-              exit 1
-            fi
-          done
-          echo "PASS: no forbidden file types"
-
-      - name: Academy header check (rules.oot §1.11)
-        working-directory: tui
-        run: |
-          set -e
-          failures=0
-          for f in $(find . -name "*.oo"); do
-            header=$(head -7 "$f")
-            ok=1
-            echo "$header" | grep -q "^// # " || ok=0
-            echo "$header" | grep -q "^// Logline:" || ok=0
-            echo "$header" | grep -q "^// Setup:" || ok=0
-            echo "$header" | grep -q "^// Beats:" || ok=0
-            if [ "$ok" -eq 0 ]; then
-              echo "FAIL: $f missing Academy header in first 7 lines"
-              failures=$((failures + 1))
-            fi
-          done
-          if [ "$failures" -gt 0 ]; then
-            echo "FAIL: $failures files missing Academy header"
-            exit 1
-          fi
-          echo "PASS: all .oo files have Academy headers"
+        run: make line-cap file-law academy
 
       - name: Check
         working-directory: tui

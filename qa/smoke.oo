@@ -23,7 +23,7 @@ pub fn main(bind: &BindCap, fs_r: &FsReadCap, fs_w: &FsWriteCap, sys: &ProcessCa
     let r2: Result[String, String] = process_exec(sys, "./dist/tui --version");
     if r2.is_ok() { pass = pass + 1; println("PASS: --version"); }
     else { fail = fail + 1; println("FAIL: --version"); }
-    let r3: Result[String, String] = process_exec(sys, "OODACODEX=/tmp/openOODA/northstar.oot ./dist/tui --teamwork --yolo");
+    let r3: Result[String, String] = process_exec(sys, "OODACODEX=../openOODA/requirements.oot ./dist/tui --teamwork --yolo < /dev/null");
     if r3.is_ok() { pass = pass + 1; println("PASS: teamwork+yolo ready banner"); }
     else { fail = fail + 1; println("FAIL: teamwork+yolo"); }
     let r4: Result[String, String] = process_exec(sys, "./dist/tui --bogus");
