@@ -1,0 +1,15 @@
+// # TUI QA Mock Probes Anchor
+//
+// Logline: LLM mock, LSP init, MCP handshake, multi-provider, and smoke probes.
+//
+// Setup: Pure shim re-exporting mock probe modules.
+//
+// Beats:
+//   1. Re-export mock probe modules.
+import "llm_mock.oo";
+import "lsp_init.oo";
+import "mcp_handshake.oo";
+import "multi_provider.oo";
+import "negative.oo";
+import "smoke.oo";
+import "argv.oo";

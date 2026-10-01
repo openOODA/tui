@@ -1,0 +1,12 @@
+// # TUI QA Slash Probes Anchor
+//
+// Logline: Slash commands, dynamic dispatch, presets, and teamwork probes.
+//
+// Setup: Pure shim re-exporting slash command probes.
+//
+// Beats:
+//   1. Re-export slash probe modules.
+import "probe_slash.oo";
+import "probe_slash_dynamic.oo";
+import "probe_preset.oo";
+import "probe_teamwork.oo";

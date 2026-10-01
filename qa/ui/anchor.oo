@@ -1,0 +1,13 @@
+// # TUI QA UI Probes Anchor
+//
+// Logline: UI rendering, header, footer, chrome, and thought stream probes.
+//
+// Setup: Pure shim re-exporting UI probes.
+//
+// Beats:
+//   1. Re-export UI probe modules.
+import "probe_chrome.oo";
+import "probe_input_header.oo";
+import "probe_statusbar_footer.oo";
+import "probe_thought_stream.oo";
+import "render.oo";

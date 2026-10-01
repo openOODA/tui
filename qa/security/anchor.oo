@@ -1,0 +1,14 @@
+// # TUI QA Security Probes Anchor
+//
+// Logline: Adversarial, sanitize, permissions, and containment challenger probes.
+//
+// Setup: Pure shim re-exporting security probe modules.
+//
+// Beats:
+//   1. Re-export security probe modules.
+import "probe_adversarial_m1.oo";
+import "probe_adversarial_m2.oo";
+import "probe_adversarial_m3.oo";
+import "probe_challenger2_m3.oo";
+import "probe_sanitize.oo";
+import "probe_temp_perm.oo";

@@ -17,7 +17,6 @@ import "theme.oo";
 import "config_io.oo";
 import "llm_exec.oo";
 import "mcp_client.oo";
-import "version.oo";
 import "repl_state.oo";
 import "repl_slash.oo";
 import "agent_turn.oo";
@@ -62,7 +61,7 @@ pub fn run_tui_session(fs_r: &FsReadCap, fs_w: &FsWriteCap, sys: &ProcessCap, en
     if st.provider != "" && st.url == "" { st.url = provider_default_url(st.provider); }
     st.brief = agents_load(fs_r, env, st.cwd);
     let color: Bool = theme_color_forced(env, no_color);
-    let ver: String = tui_version();
+    let ver: String = "v0.3.10";
     let is_mcp: Bool = mcp_check(fs_w, sys, env);
     let mut pane: Pane = card_welcome_pane(st.theme, color, 80, ver, st.mode, st.perm, st.cwd, st.provider, st.model, st.brief != "", is_mcp);
     let host: Bool = have_tty(sys);

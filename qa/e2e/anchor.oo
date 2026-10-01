@@ -1,0 +1,15 @@
+// # TUI QA E2E Master Suite Anchor
+//
+// Logline: Master coordinator and runner for all E2E test tiers.
+//
+// Setup: Pure shim re-exporting E2E sub-tiers and master runner.
+//
+// Beats:
+//   1. Re-export tier 1 anchor.
+//   2. Re-export tier 2 anchor.
+//   3. Re-export tier 3 and 4 anchor.
+//   4. Re-export master runner.
+import "tier1/anchor.oo";
+import "tier2/anchor.oo";
+import "tier3_4/anchor.oo";
+import "e2e_master.oo";

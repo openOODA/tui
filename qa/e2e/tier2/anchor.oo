@@ -1,0 +1,12 @@
+// # TUI QA E2E Tier 2 Anchor
+//
+// Logline: E2E test suite tier 2 behavior probes B1 through B12.
+//
+// Setup: Pure shim re-exporting tier 2 test modules.
+//
+// Beats:
+//   1. Re-export tier 2 test suites.
+import "e2e_tier2_b1_b3.oo";
+import "e2e_tier2_b4_b6.oo";
+import "e2e_tier2_b7_b9.oo";
+import "e2e_tier2_b10_b12.oo";

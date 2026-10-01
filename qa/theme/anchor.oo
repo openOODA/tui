@@ -1,0 +1,11 @@
+// # TUI QA Theme Probes Anchor
+//
+// Logline: Color, theme swap, and session styling probes.
+//
+// Setup: Pure shim re-exporting theme probe modules.
+//
+// Beats:
+//   1. Re-export theme probe modules.
+import "theme_color_session.oo";
+import "theme_probe.oo";
+import "theme_swap.oo";

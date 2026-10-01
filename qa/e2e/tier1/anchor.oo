@@ -1,0 +1,12 @@
+// # TUI QA E2E Tier 1 Anchor
+//
+// Logline: E2E test suite tier 1 feature probes F1 through F12.
+//
+// Setup: Pure shim re-exporting tier 1 test modules.
+//
+// Beats:
+//   1. Re-export tier 1 test suites.
+import "e2e_tier1_f1_f3.oo";
+import "e2e_tier1_f4_f6.oo";
+import "e2e_tier1_f7_f9.oo";
+import "e2e_tier1_f10_f12.oo";

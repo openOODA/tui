@@ -1,0 +1,10 @@
+// # TUI QA E2E Tier 3 and 4 Anchor
+//
+// Logline: E2E test suite tier 3 pairwise and tier 4 scenario probes.
+//
+// Setup: Pure shim re-exporting tier 3 and 4 test modules.
+//
+// Beats:
+//   1. Re-export tier 3 and 4 test suites.
+import "e2e_tier3_pairwise.oo";
+import "e2e_tier4_scenarios.oo";

@@ -26,8 +26,6 @@ import "core/anchor.oo";
 import "plugins/anchor.oo";
 import "tools/anchor.oo";
 
-import "version.oo";
-
 pub fn tui_anchor_version() -> String {
-    return tui_version();
+    return "v0.3.10";
 }

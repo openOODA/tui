@@ -34,7 +34,7 @@ all: build verify test
 
 build: $(BIN)
 
-$(BIN): main.oo version.oo anchor.oo config_io.oo mcp_client.oo lsp_client.oo llm.oo llm_exec.oo llm_anthropic.oo llm_openai.oo llm_ollama.oo llm_google.oo llm_custom.oo teamwork.oo session.oo compact.oo plan.oo btw.oo keys.oo theme.oo themes/theme_1982.oo themes/minimax.oo chrome.oo header.oo ui/input/input_header.oo statusbar.oo ui/statusbar/statusbar_footer.oo pane.oo input.oo popover.oo markdown.oo tool_card.oo diff.oo repl.oo repl_state.oo repl_slash.oo tools/sanitize.oo tools/path_guard.oo tools/tool_read.oo tools/tool_write.oo tools/tool_bash.oo tools/tool_grep.oo tools/tool_glob.oo tools/tool_mcp.oo tools/anchor.oo card.oo ui/cards/card_thought.oo agent_turn.oo agents_md.oo core/types.oo core/state.oo core/event_bus.oo core/kernel.oo core/anchor.oo plugins/registry.oo plugins/anchor.oo slash/anchor.oo slash/router.oo slash/common.oo slash/cmd_help.oo slash/cmd_exit.oo slash/cmd_version.oo slash/cmd_providers.oo slash/cmd_provider.oo slash/cmd_model.oo slash/cmd_login.oo slash/cmd_logout.oo slash/cmd_theme.oo slash/cmd_cwd.oo slash/cmd_plan.oo slash/cmd_goal.oo slash/cmd_status.oo slash/cmd_settings.oo slash/cmd_clear.oo slash/cmd_rename.oo slash/cmd_resume.oo slash/cmd_compact.oo slash/cmd_btw.oo slash/cmd_team.oo slash/cmd_init.oo slash/cmd_perm.oo slash/cmd_mode.oo slash/cmd_preset.oo slash/cmd_tools.oo slash/cmd_external.oo
+$(BIN): main.oo anchor.oo config_io.oo mcp_client.oo lsp_client.oo llm.oo llm_exec.oo llm_anthropic.oo llm_openai.oo llm_ollama.oo llm_google.oo llm_custom.oo teamwork.oo session.oo compact.oo plan.oo btw.oo keys.oo theme.oo themes/theme_1982.oo themes/minimax.oo chrome.oo header.oo ui/input/input_header.oo statusbar.oo ui/statusbar/statusbar_footer.oo pane.oo input.oo popover.oo markdown.oo tool_card.oo diff.oo repl.oo repl_state.oo repl_slash.oo tools/sanitize.oo tools/path_guard.oo tools/tool_read.oo tools/tool_write.oo tools/tool_bash.oo tools/tool_grep.oo tools/tool_glob.oo tools/tool_mcp.oo tools/anchor.oo card.oo ui/cards/card_thought.oo agent_turn.oo agents_md.oo core/types.oo core/state.oo core/event_bus.oo core/kernel.oo core/anchor.oo plugins/registry.oo plugins/anchor.oo slash/anchor.oo slash/router.oo slash/slash_ops.oo slash/cmd_help.oo slash/cmd_exit.oo slash/cmd_version.oo slash/cmd_providers.oo slash/cmd_provider.oo slash/cmd_model.oo slash/cmd_login.oo slash/cmd_logout.oo slash/cmd_theme.oo slash/cmd_cwd.oo slash/cmd_plan.oo slash/cmd_goal.oo slash/cmd_status.oo slash/cmd_settings.oo slash/cmd_clear.oo slash/cmd_rename.oo slash/cmd_resume.oo slash/cmd_compact.oo slash/cmd_btw.oo slash/cmd_team.oo slash/cmd_init.oo slash/cmd_perm.oo slash/cmd_mode.oo slash/cmd_preset.oo slash/cmd_tools.oo slash/cmd_external.oo
 	@mkdir -p dist
 	OO_LIST_AMBIENT_QUOTA=8589934592 OODACODEX=$(OODACODEX) OODA_NO_JAIL=1 \
 		OODAC_BIN=$(OODA_COMPILER) OODA_COMPILER=$(OODA_COMPILER) \
@@ -107,17 +107,17 @@ e2e: $(BIN)
 	export OODA_COMPILER=$(OODA_COMPILER); \
 	export OODA_TUI_ROOT=$(CURDIR); \
 	export OODA_HOME=$(HOME); \
-	ooda test qa/e2e_tier1_f1_f3.oo && \
-	ooda test qa/e2e_tier1_f4_f6.oo && \
-	ooda test qa/e2e_tier1_f7_f9.oo && \
-	ooda test qa/e2e_tier1_f10_f12.oo && \
-	ooda test qa/e2e_tier2_b1_b3.oo && \
-	ooda test qa/e2e_tier2_b4_b6.oo && \
-	ooda test qa/e2e_tier2_b7_b9.oo && \
-	ooda test qa/e2e_tier2_b10_b12.oo && \
-	ooda test qa/e2e_tier3_pairwise.oo && \
-	ooda test qa/e2e_tier4_scenarios.oo && \
-	ooda test qa/e2e_master.oo && \
+	ooda test qa/e2e/tier1/e2e_tier1_f1_f3.oo && \
+	ooda test qa/e2e/tier1/e2e_tier1_f4_f6.oo && \
+	ooda test qa/e2e/tier1/e2e_tier1_f7_f9.oo && \
+	ooda test qa/e2e/tier1/e2e_tier1_f10_f12.oo && \
+	ooda test qa/e2e/tier2/e2e_tier2_b1_b3.oo && \
+	ooda test qa/e2e/tier2/e2e_tier2_b4_b6.oo && \
+	ooda test qa/e2e/tier2/e2e_tier2_b7_b9.oo && \
+	ooda test qa/e2e/tier2/e2e_tier2_b10_b12.oo && \
+	ooda test qa/e2e/tier3_4/e2e_tier3_pairwise.oo && \
+	ooda test qa/e2e/tier3_4/e2e_tier4_scenarios.oo && \
+	ooda test qa/e2e/e2e_master.oo && \
 	echo "=== ALL 138 E2E TESTS PASSED (Double-Run Verified) ==="
 
 academy:

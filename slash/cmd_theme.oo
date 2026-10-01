@@ -12,7 +12,7 @@
 
 
 import "repl_state.oo";
-import "slash/common.oo";
+import "slash/slash_ops.oo";
 
 pub fn cmd_theme_run(st: ReplState, args: String, fw: &FsWriteCap, env: &EnvCap) -> ReplState {
     if args == "" { return slash_say(st, "theme: " + st.theme); }

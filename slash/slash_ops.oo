@@ -1,4 +1,4 @@
-// # slash/common.oo - Shared Utilities for Slash Subsystem
+// # slash/slash_ops.oo - Shared Utilities for Slash Subsystem
 //
 // Logline: Common helper functions for string parsing, state mutation, persistence, and LLM queries.
 //

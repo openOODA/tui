@@ -1,33 +1,19 @@
-// # qa - Anchor for Agents
+// # TUI QA Subsystem Anchor
 //
-// Logline: Hostile probes and double-run determinism tests for the tui harness.
+// Logline: Master QA anchor re-exporting all TUI probe clusters and E2E tiers.
 //
-// Setup: Pure structural file. Each .oo probe is a fail-closed test. Double-run: Run_1 == Run_2 per rules.oot 1.10.
+// Setup: Pure shim re-exporting QA cluster anchors.
 //
 // Beats:
-//   1. argv.oo - parse all 10 flags, error cases, env contract.
-//   2. probe_slash.oo - invoke each of 17 slash commands, verify effects.
-//   3. theme_probe.oo - render every token, snapshot match against expected ANSI.
-//   4. mcp_handshake.oo - spawn ooda-mcp, list tools.
-//   5. lsp_init.oo - spawn ooda-lsp, initialize, receive diagnostics.
-//   6. llm_mock.oo - provider client with mocked HTTP.
-//   7. multi_provider.oo - connect N providers, health check.
-//   8. probe_teamwork.oo - spawn 4 mock agents, dashboard updates, proofs aggregate.
-//   9. smoke.oo - end-to-end TUI launch, login, ask, exit.
-//   10. probe_preset.oo - workflow presets (kernel, frontend, audit, zen) and fail-closed flags.
-//   11. probe_sanitize.oo - shell metacharacters injection negative falsification.
-//   12. probe_slash_dynamic.oo - dynamic external slash script fallback in plugins dir.
-//   13. probe_temp_perm.oo - temporary file mode 0600 validation on credential headers.
-//   14. e2e_tier1_f1_f3.oo - Tier 1 coverage for Features 1-3.
-//   15. e2e_tier1_f4_f6.oo - Tier 1 coverage for Features 4-6.
-//   16. e2e_tier1_f7_f9.oo - Tier 1 coverage for Features 7-9.
-//   17. e2e_tier1_f10_f12.oo - Tier 1 coverage for Features 10-12.
-//   18. e2e_tier2_b1_b3.oo - Tier 2 boundary analysis for Boundaries 1-3.
-//   19. e2e_tier2_b4_b6.oo - Tier 2 boundary analysis for Boundaries 4-6.
-//   20. e2e_tier2_b7_b9.oo - Tier 2 boundary analysis for Boundaries 7-9.
-//   21. e2e_tier2_b10_b12.oo - Tier 2 boundary analysis for Boundaries 10-12.
-//   22. e2e_tier3_pairwise.oo - Tier 3 pairwise cross-feature combinations.
-//   23. e2e_tier4_scenarios.oo - Tier 4 real-world application scenarios.
-//   24. e2e_master.oo - Master runner executing full 138-test E2E suite.
-
-// residual: probes are spawned as separate tui builds via CI. They share no source with the main binary.
+//   1. Re-export E2E cluster anchor.
+//   2. Re-export UI cluster anchor.
+//   3. Re-export theme cluster anchor.
+//   4. Re-export slash cluster anchor.
+//   5. Re-export security cluster anchor.
+//   6. Re-export mock cluster anchor.
+import "e2e/anchor.oo";
+import "ui/anchor.oo";
+import "theme/anchor.oo";
+import "slash/anchor.oo";
+import "security/anchor.oo";
+import "mock/anchor.oo";

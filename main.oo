@@ -17,7 +17,9 @@ import "std/fs/file/file_reader.oo";
 import "std/fs/process/env.oo";
 import "token/cmd_token.oo";
 import "repl.oo";
-import "version.oo";
+pub fn tui_version() -> String {
+    return "v0.3.10";
+}
 import "core/kernel.oo";
 import "plugins/registry.oo";
 

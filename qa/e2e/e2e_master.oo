@@ -15,7 +15,7 @@ import "std/fs/process/env.oo";
 import "std/fs/file/glob.oo";
 import "std/core/text/natural_sort.oo";
 
-fn resolve_oodac(env: &EnvCap, fs: &FsReadCap) -> Result[String, String] {
+fn resolve_oodac(env: &EnvCap, fs: &FsReadCap, home: String) -> Result[String, String] {
     let cr: Result[String, String] = env_get(env, "OODA_COMPILER");
     let mut oodac: String = match cr { Ok(s) => s, Err(_) => "" };
     if oodac == "" {
@@ -24,8 +24,6 @@ fn resolve_oodac(env: &EnvCap, fs: &FsReadCap) -> Result[String, String] {
         if th != "" { oodac = th + "/bin/oodac"; }
     }
     if oodac == "" {
-        let hr: Result[String, String] = env_get(env, "HOME");
-        let home: String = match hr { Ok(s) => s, Err(_) => "" };
         if home != "" { oodac = home + "/.openooda/bin/oodac"; }
     }
     if oodac == "" || !path_exists(fs, oodac) {
@@ -35,21 +33,21 @@ fn resolve_oodac(env: &EnvCap, fs: &FsReadCap) -> Result[String, String] {
 }
 
 fn expected_for(path: String) -> Result[Int, String] {
-    if str_contains(path, "tier3_") { return Ok(12); }
     if str_contains(path, "tier4_") { return Ok(6); }
+    if str_contains(path, "tier3_") { return Ok(12); }
     if str_contains(path, "tier1_") { return Ok(15); }
     if str_contains(path, "tier2_") { return Ok(15); }
     return Err("unregistered tier file (add its expected count): " + path);
 }
 
-fn run_tier(p: &ProcessCap, oodac: String, path: String, want: Int) -> Result[Int, String] {
+fn run_tier(p: &ProcessCap, oodac: String, path: String, want: Int, home: String, root: String) -> Result[Int, String] {
     let tmp_bin: String = path + ".master.bin";
     let b: Result[String, String] = sys_exec(p, oodac, "build", path, "-o", tmp_bin);
     if b.is_err() {
         let e: String = match b { Ok(_) => "", Err(m) => m };
         return Err("compile fail " + path + ": " + e);
     }
-    let r: Result[String, String] = sys_exec(p, tmp_bin);
+    let r: Result[String, String] = sys_exec(p, "env", "OODA_COMPILER=" + oodac, "OODA_HOME=" + home, "OODA_TUI_ROOT=" + root, tmp_bin);
     let _del: Result[String, String] = sys_exec(p, "rm", "-f", tmp_bin);
     if r.is_err() {
         let eo: String = match r { Ok(_) => "", Err(m) => m };
@@ -67,12 +65,42 @@ fn run_tier(p: &ProcessCap, oodac: String, path: String, want: Int) -> Result[In
 }
 
 pub fn main(p: &ProcessCap, fs_r: &FsReadCap, env: &EnvCap, args: List[String]) -> Result[Int, String] {
-    let cr: Result[String, String] = resolve_oodac(env, fs_r);
+    let hr: Result[String, String] = env_get(env, "HOME");
+    let mut home: String = match hr { Ok(s) => s, Err(_) => "" };
+    if home == "" {
+        let ohr: Result[String, String] = env_get(env, "OODA_HOME");
+        home = match ohr { Ok(s) => s, Err(_) => "" };
+    }
+    if home == "" { home = "/home/ubermetroid"; }
+
+    let rr: Result[String, String] = env_get(env, "OODA_TUI_ROOT");
+    let mut root: String = match rr { Ok(s) => s, Err(_) => "" };
+    if root == "" { root = "/home/ubermetroid/Projects/openOODA/tui"; }
+
+    let cr: Result[String, String] = resolve_oodac(env, fs_r, home);
     if cr.is_err() { return Err(match cr { Ok(_) => "", Err(m) => m }); }
     let oodac: String = match cr { Ok(s) => s, Err(_) => "" };
 
-    let found: List[String] = glob_scan_dir(fs_r, "qa", "e2e_tier*.oo");
-    let files: List[String] = natural_sort_list(found);
+    let t1: List[String] = glob_scan_dir(fs_r, "qa/e2e/tier1", "e2e_tier*.oo");
+    let t2: List[String] = glob_scan_dir(fs_r, "qa/e2e/tier2", "e2e_tier*.oo");
+    let t3: List[String] = glob_scan_dir(fs_r, "qa/e2e/tier3_4", "e2e_tier*.oo");
+    let mut combined: List[String] = list_new();
+    let mut gi: Int = 0;
+    while gi < list_len(t1) {
+        combined = list_push(combined, list_get(t1, gi));
+        gi = gi + 1;
+    }
+    gi = 0;
+    while gi < list_len(t2) {
+        combined = list_push(combined, list_get(t2, gi));
+        gi = gi + 1;
+    }
+    gi = 0;
+    while gi < list_len(t3) {
+        combined = list_push(combined, list_get(t3, gi));
+        gi = gi + 1;
+    }
+    let files: List[String] = natural_sort_list(combined);
     if list_len(files) != 10 {
         return Err("tier file count drift: found " + list_len(files).to_string() + ", want exactly 10 under qa/");
     }
@@ -86,7 +114,7 @@ pub fn main(p: &ProcessCap, fs_r: &FsReadCap, env: &EnvCap, args: List[String]) 
         let er: Result[Int, String] = expected_for(path);
         if er.is_err() { return Err(match er { Ok(_) => "", Err(m) => m }); }
         let want: Int = match er { Ok(n) => n, Err(_) => 0 - 1 };
-        let tr: Result[Int, String] = run_tier(p, oodac, path, want);
+        let tr: Result[Int, String] = run_tier(p, oodac, path, want, home, root);
         if tr.is_err() {
             let m: String = match tr { Ok(_) => "", Err(e) => e };
             println("e2e_master FAIL: " + m);

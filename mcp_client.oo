@@ -11,7 +11,6 @@
 //   4. Failures: -32601 (log), -32602 (surface), -32603 (surface + retry).
 
 import "std/fs/process/process.oo";
-import "version.oo";
 import "std/core/text/num_buffer.oo";
 
 type McpClient = struct {
@@ -82,7 +81,7 @@ fn mcp_call_file(client: McpClient, request: String, fs_w: &FsWriteCap, sys: &Pr
 }
 
 pub fn mcp_init(client: McpClient, fs_w: &FsWriteCap, sys: &ProcessCap) -> Result[String, String] {
-    let req: String = build_init_request(mcp_next_id(client), "tui", tui_version());
+    let req: String = build_init_request(mcp_next_id(client), "tui", "v0.3.10");
     let r: Result[String, String] = mcp_call_file(client, req, fs_w, sys);
     if r.is_err() {
         let e: String = match r { Ok(_) => "", Err(m) => m };
