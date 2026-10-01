@@ -118,8 +118,7 @@ ooda build main.oo -o dist/tui
 | [openOODA/opm](https://github.com/openOODA/opm) | Package manager |
 | [openOODA/catalog](https://github.com/openOODA/catalog) | Public package catalog |
 | [openOODA/lsp](https://github.com/openOODA/lsp) | Language server |
-| [openOODA/mcp](https://github.com/openOODA/mcp) | MCP server |
-| [openOODA/bb](https://github.com/openOODA/bb) | Flight recorder and crash autopsy |
+| [openOODA/mcp](https://github.com/openOODA/mcp) | MCP server, flight recording, and telemetry engine |
 | [openOODA/website](https://github.com/openOODA/website) | Website source |
 | [openOODA/tui](https://github.com/openOODA/tui) | This repo |
 
